@@ -18,3 +18,4 @@ utoipa-axum.workspace = true
 utoipa-scalar.workspace = true
 reqwest.workspace = true
 tmdb = { path = "../tmdb" }
+bgmtv = { path = "../bgmtv" }

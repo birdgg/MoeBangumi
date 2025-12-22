@@ -24,3 +24,4 @@ utoipa-axum = "0.2"
 utoipa-scalar = { version = "0.3", features = ["axum"] }
 reqwest = { version = "0.12", features = ["json"] }
 urlencoding = "2"
+serde_repr = "0.1"
