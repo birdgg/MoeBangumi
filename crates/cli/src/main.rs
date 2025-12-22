@@ -16,9 +16,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| "3000".to_string())
         .parse()?;
     let database = env::var("DATABASE").unwrap_or_else(|_| "todos.db".to_string());
+    let tmdb_api_key = env::var("TMDB_API_KEY").expect("TMDB_API_KEY must be set");
 
     let addr: SocketAddr = format!("127.0.0.1:{}", port).parse()?;
     let database_url = format!("sqlite:{}?mode=rwc", database);
 
-    server::run_server(addr, &database_url).await
+    server::run_server(addr, &database_url, &tmdb_api_key).await
 }

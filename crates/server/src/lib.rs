@@ -15,9 +15,9 @@ pub use db::create_pool;
 pub use router::create_router;
 pub use state::AppState;
 
-pub async fn run_server(addr: SocketAddr, database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run_server(addr: SocketAddr, database_url: &str, tmdb_api_key: &str) -> Result<(), Box<dyn std::error::Error>> {
     let pool = create_pool(database_url).await?;
-    let config = Config::new(database_url.to_string());
+    let config = Config::new(database_url.to_string(), tmdb_api_key.to_string());
     let state = AppState::new(pool, config);
     let (router, api) = create_router(state);
 
