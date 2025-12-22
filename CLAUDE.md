@@ -9,11 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cargo build
 cargo build --release
 
-# Run the server (defaults: port 3000, host 127.0.0.1, database todos.db)
+# Run the server (defaults: port 3000, database todos.db)
 cargo run -p cli
-
-# Run with custom options
-cargo run -p cli -- --port 8080 --host 0.0.0.0 --database mydata.db
 
 # Check compilation without building
 cargo check
@@ -22,13 +19,22 @@ cargo check
 RUST_LOG=debug cargo run -p cli
 ```
 
+## Configuration
+
+Configuration is read from environment variables. Create a `.env` file in the project root:
+
+```env
+PORT=3000        # Server port (default: 3000)
+DATABASE=todos.db # SQLite database file (default: todos.db)
+```
+
 ## Architecture
 
 This is a Rust workspace containing a TODO REST API built with Axum and SQLite.
 
 ### Workspace Structure
 
-- **crates/cli** - CLI entry point, parses args (clap) and starts server
+- **crates/cli** - CLI entry point, reads config from .env and starts server
 - **crates/server** - Core library with web server logic
 
 ### Server Module Organization
@@ -53,3 +59,36 @@ server/src/
 - `GET /todos` - List all todos
 - `POST /todos` - Create todo (JSON body: `{"title": "..."}`)
 - `DELETE /todos/{id}` - Delete todo by ID
+
+## Git Commit Style
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+
+- **feat**: New feature
+- **fix**: Bug fix
+- **docs**: Documentation only
+- **style**: Code style (formatting, semicolons, etc.)
+- **refactor**: Code refactoring (no feature or bug fix)
+- **perf**: Performance improvement
+- **test**: Adding or updating tests
+- **chore**: Build process, dependencies, tooling
+
+### Examples
+
+```
+feat(api): add user authentication endpoint
+fix(db): resolve connection pool timeout issue
+docs: update README with new configuration options
+refactor(handlers): simplify error handling logic
+chore(deps): update axum to 0.8
+```

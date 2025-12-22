@@ -13,3 +13,6 @@ serde_json.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
+utoipa-scalar.workspace = true
