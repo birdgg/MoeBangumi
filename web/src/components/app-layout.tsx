@@ -66,7 +66,7 @@ interface AddBangumiButtonProps {
 function AddBangumiButton({ onClick }: AddBangumiButtonProps) {
   return (
     <Button
-      className="gap-2 bg-gradient-to-r from-chart-1 to-chart-3 text-white shadow-lg shadow-chart-3/20 hover:opacity-90"
+      className="gap-2 bg-linear-to-r from-chart-1 to-chart-3 text-white shadow-lg shadow-chart-3/20 hover:opacity-90"
       onClick={onClick}
     >
       <IconPlus className="size-4" />
@@ -90,7 +90,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <Sidebar>
           <SidebarHeader>
             <div className="flex w-full items-center justify-center gap-3 group-data-[collapsed=false]/sidebar:justify-start">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-chart-1 to-chart-3 text-sm font-bold text-white shadow-lg shadow-chart-3/20">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-chart-1 to-chart-3 text-sm font-bold text-white shadow-lg shadow-chart-3/20">
                 M
               </div>
               <span className="hidden text-sm font-semibold tracking-tight group-data-[collapsed=false]/sidebar:block">
@@ -151,7 +151,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <SidebarMobileTrigger />
               {/* Mobile logo */}
               <div className="flex items-center gap-2 md:hidden">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-chart-1 to-chart-3 text-sm font-bold text-white">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-chart-1 to-chart-3 text-sm font-bold text-white">
                   M
                 </div>
                 <span className="font-semibold">Moe</span>

@@ -88,10 +88,6 @@ server/src/
 
 ### API Endpoints
 
-- `GET /todos` - List all todos
-- `POST /todos` - Create todo (JSON body: `{"title": "..."}`)
-- `DELETE /todos/{id}` - Delete todo by ID
-
 ## Frontend Architecture
 
 The `web/` directory contains a React frontend application.
@@ -130,6 +126,15 @@ web/src/
 - **CSS Variables**: Theme colors defined in `index.css` using oklch
 - **Dark mode**: Toggle via `.dark` class on document element
 - **Component styling**: Uses `cn()` helper for conditional class merging
+
+### TailwindCSS 4 Conventions
+
+- **Use canonical class names**: TailwindCSS 4 prefers `bg-linear-to-*` over `bg-gradient-to-*`
+  - Use `bg-linear-to-r`, `bg-linear-to-br`, etc. instead of `bg-gradient-to-r`, `bg-gradient-to-br`
+- **Respect theme colors**: Use CSS variable-based colors (`chart-1` to `chart-5`) instead of hardcoded colors
+  - Use `text-chart-1`, `bg-chart-3/20`, `border-chart-1/30` instead of `text-pink-400`, `bg-purple-200/20`
+  - Theme colors are defined in `index.css` and can be changed dynamically via `ThemeColorSelector`
+  - Color mapping: `chart-1` (primary), `chart-2`, `chart-3` (secondary), `chart-4`, `chart-5` (accent)
 
 ## Coding Conventions
 

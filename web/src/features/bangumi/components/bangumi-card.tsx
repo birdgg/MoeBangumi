@@ -3,11 +3,9 @@ import { cn } from "@/lib/utils";
 import { type Bangumi } from "@/lib/api";
 import {
   IconCalendar,
-  IconPlayerPlay,
   IconCheck,
   IconClock,
   IconSparkles,
-  IconHeart,
 } from "@tabler/icons-react";
 
 export type { Bangumi };
@@ -21,7 +19,6 @@ interface BangumiCardProps {
 
 export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
-  const [isLiked, setIsLiked] = React.useState(false);
 
   const progress = bangumi.currentEpisode
     ? Math.round((bangumi.currentEpisode / bangumi.episodes) * 100)
@@ -42,7 +39,7 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
       <div
         className={cn(
           "absolute -inset-1 rounded-3xl opacity-0 blur-xl transition-opacity duration-500",
-          "bg-linear-to-br from-pink-300/40 via-purple-300/40 to-cyan-300/40",
+          "bg-linear-to-br from-chart-1/40 via-chart-3/40 to-chart-5/40",
           isHovered && "opacity-100"
         )}
       />
@@ -52,21 +49,21 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
         className={cn(
           "relative overflow-hidden rounded-2xl",
           "bg-linear-to-br from-white/90 to-white/70 dark:from-zinc-900/90 dark:to-zinc-800/70",
-          "border border-pink-200/50 dark:border-purple-500/20",
-          "shadow-lg shadow-pink-200/20 dark:shadow-purple-900/30",
+          "border border-chart-1/30 dark:border-chart-3/20",
+          "shadow-lg shadow-chart-1/20 dark:shadow-chart-3/30",
           "backdrop-blur-sm",
           "transition-all duration-500 ease-out",
-          "hover:shadow-xl hover:shadow-pink-300/30 dark:hover:shadow-purple-800/40",
+          "hover:shadow-xl hover:shadow-chart-1/30 dark:hover:shadow-chart-3/40",
           "hover:-translate-y-1 hover:scale-[1.02]"
         )}
       >
         {/* Decorative sparkles */}
-        <div className="absolute -right-2 -top-2 text-pink-300/60 dark:text-purple-400/40 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
+        <div className="absolute -right-2 -top-2 text-chart-1/60 dark:text-chart-3/40 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
           <IconSparkles className="size-8" />
         </div>
 
         {/* Poster section */}
-        <div className="relative aspect-[3/4] overflow-hidden">
+        <div className="relative aspect-3/4 overflow-hidden">
           <img
             src={bangumi.poster}
             alt={bangumi.chineseName}
@@ -134,7 +131,7 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
             {bangumi.currentEpisode && (
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/30 backdrop-blur-sm">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-pink-400 to-purple-400 transition-all duration-500"
+                  className="h-full rounded-full bg-linear-to-r from-chart-1 to-chart-3 transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -146,7 +143,7 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
         <div className="relative space-y-3 p-4">
           {/* Titles */}
           <div className="space-y-1">
-            <h3 className="line-clamp-1 text-base font-bold text-zinc-800 dark:text-zinc-100 transition-colors group-hover:text-pink-600 dark:group-hover:text-pink-400">
+            <h3 className="line-clamp-1 text-base font-bold text-zinc-800 dark:text-zinc-100 transition-colors group-hover:text-chart-1 dark:group-hover:text-chart-1">
               {bangumi.chineseName}
             </h3>
             <p className="line-clamp-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -161,9 +158,9 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
               className={cn(
                 "inline-flex items-center rounded-full px-2.5 py-1",
                 "text-xs font-medium",
-                "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700",
-                "dark:from-pink-900/40 dark:to-purple-900/40 dark:text-pink-300",
-                "border border-pink-200/50 dark:border-pink-500/20"
+                "bg-chart-1/15 text-chart-2",
+                "dark:bg-chart-1/20 dark:text-chart-1",
+                "border border-chart-1/30 dark:border-chart-1/20"
               )}
             >
               {bangumi.season}
@@ -174,9 +171,9 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2.5 py-1",
                 "text-xs font-medium",
-                "bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-700",
-                "dark:from-cyan-900/40 dark:to-blue-900/40 dark:text-cyan-300",
-                "border border-cyan-200/50 dark:border-cyan-500/20"
+                "bg-chart-4/15 text-chart-5",
+                "dark:bg-chart-4/20 dark:text-chart-4",
+                "border border-chart-4/30 dark:border-chart-4/20"
               )}
             >
               <IconCalendar className="size-3" />
@@ -186,9 +183,9 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
 
           {/* Decorative dots */}
           <div className="absolute -bottom-1 right-4 flex gap-1">
-            <div className="size-1.5 rounded-full bg-pink-300/60 dark:bg-pink-500/40" />
-            <div className="size-1.5 rounded-full bg-purple-300/60 dark:bg-purple-500/40" />
-            <div className="size-1.5 rounded-full bg-cyan-300/60 dark:bg-cyan-500/40" />
+            <div className="size-1.5 rounded-full bg-chart-1/60 dark:bg-chart-1/40" />
+            <div className="size-1.5 rounded-full bg-chart-3/60 dark:bg-chart-3/40" />
+            <div className="size-1.5 rounded-full bg-chart-5/60 dark:bg-chart-5/40" />
           </div>
         </div>
       </div>
@@ -264,7 +261,7 @@ export const demoBangumiList: BangumiData[] = [
   },
   {
     id: 5,
-    chineseName: "咒术回战 �的谷事变",
+    chineseName: "咒术回战 涩谷事变",
     japaneseName: "呪術廻戦 渋谷事変",
     season: "2023年秋",
     episodes: 23,

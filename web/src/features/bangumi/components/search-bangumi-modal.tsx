@@ -95,10 +95,10 @@ export function SearchBangumiModal({
             "w-[calc(100%-2rem)] max-w-2xl",
             "max-h-[80vh] overflow-hidden",
             "rounded-2xl",
-            "bg-gradient-to-br from-white/95 via-white/90 to-pink-50/90",
-            "dark:from-zinc-900/95 dark:via-zinc-900/90 dark:to-purple-950/90",
-            "border border-pink-200/50 dark:border-purple-500/30",
-            "shadow-2xl shadow-purple-500/20 dark:shadow-purple-900/50",
+            "bg-linear-to-br from-white/95 via-white/90 to-chart-1/10",
+            "dark:from-zinc-900/95 dark:via-zinc-900/90 dark:to-chart-3/20",
+            "border border-chart-1/30 dark:border-chart-3/30",
+            "shadow-2xl shadow-chart-3/20 dark:shadow-chart-3/50",
             "backdrop-blur-xl",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -109,17 +109,17 @@ export function SearchBangumiModal({
           )}
         >
           {/* Decorative elements */}
-          <div className="pointer-events-none absolute -right-20 -top-20 size-40 rounded-full bg-gradient-to-br from-pink-300/30 to-purple-300/30 blur-3xl dark:from-pink-600/20 dark:to-purple-600/20" />
-          <div className="pointer-events-none absolute -left-20 bottom-0 size-40 rounded-full bg-gradient-to-br from-cyan-300/30 to-purple-300/30 blur-3xl dark:from-cyan-600/20 dark:to-purple-600/20" />
+          <div className="pointer-events-none absolute -right-20 -top-20 size-40 rounded-full bg-linear-to-br from-chart-1/30 to-chart-3/30 blur-3xl dark:from-chart-1/20 dark:to-chart-3/20" />
+          <div className="pointer-events-none absolute -left-20 bottom-0 size-40 rounded-full bg-linear-to-br from-chart-5/30 to-chart-3/30 blur-3xl dark:from-chart-5/20 dark:to-chart-3/20" />
 
           {/* Header */}
-          <div className="relative border-b border-pink-200/50 dark:border-purple-500/20 p-4">
+          <div className="relative border-b border-chart-1/30 dark:border-chart-3/20 p-4">
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white shadow-lg shadow-purple-500/30">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-chart-1 to-chart-3 text-white shadow-lg shadow-chart-3/30">
                 <IconSparkles className="size-5" />
               </div>
               <div>
-                <DialogPrimitive.Title className="text-lg font-bold bg-gradient-to-r from-pink-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent dark:from-pink-400 dark:via-purple-400 dark:to-cyan-400">
+                <DialogPrimitive.Title className="text-lg font-bold bg-linear-to-r from-chart-1 via-chart-3 to-chart-5 bg-clip-text text-transparent">
                   搜索番剧
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Description className="text-xs text-muted-foreground">
@@ -130,9 +130,9 @@ export function SearchBangumiModal({
                 className={cn(
                   "ml-auto flex size-8 items-center justify-center rounded-lg",
                   "text-muted-foreground hover:text-foreground",
-                  "hover:bg-pink-100 dark:hover:bg-purple-900/50",
+                  "hover:bg-chart-1/20 dark:hover:bg-chart-3/30",
                   "transition-colors duration-200",
-                  "outline-none focus-visible:ring-2 focus-visible:ring-pink-400 dark:focus-visible:ring-purple-400"
+                  "outline-none focus-visible:ring-2 focus-visible:ring-chart-1 dark:focus-visible:ring-chart-3"
                 )}
               >
                 <IconX className="size-4" />
@@ -141,9 +141,9 @@ export function SearchBangumiModal({
 
             {/* Search Input */}
             <div className="relative">
-              <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-pink-400/60 dark:text-purple-400/60" />
+              <IconSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-chart-1/60 dark:text-chart-3/60" />
               {isLoading && (
-                <IconLoader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-pink-400 dark:text-purple-400 animate-spin" />
+                <IconLoader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-chart-1 dark:text-chart-3 animate-spin" />
               )}
               <input
                 ref={inputRef}
@@ -154,11 +154,11 @@ export function SearchBangumiModal({
                 className={cn(
                   "w-full h-11 pl-10 pr-10 rounded-xl",
                   "bg-white/70 dark:bg-zinc-800/70",
-                  "border border-pink-200/50 dark:border-purple-500/30",
+                  "border border-chart-1/30 dark:border-chart-3/30",
                   "text-sm placeholder:text-muted-foreground",
                   "outline-none",
-                  "focus:border-pink-400 dark:focus:border-purple-400",
-                  "focus:ring-2 focus:ring-pink-400/20 dark:focus:ring-purple-400/20",
+                  "focus:border-chart-1 dark:focus:border-chart-3",
+                  "focus:ring-2 focus:ring-chart-1/20 dark:focus:ring-chart-3/20",
                   "transition-all duration-200"
                 )}
               />
@@ -170,8 +170,8 @@ export function SearchBangumiModal({
             {/* Empty state */}
             {!debouncedQuery && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30">
-                  <IconSearch className="size-8 text-pink-400 dark:text-purple-400" />
+                <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-linear-to-br from-chart-1/20 to-chart-3/20 dark:from-chart-1/30 dark:to-chart-3/30">
+                  <IconSearch className="size-8 text-chart-1 dark:text-chart-3" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   输入关键词搜索你想添加的番剧
@@ -182,7 +182,7 @@ export function SearchBangumiModal({
             {/* Loading state */}
             {isLoading && debouncedQuery && (
               <div className="flex flex-col items-center justify-center py-12">
-                <IconLoader2 className="size-8 text-pink-400 dark:text-purple-400 animate-spin mb-3" />
+                <IconLoader2 className="size-8 text-chart-1 dark:text-chart-3 animate-spin mb-3" />
                 <p className="text-sm text-muted-foreground">搜索中...</p>
               </div>
             )}
@@ -202,8 +202,8 @@ export function SearchBangumiModal({
             {/* No results */}
             {!isLoading && !isError && debouncedQuery && results?.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30">
-                  <IconSparkles className="size-8 text-pink-400 dark:text-purple-400" />
+                <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-linear-to-br from-chart-1/20 to-chart-3/20 dark:from-chart-1/30 dark:to-chart-3/30">
+                  <IconSparkles className="size-8 text-chart-1 dark:text-chart-3" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   没有找到相关番剧
@@ -221,19 +221,19 @@ export function SearchBangumiModal({
                     className={cn(
                       "group relative flex gap-4 p-3 rounded-xl text-left",
                       "bg-white/50 dark:bg-zinc-800/50",
-                      "border border-pink-200/30 dark:border-purple-500/20",
-                      "hover:bg-pink-50/80 dark:hover:bg-purple-900/30",
-                      "hover:border-pink-300 dark:hover:border-purple-400/50",
-                      "hover:shadow-lg hover:shadow-pink-200/30 dark:hover:shadow-purple-900/30",
+                      "border border-chart-1/20 dark:border-chart-3/20",
+                      "hover:bg-chart-1/10 dark:hover:bg-chart-3/20",
+                      "hover:border-chart-1/50 dark:hover:border-chart-3/50",
+                      "hover:shadow-lg hover:shadow-chart-1/20 dark:hover:shadow-chart-3/30",
                       "transition-all duration-200",
-                      "outline-none focus-visible:ring-2 focus-visible:ring-pink-400 dark:focus-visible:ring-purple-400",
+                      "outline-none focus-visible:ring-2 focus-visible:ring-chart-1 dark:focus-visible:ring-chart-3",
                       "animate-in fade-in slide-in-from-bottom-2",
-                      selectedId === subject.id && "ring-2 ring-pink-400 dark:ring-purple-400 bg-pink-50 dark:bg-purple-900/40"
+                      selectedId === subject.id && "ring-2 ring-chart-1 dark:ring-chart-3 bg-chart-1/10 dark:bg-chart-3/20"
                     )}
                     style={{ animationDelay: `${index * 50}ms`, animationFillMode: "both" }}
                   >
                     {/* Poster */}
-                    <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/30 dark:to-purple-900/30">
+                    <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-chart-1/20 to-chart-3/20 dark:from-chart-1/30 dark:to-chart-3/30">
                       {subject.image ? (
                         <img
                           src={subject.image}
@@ -242,12 +242,12 @@ export function SearchBangumiModal({
                         />
                       ) : (
                         <div className="flex size-full items-center justify-center">
-                          <IconSparkles className="size-6 text-pink-300 dark:text-purple-400" />
+                          <IconSparkles className="size-6 text-chart-1/60 dark:text-chart-3/60" />
                         </div>
                       )}
                       {/* Selection indicator */}
                       {selectedId === subject.id && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-pink-500/80 dark:bg-purple-500/80">
+                        <div className="absolute inset-0 flex items-center justify-center bg-chart-1/80 dark:bg-chart-3/80">
                           <IconCheck className="size-6 text-white" />
                         </div>
                       )}
@@ -255,7 +255,7 @@ export function SearchBangumiModal({
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+                      <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-chart-1 dark:group-hover:text-chart-1 transition-colors">
                         {subject.name_cn || subject.name}
                       </h4>
                       {subject.name_cn && (
@@ -276,8 +276,8 @@ export function SearchBangumiModal({
                           <span
                             className={cn(
                               "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                              "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-700",
-                              "dark:from-pink-900/40 dark:to-purple-900/40 dark:text-pink-300"
+                              "bg-chart-1/15 text-chart-2",
+                              "dark:bg-chart-1/20 dark:text-chart-1"
                             )}
                           >
                             {getPlatformIcon(subject.platform)}
@@ -296,7 +296,7 @@ export function SearchBangumiModal({
                     {/* Hover arrow */}
                     <div className="flex items-center pr-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <svg
-                        className="size-5 text-pink-400 dark:text-purple-400"
+                        className="size-5 text-chart-1 dark:text-chart-3"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
