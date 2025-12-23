@@ -9,14 +9,8 @@ export default defineConfig({
   plugins: [
     "@hey-api/typescript",
     "@hey-api/schemas",
-    {
-      name: "@hey-api/sdk",
-      instance: true
-    },
-    {
-      name: "@hey-api/client-fetch",
-      runtimeConfigPath: "../config.ts",
-    },
+    "@hey-api/sdk",
+    "@hey-api/client-fetch",
     "@tanstack/react-query",
   ],
 });

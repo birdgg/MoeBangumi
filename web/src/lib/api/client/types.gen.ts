@@ -13,6 +13,10 @@ export type Bangumi = {
    */
   air_date?: string | null;
   /**
+   * Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday)
+   */
+  air_week?: number | null;
+  /**
    * Auto download new episodes
    */
   auto_download: boolean;
@@ -29,7 +33,15 @@ export type Bangumi = {
    * Episode offset
    */
   episode_offset: number;
+  /**
+   * Whether the bangumi has finished airing
+   */
+  finished: boolean;
   id: number;
+  /**
+   * Kind of bangumi (e.g., TV, Movie, OVA)
+   */
+  kind?: string | null;
   /**
    * Poster URL
    */
@@ -69,6 +81,10 @@ export type Bangumi = {
   year: number;
 };
 
+export type BangumiDetail = {
+  subgroups: Array<Subgroup>;
+};
+
 /**
  * Request body for creating a new bangumi
  */
@@ -77,6 +93,10 @@ export type CreateBangumi = {
    * First air date (YYYY-MM-DD format)
    */
   air_date?: string | null;
+  /**
+   * Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday)
+   */
+  air_week?: number | null;
   /**
    * Auto download new episodes
    */
@@ -89,6 +109,14 @@ export type CreateBangumi = {
    * Episode offset
    */
   episode_offset?: number;
+  /**
+   * Whether the bangumi has finished airing
+   */
+  finished?: boolean;
+  /**
+   * Kind of bangumi (e.g., TV, Movie, OVA)
+   */
+  kind?: string | null;
   /**
    * Poster URL
    */
@@ -163,10 +191,10 @@ export type Episode = {
  */
 export type EpisodeType = "Main" | "Special" | "Opening" | "Ending";
 
-/**
- * Platform type for subjects
- */
-export type Platform = "TV" | "Web" | "DLC" | "剧场版" | "Unknown";
+export type SearchResult = {
+  id: string;
+  name: string;
+};
 
 /**
  * Search response from POST /v0/search/subjects
@@ -183,6 +211,13 @@ export type SearchSubjectsResponse = {
  */
 export type SourceType = "webrip" | "bdrip";
 
+export type Subgroup = {
+  episodes: Array<Episode>;
+  id: string;
+  name: string;
+  rss_url: string;
+};
+
 /**
  * Subject item in search results
  */
@@ -193,7 +228,7 @@ export type Subject = {
   image?: string | null;
   name: string;
   name_cn: string;
-  platform?: null | Platform;
+  platform?: string | null;
 };
 
 export type TvShow = {
@@ -265,41 +300,99 @@ export type GetEpisodesResponses = {
 export type GetEpisodesResponse =
   GetEpisodesResponses[keyof GetEpisodesResponses];
 
-export type SearchBangumiData = {
+export type GetMikanRssData = {
   body?: never;
   path?: never;
   query: {
     /**
-     * Keyword to search for bangumi
+     * ID to lookup
      */
-    keyword: string;
+    id: string;
   };
-  url: "/api/search/bgmtv";
+  url: "/api/mikan/rss";
 };
 
-export type SearchBangumiErrors = {
+export type GetMikanRssErrors = {
   /**
    * Internal server error
    */
   500: unknown;
 };
 
-export type SearchBangumiResponses = {
+export type GetMikanRssResponses = {
+  /**
+   * Bangumi detail with subgroups and RSS URLs
+   */
+  200: BangumiDetail;
+};
+
+export type GetMikanRssResponse =
+  GetMikanRssResponses[keyof GetMikanRssResponses];
+
+export type SearchBgmtvData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Keyword to search
+     */
+    keyword: string;
+  };
+  url: "/api/search/bgmtv";
+};
+
+export type SearchBgmtvErrors = {
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type SearchBgmtvResponses = {
   /**
    * Search results
    */
   200: Array<Subject>;
 };
 
-export type SearchBangumiResponse =
-  SearchBangumiResponses[keyof SearchBangumiResponses];
+export type SearchBgmtvResponse =
+  SearchBgmtvResponses[keyof SearchBgmtvResponses];
+
+export type SearchMikanData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Keyword to search
+     */
+    keyword: string;
+  };
+  url: "/api/search/mikan";
+};
+
+export type SearchMikanErrors = {
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type SearchMikanResponses = {
+  /**
+   * Search results from Mikan
+   */
+  200: Array<SearchResult>;
+};
+
+export type SearchMikanResponse =
+  SearchMikanResponses[keyof SearchMikanResponses];
 
 export type SearchTmdbData = {
   body?: never;
   path?: never;
   query: {
     /**
-     * Keyword to search for anime on TMDB
+     * Keyword to search
      */
     keyword: string;
   };

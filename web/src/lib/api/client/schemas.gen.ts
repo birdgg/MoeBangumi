@@ -15,11 +15,18 @@ export const BangumiSchema = {
     "current_episode",
     "auto_download",
     "source_type",
+    "finished",
   ],
   properties: {
     air_date: {
       type: ["string", "null"],
       description: "First air date (YYYY-MM-DD format)",
+    },
+    air_week: {
+      type: ["integer", "null"],
+      format: "int32",
+      description:
+        "Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday)",
     },
     auto_download: {
       type: "boolean",
@@ -44,9 +51,17 @@ export const BangumiSchema = {
       format: "int32",
       description: "Episode offset",
     },
+    finished: {
+      type: "boolean",
+      description: "Whether the bangumi has finished airing",
+    },
     id: {
       type: "integer",
       format: "int64",
+    },
+    kind: {
+      type: ["string", "null"],
+      description: "Kind of bangumi (e.g., TV, Movie, OVA)",
     },
     poster_url: {
       type: ["string", "null"],
@@ -95,6 +110,19 @@ export const BangumiSchema = {
   },
 } as const;
 
+export const BangumiDetailSchema = {
+  type: "object",
+  required: ["subgroups"],
+  properties: {
+    subgroups: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/Subgroup",
+      },
+    },
+  },
+} as const;
+
 export const CreateBangumiSchema = {
   type: "object",
   description: "Request body for creating a new bangumi",
@@ -103,6 +131,12 @@ export const CreateBangumiSchema = {
     air_date: {
       type: ["string", "null"],
       description: "First air date (YYYY-MM-DD format)",
+    },
+    air_week: {
+      type: ["integer", "null"],
+      format: "int32",
+      description:
+        "Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday)",
     },
     auto_download: {
       type: "boolean",
@@ -117,6 +151,14 @@ export const CreateBangumiSchema = {
       type: "integer",
       format: "int32",
       description: "Episode offset",
+    },
+    finished: {
+      type: "boolean",
+      description: "Whether the bangumi has finished airing",
+    },
+    kind: {
+      type: ["string", "null"],
+      description: "Kind of bangumi (e.g., TV, Movie, OVA)",
     },
     poster_url: {
       type: ["string", "null"],
@@ -205,10 +247,17 @@ export const EpisodeTypeSchema = {
   enum: ["Main", "Special", "Opening", "Ending"],
 } as const;
 
-export const PlatformSchema = {
-  type: "string",
-  description: "Platform type for subjects",
-  enum: ["TV", "Web", "DLC", "剧场版", "Unknown"],
+export const SearchResultSchema = {
+  type: "object",
+  required: ["id", "name"],
+  properties: {
+    id: {
+      type: "string",
+    },
+    name: {
+      type: "string",
+    },
+  },
 } as const;
 
 export const SearchSubjectsResponseSchema = {
@@ -243,6 +292,28 @@ export const SourceTypeSchema = {
   enum: ["webrip", "bdrip"],
 } as const;
 
+export const SubgroupSchema = {
+  type: "object",
+  required: ["id", "name", "rss_url", "episodes"],
+  properties: {
+    episodes: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/Episode",
+      },
+    },
+    id: {
+      type: "string",
+    },
+    name: {
+      type: "string",
+    },
+    rss_url: {
+      type: "string",
+    },
+  },
+} as const;
+
 export const SubjectSchema = {
   type: "object",
   description: "Subject item in search results",
@@ -269,14 +340,7 @@ export const SubjectSchema = {
       type: "string",
     },
     platform: {
-      oneOf: [
-        {
-          type: "null",
-        },
-        {
-          $ref: "#/components/schemas/Platform",
-        },
-      ],
+      type: ["string", "null"],
     },
   },
 } as const;

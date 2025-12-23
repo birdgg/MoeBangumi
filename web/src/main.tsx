@@ -6,6 +6,10 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 
 import "./index.css"
 import { queryClient } from "./lib/query-client"
+import { client } from "./lib/api/client/client.gen"
+
+// Configure API client to use relative URLs (proxied by Vite in dev)
+client.setConfig({ baseUrl: "" })
 
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen"

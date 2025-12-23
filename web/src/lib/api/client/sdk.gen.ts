@@ -9,9 +9,15 @@ import type {
   GetEpisodesData,
   GetEpisodesErrors,
   GetEpisodesResponses,
-  SearchBangumiData,
-  SearchBangumiErrors,
-  SearchBangumiResponses,
+  GetMikanRssData,
+  GetMikanRssErrors,
+  GetMikanRssResponses,
+  SearchBgmtvData,
+  SearchBgmtvErrors,
+  SearchBgmtvResponses,
+  SearchMikanData,
+  SearchMikanErrors,
+  SearchMikanResponses,
   SearchTmdbData,
   SearchTmdbErrors,
   SearchTmdbResponses,
@@ -34,98 +40,81 @@ export type Options<
   meta?: Record<string, unknown>;
 };
 
-class HeyApiClient {
-  protected client: Client;
+/**
+ * Create a new bangumi
+ */
+export const createBangumi = <ThrowOnError extends boolean = false>(
+  options: Options<CreateBangumiData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    CreateBangumiResponses,
+    CreateBangumiErrors,
+    ThrowOnError
+  >({
+    url: "/api/bangumi",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
-  constructor(args?: { client?: Client }) {
-    this.client = args?.client ?? client;
-  }
-}
+/**
+ * Get episodes by subject ID from BGM.tv
+ */
+export const getEpisodes = <ThrowOnError extends boolean = false>(
+  options: Options<GetEpisodesData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetEpisodesResponses,
+    GetEpisodesErrors,
+    ThrowOnError
+  >({ url: "/api/episodes/{subject_id}", ...options });
 
-class HeyApiRegistry<T> {
-  private readonly defaultKey = "default";
+/**
+ * Get bangumi detail with RSS URLs from Mikan
+ */
+export const getMikanRss = <ThrowOnError extends boolean = false>(
+  options: Options<GetMikanRssData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetMikanRssResponses,
+    GetMikanRssErrors,
+    ThrowOnError
+  >({ url: "/api/mikan/rss", ...options });
 
-  private readonly instances: Map<string, T> = new Map();
+/**
+ * Search for bangumi (Japanese anime) on BGM.tv
+ */
+export const searchBgmtv = <ThrowOnError extends boolean = false>(
+  options: Options<SearchBgmtvData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    SearchBgmtvResponses,
+    SearchBgmtvErrors,
+    ThrowOnError
+  >({ url: "/api/search/bgmtv", ...options });
 
-  get(key?: string): T {
-    const instance = this.instances.get(key ?? this.defaultKey);
-    if (!instance) {
-      throw new Error(
-        `No SDK client found. Create one with "new Sdk()" to fix this error.`,
-      );
-    }
-    return instance;
-  }
+/**
+ * Search for bangumi on Mikan
+ */
+export const searchMikan = <ThrowOnError extends boolean = false>(
+  options: Options<SearchMikanData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    SearchMikanResponses,
+    SearchMikanErrors,
+    ThrowOnError
+  >({ url: "/api/search/mikan", ...options });
 
-  set(value: T, key?: string): void {
-    this.instances.set(key ?? this.defaultKey, value);
-  }
-}
-
-export class Sdk extends HeyApiClient {
-  public static readonly __registry = new HeyApiRegistry<Sdk>();
-
-  constructor(args?: { client?: Client; key?: string }) {
-    super(args);
-    Sdk.__registry.set(this, args?.key);
-  }
-
-  /**
-   * Create a new bangumi
-   */
-  public createBangumi<ThrowOnError extends boolean = false>(
-    options: Options<CreateBangumiData, ThrowOnError>,
-  ) {
-    return (options.client ?? this.client).post<
-      CreateBangumiResponses,
-      CreateBangumiErrors,
-      ThrowOnError
-    >({
-      url: "/api/bangumi",
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    });
-  }
-
-  /**
-   * Get episodes by subject ID from BGM.tv
-   */
-  public getEpisodes<ThrowOnError extends boolean = false>(
-    options: Options<GetEpisodesData, ThrowOnError>,
-  ) {
-    return (options.client ?? this.client).get<
-      GetEpisodesResponses,
-      GetEpisodesErrors,
-      ThrowOnError
-    >({ url: "/api/episodes/{subject_id}", ...options });
-  }
-
-  /**
-   * Search for bangumi (Japanese anime) on BGM.tv
-   */
-  public searchBangumi<ThrowOnError extends boolean = false>(
-    options: Options<SearchBangumiData, ThrowOnError>,
-  ) {
-    return (options.client ?? this.client).get<
-      SearchBangumiResponses,
-      SearchBangumiErrors,
-      ThrowOnError
-    >({ url: "/api/search/bgmtv", ...options });
-  }
-
-  /**
-   * Search for anime on TMDB using discover API
-   */
-  public searchTmdb<ThrowOnError extends boolean = false>(
-    options: Options<SearchTmdbData, ThrowOnError>,
-  ) {
-    return (options.client ?? this.client).get<
-      SearchTmdbResponses,
-      SearchTmdbErrors,
-      ThrowOnError
-    >({ url: "/api/search/tmdb", ...options });
-  }
-}
+/**
+ * Search for anime on TMDB using discover API
+ */
+export const searchTmdb = <ThrowOnError extends boolean = false>(
+  options: Options<SearchTmdbData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    SearchTmdbResponses,
+    SearchTmdbErrors,
+    ThrowOnError
+  >({ url: "/api/search/tmdb", ...options });

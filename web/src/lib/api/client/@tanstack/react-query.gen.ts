@@ -7,14 +7,26 @@ import {
 } from "@tanstack/react-query";
 
 import { client } from "../client.gen";
-import { type Options, Sdk } from "../sdk.gen";
+import {
+  createBangumi,
+  getEpisodes,
+  getMikanRss,
+  type Options,
+  searchBgmtv,
+  searchMikan,
+  searchTmdb,
+} from "../sdk.gen";
 import type {
   CreateBangumiData,
   CreateBangumiResponse,
   GetEpisodesData,
   GetEpisodesResponse,
-  SearchBangumiData,
-  SearchBangumiResponse,
+  GetMikanRssData,
+  GetMikanRssResponse,
+  SearchBgmtvData,
+  SearchBgmtvResponse,
+  SearchMikanData,
+  SearchMikanResponse,
   SearchTmdbData,
   SearchTmdbResponse,
 } from "../types.gen";
@@ -35,7 +47,7 @@ export const createBangumiMutation = (
     Options<CreateBangumiData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await Sdk.__registry.get().createBangumi({
+      const { data } = await createBangumi({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -100,7 +112,7 @@ export const getEpisodesOptions = (options: Options<GetEpisodesData>) =>
     ReturnType<typeof getEpisodesQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await Sdk.__registry.get().getEpisodes({
+      const { data } = await getEpisodes({
         ...options,
         ...queryKey[0],
         signal,
@@ -111,21 +123,21 @@ export const getEpisodesOptions = (options: Options<GetEpisodesData>) =>
     queryKey: getEpisodesQueryKey(options),
   });
 
-export const searchBangumiQueryKey = (options: Options<SearchBangumiData>) =>
-  createQueryKey("searchBangumi", options);
+export const getMikanRssQueryKey = (options: Options<GetMikanRssData>) =>
+  createQueryKey("getMikanRss", options);
 
 /**
- * Search for bangumi (Japanese anime) on BGM.tv
+ * Get bangumi detail with RSS URLs from Mikan
  */
-export const searchBangumiOptions = (options: Options<SearchBangumiData>) =>
+export const getMikanRssOptions = (options: Options<GetMikanRssData>) =>
   queryOptions<
-    SearchBangumiResponse,
+    GetMikanRssResponse,
     DefaultError,
-    SearchBangumiResponse,
-    ReturnType<typeof searchBangumiQueryKey>
+    GetMikanRssResponse,
+    ReturnType<typeof getMikanRssQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await Sdk.__registry.get().searchBangumi({
+      const { data } = await getMikanRss({
         ...options,
         ...queryKey[0],
         signal,
@@ -133,7 +145,57 @@ export const searchBangumiOptions = (options: Options<SearchBangumiData>) =>
       });
       return data;
     },
-    queryKey: searchBangumiQueryKey(options),
+    queryKey: getMikanRssQueryKey(options),
+  });
+
+export const searchBgmtvQueryKey = (options: Options<SearchBgmtvData>) =>
+  createQueryKey("searchBgmtv", options);
+
+/**
+ * Search for bangumi (Japanese anime) on BGM.tv
+ */
+export const searchBgmtvOptions = (options: Options<SearchBgmtvData>) =>
+  queryOptions<
+    SearchBgmtvResponse,
+    DefaultError,
+    SearchBgmtvResponse,
+    ReturnType<typeof searchBgmtvQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await searchBgmtv({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: searchBgmtvQueryKey(options),
+  });
+
+export const searchMikanQueryKey = (options: Options<SearchMikanData>) =>
+  createQueryKey("searchMikan", options);
+
+/**
+ * Search for bangumi on Mikan
+ */
+export const searchMikanOptions = (options: Options<SearchMikanData>) =>
+  queryOptions<
+    SearchMikanResponse,
+    DefaultError,
+    SearchMikanResponse,
+    ReturnType<typeof searchMikanQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await searchMikan({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: searchMikanQueryKey(options),
   });
 
 export const searchTmdbQueryKey = (options: Options<SearchTmdbData>) =>
@@ -150,7 +212,7 @@ export const searchTmdbOptions = (options: Options<SearchTmdbData>) =>
     ReturnType<typeof searchTmdbQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await Sdk.__registry.get().searchTmdb({
+      const { data } = await searchTmdb({
         ...options,
         ...queryKey[0],
         signal,

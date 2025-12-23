@@ -23,8 +23,10 @@ import {
   IconHash,
   IconMovie,
   IconRss,
+  IconSearch,
 } from "@tabler/icons-react";
 import { TmdbMatcher } from "./tmdb-matcher";
+import { MikanRssModal } from "./mikan-rss-modal";
 
 interface AddBangumiModalProps {
   open: boolean;
@@ -41,6 +43,7 @@ export function AddBangumiModal({
 }: AddBangumiModalProps) {
   const createBangumi = useCreateBangumi();
   const [selectedTmdb, setSelectedTmdb] = React.useState<TvShow | null>(null);
+  const [mikanModalOpen, setMikanModalOpen] = React.useState(false);
   const { data: episodes } = useEpisodes(subject?.id ?? 0);
 
   // Calculate episode offset from episodes data
@@ -91,6 +94,7 @@ export function AddBangumiModal({
   const resetForm = React.useCallback(() => {
     form.reset();
     setSelectedTmdb(null);
+    setMikanModalOpen(false);
   }, [form]);
 
   const handleOpenChange = React.useCallback((newOpen: boolean) => {
@@ -294,13 +298,32 @@ export function AddBangumiModal({
                         <IconRss className="size-4 text-chart-3 dark:text-chart-1" />
                         RSS 订阅地址
                       </FieldLabel>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        placeholder="输入 RSS 订阅地址（可选）"
+                      <div className="flex gap-2">
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="输入 RSS 订阅地址（可选）"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setMikanModalOpen(true)}
+                          className="shrink-0 border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
+                          title="从 Mikan 搜索 RSS"
+                        >
+                          <IconSearch className="size-4" />
+                        </Button>
+                      </div>
+                      <MikanRssModal
+                        open={mikanModalOpen}
+                        onOpenChange={setMikanModalOpen}
+                        onSelect={(rssUrl) => field.handleChange(rssUrl)}
+                        initialKeyword={parsedTitles.japanese || parsedTitles.chinese}
                       />
                     </Field>
                   )}
