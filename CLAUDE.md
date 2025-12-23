@@ -110,15 +110,33 @@ web/src/
 ├── index.css             # Global styles and Tailwind config
 ├── routeTree.gen.ts      # Auto-generated route tree
 ├── lib/
-│   └── utils.ts          # Utility functions (cn helper)
+│   ├── utils.ts          # Utility functions (cn helper)
+│   ├── parser.ts         # BGM.tv name parser
+│   └── api/              # API client and types
 ├── components/
 │   ├── ui/               # shadcn UI components
-│   ├── app-layout.tsx    # Main layout with sidebar
-│   └── bangumi-card.tsx  # Bangumi card component
+│   └── app-layout.tsx    # Main layout with sidebar
+├── features/             # Feature-based modules
+│   └── bangumi/
+│       ├── page.tsx      # Bangumi list page
+│       ├── components/   # Feature-specific components
+│       │   ├── bangumi-card.tsx
+│       │   ├── search-bangumi-modal.tsx
+│       │   ├── add-bangumi-modal.tsx
+│       │   └── tmdb-matcher.tsx
+│       └── hooks/        # Feature-specific hooks
+│           └── use-bangumi.ts
 └── routes/
     ├── __root.tsx        # Root layout
     └── index.tsx         # Home page
 ```
+
+### Feature-based Architecture
+
+Features are organized in `src/features/` with each feature containing:
+- `page.tsx` - Main page component
+- `components/` - Feature-specific UI components
+- `hooks/` - Feature-specific React hooks (queries, mutations)
 
 ### Key Frontend Patterns
 

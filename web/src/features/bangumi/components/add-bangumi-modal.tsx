@@ -2,8 +2,9 @@ import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useForm } from "@tanstack/react-form";
 import { cn } from "@/lib/utils";
+import { parseBgmtvName } from "@/lib/parser";
 import { type Subject, type CreateBangumiRequest, type TmdbTvShow } from "@/lib/api";
-import { useCreateBangumi } from "@/hooks/use-bangumi";
+import { useCreateBangumi } from "../hooks/use-bangumi";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,8 +75,11 @@ export function AddBangumiModal({
   React.useEffect(() => {
     if (subject && open) {
       form.reset();
-      form.setFieldValue("title_chinese", subject.name_cn || subject.name || "");
-      form.setFieldValue("title_japanese", subject.name || "");
+      // 解析 BGM.tv 名称，去除季度信息
+      const parsedChinese = parseBgmtvName(subject.name_cn || subject.name || "");
+      const parsedJapanese = parseBgmtvName(subject.name || "");
+      form.setFieldValue("title_chinese", parsedChinese.name);
+      form.setFieldValue("title_japanese", parsedJapanese.name);
       setSelectedTmdb(null);
     }
   }, [subject, open, form]);
@@ -152,9 +156,9 @@ export function AddBangumiModal({
               e.stopPropagation();
               form.handleSubmit();
             }}
-            className="relative max-h-[calc(90vh-180px)] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="relative flex flex-col max-h-[calc(90vh-80px)]"
           >
-            <div className="p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <FieldGroup>
                 {/* Title Chinese */}
                 <form.Field
@@ -213,7 +217,7 @@ export function AddBangumiModal({
                   <TmdbMatcher
                     value={selectedTmdb}
                     onChange={setSelectedTmdb}
-                    initialKeyword={subject?.name || ""}
+                    initialKeyword={parseBgmtvName(subject?.name_cn || subject?.name || "").name}
                   />
                   <FieldDescription>
                     用于获取海报和元数据
@@ -305,7 +309,7 @@ export function AddBangumiModal({
             </div>
 
             {/* Footer */}
-            <div className="relative border-t border-chart-3/30 dark:border-chart-1/20 p-4">
+            <div className="relative shrink-0 border-t border-chart-3/30 dark:border-chart-1/20 p-4 bg-linear-to-br from-white/95 via-white/90 to-chart-3/10 dark:from-zinc-900/95 dark:via-zinc-900/90 dark:to-chart-1/20">
               <div className="flex justify-end gap-3">
                 <DialogPrimitive.Close
                   render={

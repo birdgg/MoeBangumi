@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useSearchTmdb } from "@/hooks/use-bangumi";
+import { useSearchTmdb } from "../hooks/use-bangumi";
 import { type TmdbTvShow } from "@/lib/api";
 import {
   Combobox,

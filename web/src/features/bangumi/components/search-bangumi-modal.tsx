@@ -2,7 +2,7 @@ import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { cn } from "@/lib/utils";
-import { useSearchBangumi } from "@/hooks/use-bangumi";
+import { useSearchBangumi } from "../hooks/use-bangumi";
 import { type Subject } from "@/lib/api";
 import {
   IconSearch,
