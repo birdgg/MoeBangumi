@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { useDebouncedValue } from "@tanstack/react-pacer";
 import { cn } from "@/lib/utils";
 import { useSearchBangumi } from "@/hooks/use-bangumi";
 import { type Subject } from "@/lib/api";
@@ -27,23 +28,14 @@ export function SearchBangumiModal({
   onSelect,
 }: SearchBangumiModalProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+  const [debouncedQuery] = useDebouncedValue(searchQuery, { wait: 300 });
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
-
-  // Debounce search query
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Reset state when modal opens
   React.useEffect(() => {
     if (open) {
       setSearchQuery("");
-      setDebouncedQuery("");
       setSelectedId(null);
       // Focus input after animation
       setTimeout(() => inputRef.current?.focus(), 100);
