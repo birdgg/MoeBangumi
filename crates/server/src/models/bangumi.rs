@@ -1,6 +1,8 @@
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
+
+use super::Clearable;
 
 /// Source type for bangumi
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, ToSchema)]
@@ -31,54 +33,6 @@ impl FromStr for SourceType {
     }
 }
 
-/// Wrapper for optional fields that can be explicitly cleared.
-/// - `Unchanged`: Field was not provided in the request, keep existing value
-/// - `Clear`: Field was explicitly set to null, clear the value
-/// - `Set(T)`: Field was set to a new value
-#[derive(Debug, Clone, Default)]
-pub enum Clearable<T> {
-    #[default]
-    Unchanged,
-    Clear,
-    Set(T),
-}
-
-impl<T> Clearable<T> {
-    pub fn resolve(self, existing: Option<T>) -> Option<T> {
-        match self {
-            Clearable::Unchanged => existing,
-            Clearable::Clear => None,
-            Clearable::Set(v) => Some(v),
-        }
-    }
-}
-
-impl<'de, T: Deserialize<'de>> Deserialize<'de> for Clearable<T> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let opt = Option::<T>::deserialize(deserializer)?;
-        Ok(match opt {
-            Some(v) => Clearable::Set(v),
-            None => Clearable::Clear,
-        })
-    }
-}
-
-impl<T: Serialize> Serialize for Clearable<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Clearable::Unchanged => serializer.serialize_none(),
-            Clearable::Clear => serializer.serialize_none(),
-            Clearable::Set(v) => v.serialize(serializer),
-        }
-    }
-}
-
 /// Bangumi (anime) main entity
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Bangumi {
@@ -104,6 +58,8 @@ pub struct Bangumi {
     pub poster_url: Option<String>,
     /// First air date (YYYY-MM-DD format)
     pub air_date: Option<String>,
+    /// Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday)
+    pub air_week: Option<i32>,
     /// Total episodes (0=unknown)
     pub total_episodes: i32,
     /// Episode offset
@@ -119,6 +75,12 @@ pub struct Bangumi {
 
     /// Source type: webrip or bdrip
     pub source_type: SourceType,
+
+    /// Whether the bangumi has finished airing
+    pub finished: bool,
+
+    /// Kind of bangumi (e.g., TV, Movie, OVA)
+    pub kind: Option<String>,
 }
 
 /// Request body for creating a new bangumi
@@ -141,6 +103,8 @@ pub struct CreateBangumi {
     pub poster_url: Option<String>,
     /// First air date (YYYY-MM-DD format)
     pub air_date: Option<String>,
+    /// Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday)
+    pub air_week: Option<i32>,
     /// Total episodes
     #[serde(default)]
     pub total_episodes: i32,
@@ -155,6 +119,13 @@ pub struct CreateBangumi {
     /// Source type
     #[serde(default)]
     pub source_type: SourceType,
+    /// Whether the bangumi has finished airing
+    #[serde(default)]
+    pub finished: bool,
+
+    /// Kind of bangumi (e.g., TV, Movie, OVA)
+    #[serde(default = "default_kind")]
+    pub kind: Option<String>,
 }
 
 fn default_season() -> i32 {
@@ -163,6 +134,10 @@ fn default_season() -> i32 {
 
 fn default_auto_download() -> bool {
     true
+}
+
+fn default_kind() -> Option<String> {
+    Some("TV".to_string())
 }
 
 /// Request body for updating a bangumi.
@@ -189,6 +164,8 @@ pub struct UpdateBangumi {
     #[serde(default)]
     pub air_date: Clearable<String>,
     #[serde(default)]
+    pub air_week: Clearable<i32>,
+    #[serde(default)]
     pub total_episodes: Option<i32>,
     #[serde(default)]
     pub episode_offset: Option<i32>,
@@ -200,4 +177,8 @@ pub struct UpdateBangumi {
     pub save_path: Clearable<String>,
     #[serde(default)]
     pub source_type: Option<SourceType>,
+    #[serde(default)]
+    pub finished: Option<bool>,
+    #[serde(default)]
+    pub kind: Clearable<String>,
 }

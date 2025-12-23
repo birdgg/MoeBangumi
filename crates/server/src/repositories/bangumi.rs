@@ -8,9 +8,9 @@ const SELECT_BANGUMI: &str = r#"
     SELECT
         id, created_at, updated_at,
         title_chinese, title_japanese, season, year,
-        bgmtv_id, tmdb_id, poster_url, air_date,
+        bgmtv_id, tmdb_id, poster_url, air_date, air_week,
         total_episodes, episode_offset, current_episode,
-        auto_download, save_path, source_type
+        auto_download, save_path, source_type, finished, kind
     FROM bangumi
 "#;
 
@@ -23,11 +23,11 @@ impl BangumiRepository {
             r#"
             INSERT INTO bangumi (
                 title_chinese, title_japanese, season, year,
-                bgmtv_id, tmdb_id, poster_url, air_date,
+                bgmtv_id, tmdb_id, poster_url, air_date, air_week,
                 total_episodes, episode_offset, auto_download,
-                save_path, source_type
+                save_path, source_type, finished, kind
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING id
             "#,
         )
@@ -39,11 +39,14 @@ impl BangumiRepository {
         .bind(data.tmdb_id)
         .bind(&data.poster_url)
         .bind(&data.air_date)
+        .bind(data.air_week)
         .bind(data.total_episodes)
         .bind(data.episode_offset)
         .bind(data.auto_download)
         .bind(&data.save_path)
         .bind(data.source_type.as_str())
+        .bind(data.finished)
+        .bind(&data.kind)
         .fetch_one(pool)
         .await?;
 
@@ -120,12 +123,15 @@ impl BangumiRepository {
         let tmdb_id = data.tmdb_id.resolve(existing.tmdb_id);
         let poster_url = data.poster_url.resolve(existing.poster_url);
         let air_date = data.air_date.resolve(existing.air_date);
+        let air_week = data.air_week.resolve(existing.air_week);
         let total_episodes = data.total_episodes.unwrap_or(existing.total_episodes);
         let episode_offset = data.episode_offset.unwrap_or(existing.episode_offset);
         let current_episode = data.current_episode.unwrap_or(existing.current_episode);
         let auto_download = data.auto_download.unwrap_or(existing.auto_download);
         let save_path = data.save_path.resolve(existing.save_path);
         let source_type = data.source_type.unwrap_or(existing.source_type);
+        let finished = data.finished.unwrap_or(existing.finished);
+        let kind = data.kind.resolve(existing.kind);
 
         sqlx::query(
             r#"
@@ -138,13 +144,16 @@ impl BangumiRepository {
                 tmdb_id = $6,
                 poster_url = $7,
                 air_date = $8,
-                total_episodes = $9,
-                episode_offset = $10,
-                current_episode = $11,
-                auto_download = $12,
-                save_path = $13,
-                source_type = $14
-            WHERE id = $15
+                air_week = $9,
+                total_episodes = $10,
+                episode_offset = $11,
+                current_episode = $12,
+                auto_download = $13,
+                save_path = $14,
+                source_type = $15,
+                finished = $16,
+                kind = $17
+            WHERE id = $18
             "#,
         )
         .bind(&title_chinese)
@@ -155,12 +164,15 @@ impl BangumiRepository {
         .bind(tmdb_id)
         .bind(&poster_url)
         .bind(&air_date)
+        .bind(air_week)
         .bind(total_episodes)
         .bind(episode_offset)
         .bind(current_episode)
         .bind(auto_download)
         .bind(&save_path)
         .bind(source_type.as_str())
+        .bind(finished)
+        .bind(&kind)
         .bind(id)
         .execute(pool)
         .await?;
@@ -208,12 +220,15 @@ struct BangumiRow {
     tmdb_id: Option<i64>,
     poster_url: Option<String>,
     air_date: Option<String>,
+    air_week: Option<i32>,
     total_episodes: i32,
     episode_offset: i32,
     current_episode: i32,
     auto_download: bool,
     save_path: Option<String>,
     source_type: String,
+    finished: bool,
+    kind: Option<String>,
 }
 
 impl From<BangumiRow> for Bangumi {
@@ -230,12 +245,15 @@ impl From<BangumiRow> for Bangumi {
             tmdb_id: row.tmdb_id,
             poster_url: row.poster_url,
             air_date: row.air_date,
+            air_week: row.air_week,
             total_episodes: row.total_episodes,
             episode_offset: row.episode_offset,
             current_episode: row.current_episode,
             auto_download: row.auto_download,
             save_path: row.save_path,
             source_type: row.source_type.parse().unwrap_or_default(),
+            finished: row.finished,
+            kind: row.kind,
         }
     }
 }

@@ -42,22 +42,6 @@ pub struct SearchSubjectsResponse {
     pub data: Vec<Subject>,
 }
 
-/// Platform type for subjects
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, ToSchema)]
-pub enum Platform {
-    #[serde(rename = "TV")]
-    TV,
-    #[serde(rename = "Web")]
-    Web,
-    #[serde(rename = "DLC")]
-    DLC,
-    #[serde(rename = "剧场版")]
-    Movie,
-    #[serde(other)]
-    #[default]
-    Unknown,
-}
-
 /// Subject item in search results
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Subject {
@@ -65,7 +49,7 @@ pub struct Subject {
     pub name: String,
     pub name_cn: String,
     pub date: Option<String>,
-    pub platform: Option<Platform>,
+    pub platform: Option<String>,
     pub image: Option<String>,
     pub eps: i64,
 }
