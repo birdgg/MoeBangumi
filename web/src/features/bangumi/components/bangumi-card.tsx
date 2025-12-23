@@ -1,6 +1,5 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { type Bangumi } from "@/lib/api";
 import {
   IconCalendar,
   IconCheck,
@@ -8,8 +7,18 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 
-export type { Bangumi };
-export type BangumiData = Bangumi;
+// Local display type for bangumi cards (separate from API type)
+export interface BangumiData {
+  id: number;
+  chineseName: string;
+  japaneseName: string;
+  season: string;
+  episodes: number;
+  currentEpisode?: number;
+  poster: string;
+  airDate: string;
+  isComplete: boolean;
+}
 
 interface BangumiCardProps {
   bangumi: BangumiData;

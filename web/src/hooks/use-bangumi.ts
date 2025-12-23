@@ -15,6 +15,7 @@ export const bangumiKeys = {
   details: () => [...bangumiKeys.all, "detail"] as const,
   detail: (id: string | number) => [...bangumiKeys.details(), id] as const,
   search: (query: string) => [...bangumiKeys.all, "search", query] as const,
+  tmdbSearch: (keyword: string) => ["tmdb", "search", keyword] as const,
 };
 
 // Search bangumi from BGM.tv
@@ -26,6 +27,18 @@ export function useSearchBangumi(query: string) {
       return response.data;
     },
     enabled: query.length > 0,
+  });
+}
+
+// Search anime from TMDB
+export function useSearchTmdb(keyword: string) {
+  return useQuery({
+    queryKey: bangumiKeys.tmdbSearch(keyword),
+    queryFn: async () => {
+      const response = await searchApi.tmdb(keyword);
+      return response;
+    },
+    enabled: keyword.length > 0,
   });
 }
 

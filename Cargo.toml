@@ -26,3 +26,7 @@ reqwest = { version = "0.12", features = ["json"] }
 urlencoding = "2"
 serde_repr = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+regex = "1"
+lazy_static = "1"
+phf = { version = "0.11", features = ["macros"] }

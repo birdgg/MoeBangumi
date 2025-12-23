@@ -22,7 +22,7 @@ import {
   IconMoon,
   IconPlus,
 } from "@tabler/icons-react";
-import { SearchBangumiModal } from "@/features/bangumi/components";
+import { SearchBangumiModal, AddBangumiModal } from "@/features/bangumi/components";
 import { type Subject } from "@/lib/api";
 import { ThemeColorSelector } from "@/components/theme-color-selector";
 
@@ -78,10 +78,16 @@ function AddBangumiButton({ onClick }: AddBangumiButtonProps) {
 export function AppLayout({ children }: AppLayoutProps) {
   const [activeItem, setActiveItem] = React.useState("anime");
   const [searchModalOpen, setSearchModalOpen] = React.useState(false);
+  const [addModalOpen, setAddModalOpen] = React.useState(false);
+  const [selectedSubject, setSelectedSubject] = React.useState<Subject | null>(null);
 
   const handleSelectBangumi = (subject: Subject) => {
-    console.log("Selected bangumi:", subject);
-    // TODO: Add the selected bangumi to the list
+    setSelectedSubject(subject);
+    setAddModalOpen(true);
+  };
+
+  const handleAddSuccess = () => {
+    setSelectedSubject(null);
   };
 
   return (
@@ -171,6 +177,14 @@ export function AppLayout({ children }: AppLayoutProps) {
             open={searchModalOpen}
             onOpenChange={setSearchModalOpen}
             onSelect={handleSelectBangumi}
+          />
+
+          {/* Add Bangumi Modal */}
+          <AddBangumiModal
+            open={addModalOpen}
+            onOpenChange={setAddModalOpen}
+            subject={selectedSubject}
+            onSuccess={handleAddSuccess}
           />
 
           {/* Main content area */}
