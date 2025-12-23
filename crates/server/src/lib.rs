@@ -1,7 +1,9 @@
 pub mod config;
 pub mod db;
 pub mod handlers;
+pub mod models;
 pub mod openapi;
+pub mod repositories;
 pub mod router;
 pub mod state;
 

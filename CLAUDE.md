@@ -67,11 +67,14 @@ This is a Rust workspace containing a TODO REST API built with Axum and SQLite.
 
 ```
 server/src/
-├── lib.rs      # Exports modules, run_server() entry function
-├── models.rs   # Todo and CreateTodo structs
-├── db.rs       # SQLite pool creation and CRUD operations
-├── router.rs   # Axum route definitions (GET/POST/DELETE /todos)
-└── handlers.rs # Request handlers, returns JSON responses
+├── lib.rs          # Exports modules, run_server() entry function
+├── models.rs       # Data models (Bangumi, CreateBangumi, etc.)
+├── repositories.rs # Database CRUD operations
+├── db.rs           # SQLite pool creation
+├── router.rs       # Axum route definitions
+├── handlers.rs     # Request handlers, returns JSON responses
+├── state.rs        # AppState with shared resources
+└── config.rs       # Configuration struct
 ```
 
 ### Key Patterns
@@ -124,6 +127,13 @@ web/src/
 - **CSS Variables**: Theme colors defined in `index.css` using oklch
 - **Dark mode**: Toggle via `.dark` class on document element
 - **Component styling**: Uses `cn()` helper for conditional class merging
+
+## Coding Conventions
+
+### Rust Module Style
+
+- **Do NOT use `mod.rs`** for module definitions. Use `module_name.rs` + `module_name/` directory instead of `module_name/mod.rs`.
+- Example: Use `models.rs` + `models/bangumi.rs` instead of `models/mod.rs` + `models/bangumi.rs`
 
 ## Git Commit Style
 
