@@ -24,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import { SearchBangumiModal } from "@/features/bangumi/components";
 import { type Subject } from "@/lib/api";
+import { ThemeColorSelector } from "@/components/theme-color-selector";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -160,6 +161,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             {/* Right side actions */}
             <div className="flex items-center gap-2">
               <AddBangumiButton onClick={() => setSearchModalOpen(true)} />
+              <ThemeColorSelector />
               <ThemeToggleButton />
             </div>
           </header>

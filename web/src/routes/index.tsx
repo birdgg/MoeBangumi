@@ -26,19 +26,6 @@ function Index() {
       <div className="relative">
         {/* Header section */}
         <section className="border-b border-pink-200/30 dark:border-purple-500/10 px-6 py-8 md:px-8">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white shadow-lg shadow-purple-500/30">
-              <IconSparkles className="size-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-pink-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent dark:from-pink-400 dark:via-purple-400 dark:to-cyan-400">
-                我的番剧
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                追踪你喜爱的动漫作品
-              </p>
-            </div>
-          </div>
 
           {/* Search and filter bar */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -69,36 +56,6 @@ function Index() {
                   完结
                 </button>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Stats bar */}
-        <section className="border-b border-pink-200/30 dark:border-purple-500/10 px-6 py-4 md:px-8">
-          <div className="flex flex-wrap items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="size-2 rounded-full bg-gradient-to-r from-pink-400 to-purple-400" />
-              <span className="text-muted-foreground">总计</span>
-              <span className="font-bold text-foreground">
-                {demoBangumiList.length}
-              </span>
-              <span className="text-muted-foreground">部</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="size-2 rounded-full bg-amber-400" />
-              <span className="text-muted-foreground">连载中</span>
-              <span className="font-bold text-foreground">
-                {demoBangumiList.filter((b) => !b.isComplete).length}
-              </span>
-              <span className="text-muted-foreground">部</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="size-2 rounded-full bg-emerald-400" />
-              <span className="text-muted-foreground">已完结</span>
-              <span className="font-bold text-foreground">
-                {demoBangumiList.filter((b) => b.isComplete).length}
-              </span>
-              <span className="text-muted-foreground">部</span>
             </div>
           </div>
         </section>
