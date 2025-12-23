@@ -68,11 +68,14 @@ This is a Rust workspace containing a TODO REST API built with Axum and SQLite.
 ```
 server/src/
 ├── lib.rs          # Exports modules, run_server() entry function
+├── api.rs          # API module declaration
+├── api/
+│   ├── handlers.rs # Request handlers, returns JSON responses
+│   └── router.rs   # Axum route definitions
 ├── models.rs       # Data models (Bangumi, CreateBangumi, etc.)
 ├── repositories.rs # Database CRUD operations
 ├── db.rs           # SQLite pool creation
-├── router.rs       # Axum route definitions
-├── handlers.rs     # Request handlers, returns JSON responses
+├── openapi.rs      # OpenAPI documentation
 ├── state.rs        # AppState with shared resources
 └── config.rs       # Configuration struct
 ```

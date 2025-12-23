@@ -1,19 +1,18 @@
+pub mod api;
 pub mod config;
 pub mod db;
-pub mod handlers;
 pub mod models;
 pub mod openapi;
 pub mod repositories;
-pub mod router;
 pub mod state;
 
 use std::net::SocketAddr;
 
 use utoipa_scalar::{Scalar, Servable};
 
+pub use api::create_router;
 pub use config::Config;
 pub use db::create_pool;
-pub use router::create_router;
 pub use state::AppState;
 
 pub async fn run_server(addr: SocketAddr, database_url: &str, tmdb_api_key: &str) -> Result<(), Box<dyn std::error::Error>> {

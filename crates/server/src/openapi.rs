@@ -4,8 +4,7 @@ use utoipa::OpenApi;
 #[openapi(
     info(
         title = "Moe API",
-        version = "1.0.0",
-        description = "A Bangumi search API built with Axum"
+        version = "1.0.0"
     ),
     tags(
         (name = "search", description = "Bangumi search endpoints")

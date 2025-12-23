@@ -2,7 +2,9 @@ use axum::Router;
 use utoipa::OpenApi;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
-use crate::{handlers, openapi::ApiDoc, state::AppState};
+use crate::{openapi::ApiDoc, state::AppState};
+
+use super::handlers;
 
 pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
