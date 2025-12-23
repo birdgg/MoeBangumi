@@ -13,8 +13,8 @@ use crate::state::AppState;
 use tmdb::DiscoverBangumiParams;
 
 // Cache TTL constants (in seconds)
-const MIKAN_SEARCH_CACHE_TTL: i64 = 3600; // 1 hour
-const MIKAN_DETAIL_CACHE_TTL: i64 = 21600; // 6 hours
+const MIKAN_SEARCH_CACHE_TTL: i64 = 604800; // 1 week
+const MIKAN_DETAIL_CACHE_TTL: i64 = 2592000; // 30 days
 
 /// Query parameters for keyword search
 #[derive(Debug, Deserialize, IntoParams)]
