@@ -16,7 +16,7 @@ use tmdb::DiscoverBangumiParams;
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct SearchBangumiQuery {
     /// Keyword to search for bangumi
-    pub bangumi: String,
+    pub keyword: String,
 }
 
 /// Query parameters for TMDB search
@@ -29,7 +29,7 @@ pub struct SearchTmdbQuery {
 /// Search for bangumi (Japanese anime) on BGM.tv
 #[utoipa::path(
     get,
-    path = "/api/search",
+    path = "/api/search/bgmtv",
     tag = "search",
     params(SearchBangumiQuery),
     responses(
@@ -41,7 +41,7 @@ pub async fn search_bangumi(
     State(state): State<AppState>,
     Query(query): Query<SearchBangumiQuery>,
 ) -> impl IntoResponse {
-    match state.bgmtv.search_bangumi(&query.bangumi).await {
+    match state.bgmtv.search_bangumi(&query.keyword).await {
         Ok(response) => (StatusCode::OK, Json(response)).into_response(),
         Err(e) => {
             tracing::error!("Failed to search bangumi: {}", e);
