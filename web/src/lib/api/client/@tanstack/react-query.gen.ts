@@ -7,13 +7,7 @@ import {
 } from "@tanstack/react-query";
 
 import { client } from "../client.gen";
-import {
-  createBangumi,
-  getEpisodes,
-  type Options,
-  searchBangumi,
-  searchTmdb,
-} from "../sdk.gen";
+import { type Options, Sdk } from "../sdk.gen";
 import type {
   CreateBangumiData,
   CreateBangumiResponse,
@@ -41,7 +35,7 @@ export const createBangumiMutation = (
     Options<CreateBangumiData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await createBangumi({
+      const { data } = await Sdk.__registry.get().createBangumi({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -106,7 +100,7 @@ export const getEpisodesOptions = (options: Options<GetEpisodesData>) =>
     ReturnType<typeof getEpisodesQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getEpisodes({
+      const { data } = await Sdk.__registry.get().getEpisodes({
         ...options,
         ...queryKey[0],
         signal,
@@ -131,7 +125,7 @@ export const searchBangumiOptions = (options: Options<SearchBangumiData>) =>
     ReturnType<typeof searchBangumiQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await searchBangumi({
+      const { data } = await Sdk.__registry.get().searchBangumi({
         ...options,
         ...queryKey[0],
         signal,
@@ -156,7 +150,7 @@ export const searchTmdbOptions = (options: Options<SearchTmdbData>) =>
     ReturnType<typeof searchTmdbQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await searchTmdb({
+      const { data } = await Sdk.__registry.get().searchTmdb({
         ...options,
         ...queryKey[0],
         signal,

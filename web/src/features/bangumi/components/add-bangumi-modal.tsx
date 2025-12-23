@@ -3,7 +3,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useForm } from "@tanstack/react-form";
 import { cn } from "@/lib/utils";
 import { parseBgmtvName } from "@/lib/parser";
-import { type Subject, type CreateBangumi, type TmdbTvShow } from "@/lib/api";
+import { type Subject, type CreateBangumi, type TvShow } from "@/lib/api";
 import { useCreateBangumi } from "../hooks/use-bangumi";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ export function AddBangumiModal({
   onSuccess,
 }: AddBangumiModalProps) {
   const createBangumi = useCreateBangumi();
-  const [selectedTmdb, setSelectedTmdb] = React.useState<TmdbTvShow | null>(null);
+  const [selectedTmdb, setSelectedTmdb] = React.useState<TvShow | null>(null);
 
   const form = useForm({
     defaultValues: {

@@ -3,8 +3,7 @@ import {
   searchBangumiOptions,
   searchTmdbOptions,
   getEpisodesOptions,
-  createBangumi,
-  type CreateBangumi,
+  createBangumiMutation,
 } from "@/lib/api";
 
 // Search bangumi from BGM.tv
@@ -12,7 +11,6 @@ export function useSearchBangumi(keyword: string) {
   return useQuery({
     ...searchBangumiOptions({ query: { keyword } }),
     enabled: keyword.length > 0,
-    select: (data) => data.data,
   });
 }
 
@@ -35,9 +33,6 @@ export function useEpisodes(subjectId: number) {
 // Create a new bangumi
 export function useCreateBangumi() {
   return useMutation({
-    mutationFn: async (data: CreateBangumi) => {
-      const response = await createBangumi({ body: data, throwOnError: true });
-      return response.data;
-    },
+    ...createBangumiMutation()
   });
 }

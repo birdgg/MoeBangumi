@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useSearchTmdb } from "../hooks/use-bangumi";
-import { type TmdbTvShow } from "@/lib/api";
+import { type TvShow } from "@/lib/api";
 import {
   Combobox,
   ComboboxInput,
@@ -14,8 +14,8 @@ import { IconLoader2, IconMovie, IconCheck } from "@tabler/icons-react";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 
 interface TmdbMatcherProps {
-  value: TmdbTvShow | null;
-  onChange: (show: TmdbTvShow | null) => void;
+  value: TvShow | null;
+  onChange: (show: TvShow | null) => void;
   initialKeyword?: string;
   className?: string;
 }
@@ -34,12 +34,12 @@ export function TmdbMatcher({
   const hasSearchedRef = React.useRef(false);
 
   const { data, isLoading, isFetching } = useSearchTmdb(debouncedKeyword);
-  const results = data?.results ?? [];
+  const results = data ?? [];
   const isSearching = isLoading || isFetching;
 
   // Build a map for quick lookup
   const resultsMap = React.useMemo(() => {
-    const map = new Map<string, TmdbTvShow>();
+    const map = new Map<string, TvShow>();
     for (const show of results) {
       map.set(show.id.toString(), show);
     }
@@ -121,7 +121,7 @@ export function TmdbMatcher({
                 "输入关键词搜索"
               )}
             </ComboboxEmpty>
-            {results.map((show: TmdbTvShow) => (
+            {results.map((show: TvShow) => (
               <ComboboxItem
                 key={show.id}
                 value={show.id.toString()}

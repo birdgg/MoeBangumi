@@ -196,6 +196,22 @@ export type Subject = {
   platform?: null | Platform;
 };
 
+export type TvShow = {
+  backdrop_path?: string | null;
+  first_air_date?: string | null;
+  genre_ids: Array<number>;
+  id: number;
+  name: string;
+  origin_country: Array<string>;
+  original_language: string;
+  original_name: string;
+  overview: string;
+  popularity: number;
+  poster_path?: string | null;
+  vote_average: number;
+  vote_count: number;
+};
+
 export type CreateBangumiData = {
   body: CreateBangumi;
   path?: never;
@@ -272,7 +288,7 @@ export type SearchBangumiResponses = {
   /**
    * Search results
    */
-  200: SearchSubjectsResponse;
+  200: Array<Subject>;
 };
 
 export type SearchBangumiResponse =
@@ -301,26 +317,7 @@ export type SearchTmdbResponses = {
   /**
    * Search results from TMDB
    */
-  200: {
-    page: number;
-    results: Array<{
-      backdrop_path?: string | null;
-      first_air_date?: string | null;
-      genre_ids: Array<number>;
-      id: number;
-      name: string;
-      origin_country: Array<string>;
-      original_language: string;
-      original_name: string;
-      overview: string;
-      popularity: number;
-      poster_path?: string | null;
-      vote_average: number;
-      vote_count: number;
-    }>;
-    total_pages: number;
-    total_results: number;
-  };
+  200: Array<TvShow>;
 };
 
 export type SearchTmdbResponse = SearchTmdbResponses[keyof SearchTmdbResponses];

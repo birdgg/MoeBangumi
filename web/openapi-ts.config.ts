@@ -8,19 +8,15 @@ export default defineConfig({
   },
   plugins: [
     "@hey-api/typescript",
+    "@hey-api/schemas",
     {
       name: "@hey-api/sdk",
-      asClass: false,
-      operationId: true,
+      instance: true
     },
     {
       name: "@hey-api/client-fetch",
       runtimeConfigPath: "../config.ts",
     },
-    {
-      name: "@tanstack/react-query",
-      queryOptions: true,
-      mutationOptions: true,
-    },
+    "@tanstack/react-query",
   ],
 });

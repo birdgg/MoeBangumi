@@ -33,7 +33,7 @@ pub struct SearchTmdbQuery {
     tag = "search",
     params(SearchBangumiQuery),
     responses(
-        (status = 200, description = "Search results", body = bgmtv::SearchSubjectsResponse),
+        (status = 200, description = "Search results", body = Vec<bgmtv::Subject>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -42,7 +42,7 @@ pub async fn search_bangumi(
     Query(query): Query<SearchBangumiQuery>,
 ) -> impl IntoResponse {
     match state.bgmtv.search_bangumi(&query.keyword).await {
-        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+        Ok(response) => (StatusCode::OK, Json(response.data)).into_response(),
         Err(e) => {
             tracing::error!("Failed to search bangumi: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
@@ -57,7 +57,7 @@ pub async fn search_bangumi(
     tag = "search",
     params(SearchTmdbQuery),
     responses(
-        (status = 200, description = "Search results from TMDB", body = inline(tmdb::models::PaginatedResponse<tmdb::models::TvShow>)),
+        (status = 200, description = "Search results from TMDB", body = Vec<tmdb::models::TvShow>),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -69,7 +69,7 @@ pub async fn search_tmdb(
         with_text_query: Some(query.keyword),
     };
     match state.tmdb.discover_bangumi(params).await {
-        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+        Ok(response) => (StatusCode::OK, Json(response.results)).into_response(),
         Err(e) => {
             tracing::error!("Failed to search TMDB: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
