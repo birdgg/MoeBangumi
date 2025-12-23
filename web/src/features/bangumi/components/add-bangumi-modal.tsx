@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import {
   Field,
   FieldLabel,
-  FieldDescription,
   FieldError,
   FieldGroup,
 } from "@/components/ui/field";
@@ -23,6 +22,7 @@ import {
   IconFolder,
   IconHash,
   IconMovie,
+  IconRss,
 } from "@tabler/icons-react";
 import { TmdbMatcher } from "./tmdb-matcher";
 
@@ -64,6 +64,7 @@ export function AddBangumiModal({
       episode_offset: 0,
       auto_download: true,
       save_path: "",
+      rss_url: "",
     },
     onSubmit: async ({ value }) => {
       const request: CreateBangumi = {
@@ -243,9 +244,6 @@ export function AddBangumiModal({
                     onChange={setSelectedTmdb}
                     initialKeyword={parseBgmtvName(subject?.name_cn || subject?.name || "").name}
                   />
-                  <FieldDescription>
-                    用于获取海报和元数据
-                  </FieldDescription>
                 </Field>
 
                 {/* Episode Offset */}
@@ -264,7 +262,6 @@ export function AddBangumiModal({
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(parseInt(e.target.value) || 0)}
                       />
-                      <FieldDescription>用于第二季等情况</FieldDescription>
                     </Field>
                   )}
                 </form.Field>
@@ -289,6 +286,26 @@ export function AddBangumiModal({
                   )}
                 </form.Field>
 
+                {/* RSS URL */}
+                <form.Field name="rss_url">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>
+                        <IconRss className="size-4 text-chart-3 dark:text-chart-1" />
+                        RSS 订阅地址
+                      </FieldLabel>
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder="输入 RSS 订阅地址（可选）"
+                      />
+                    </Field>
+                  )}
+                </form.Field>
+
                 {/* Auto Download Toggle */}
                 <form.Field name="auto_download">
                   {(field) => (
@@ -301,9 +318,6 @@ export function AddBangumiModal({
                           <IconDownload className="size-4 text-chart-3 dark:text-chart-1" />
                           自动下载
                         </div>
-                        <FieldDescription>
-                          自动下载新发布的剧集
-                        </FieldDescription>
                       </FieldLabel>
                       <button
                         id={field.name}
