@@ -1,14 +1,29 @@
-export { client, ApiError } from "./client";
-export { bangumiApi } from "./bangumi";
-export { searchApi } from "./search";
+// Re-export generated client and types
+export { client } from "./client/client.gen";
+export * from "./client/sdk.gen";
 export type {
-  SourceType,
   Bangumi,
-  CreateBangumiRequest,
-  UpdateBangumiRequest,
+  CreateBangumi,
+  Episode,
+  EpisodeType,
   Platform,
-  Subject,
   SearchSubjectsResponse,
-  TmdbTvShow,
-  TmdbSearchResponse,
-} from "./types";
+  SourceType,
+  Subject,
+  SearchTmdbResponse,
+} from "./client/types.gen";
+
+// Re-export TanStack Query hooks and options
+export {
+  createBangumiMutation,
+  getEpisodesOptions,
+  getEpisodesQueryKey,
+  searchBangumiOptions,
+  searchBangumiQueryKey,
+  searchTmdbOptions,
+  searchTmdbQueryKey,
+} from "./client/@tanstack/react-query.gen";
+
+// Derived types for convenience
+import type { SearchTmdbResponse } from "./client/types.gen";
+export type TmdbTvShow = SearchTmdbResponse["results"][number];

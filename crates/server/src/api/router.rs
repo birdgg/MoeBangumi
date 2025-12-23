@@ -1,4 +1,4 @@
-use axum::Router;
+use axum::{routing::get, Json, Router};
 use utoipa::OpenApi;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
@@ -14,6 +14,15 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::get_episodes))
         .with_state(state)
         .split_for_parts();
+
+    // Clone the API spec for the JSON endpoint
+    let api_json = api.clone();
+
+    // Add OpenAPI JSON endpoint
+    let router = router.route(
+        "/api/openapi.json",
+        get(move || async move { Json(api_json) }),
+    );
 
     (router, api)
 }
