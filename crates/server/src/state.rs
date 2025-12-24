@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tmdb::TmdbClient;
 
 use crate::config::Config;
-use crate::services::SettingsService;
+use crate::services::{DownloaderService, SettingsService};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -17,6 +17,7 @@ pub struct AppState {
     pub bgmtv: Arc<BgmtvClient>,
     pub mikan: Arc<MikanClient>,
     pub settings: Arc<SettingsService>,
+    pub downloader: Arc<DownloaderService>,
 }
 
 impl AppState {
@@ -25,6 +26,10 @@ impl AppState {
         let tmdb = TmdbClient::with_client(http_client.clone(), &config.tmdb_api_key);
         let bgmtv = BgmtvClient::with_client(http_client.clone());
         let mikan = MikanClient::new(http_client.clone());
+
+        // Create downloader service with settings subscription
+        let downloader = DownloaderService::new(settings.get().downloader, settings.subscribe());
+
         Self {
             db,
             config: Arc::new(config),
@@ -33,6 +38,7 @@ impl AppState {
             bgmtv: Arc::new(bgmtv),
             mikan: Arc::new(mikan),
             settings: Arc::new(settings),
+            downloader: Arc::new(downloader),
         }
     }
 }

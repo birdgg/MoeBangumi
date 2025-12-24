@@ -1,7 +1,6 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::RwLock;
+use tokio::sync::watch;
 
 use crate::config::Config;
 use crate::models::{Settings, UpdateSettings};
@@ -16,9 +15,13 @@ pub enum SettingsError {
     Serialize(#[from] toml::ser::Error),
 }
 
+/// Receiver for settings changes
+pub type SettingsWatcher = watch::Receiver<Settings>;
+
 pub struct SettingsService {
     settings_path: PathBuf,
-    cache: Arc<RwLock<Settings>>,
+    sender: watch::Sender<Settings>,
+    receiver: watch::Receiver<Settings>,
 }
 
 impl SettingsService {
@@ -27,10 +30,12 @@ impl SettingsService {
     pub async fn new(config: &Config) -> Result<Self, SettingsError> {
         let settings_path = config.settings_path();
         let settings = Self::load_or_create(&settings_path).await?;
+        let (sender, receiver) = watch::channel(settings);
 
         Ok(Self {
             settings_path,
-            cache: Arc::new(RwLock::new(settings)),
+            sender,
+            receiver,
         })
     }
 
@@ -58,26 +63,28 @@ impl SettingsService {
         }
     }
 
-    /// Get current settings from cache (fast, no I/O).
-    pub async fn get(&self) -> Settings {
-        self.cache.read().await.clone()
+    /// Get current settings (fast, no I/O).
+    pub fn get(&self) -> Settings {
+        self.receiver.borrow().clone()
+    }
+
+    /// Subscribe to settings changes.
+    /// Returns a receiver that will be notified when settings change.
+    pub fn subscribe(&self) -> SettingsWatcher {
+        self.receiver.clone()
     }
 
     /// Update settings with partial data.
-    /// Saves to file and updates cache atomically.
+    /// Saves to file and broadcasts to all subscribers.
     pub async fn update(&self, data: UpdateSettings) -> Result<Settings, SettingsError> {
-        // Read current settings outside of write lock
-        let current = self.cache.read().await.clone();
-
-        // Merge updates with existing settings
+        let current = self.receiver.borrow().clone();
         let new_settings = current.merge(data);
 
-        // Save to file first (fail-safe: only update cache if file write succeeds)
-        // This is done outside the write lock to avoid blocking reads during I/O
+        // Save to file first
         self.save_to_file(&new_settings).await?;
 
-        // Only acquire write lock after file is saved successfully
-        *self.cache.write().await = new_settings.clone();
+        // Broadcast to all subscribers (ignore error if no receivers)
+        let _ = self.sender.send(new_settings.clone());
 
         Ok(new_settings)
     }
@@ -89,8 +96,8 @@ impl SettingsService {
         // Save to file first
         self.save_to_file(&default).await?;
 
-        // Update cache after file is saved
-        *self.cache.write().await = default.clone();
+        // Broadcast to all subscribers
+        let _ = self.sender.send(default.clone());
 
         Ok(default)
     }

@@ -282,7 +282,7 @@ pub async fn get_mikan_rss(
     )
 )]
 pub async fn get_settings(State(state): State<AppState>) -> impl IntoResponse {
-    let settings = state.settings.get().await;
+    let settings = state.settings.get();
     (StatusCode::OK, Json(settings)).into_response()
 }
 
