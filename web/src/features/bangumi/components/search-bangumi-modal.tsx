@@ -114,9 +114,6 @@ export function SearchBangumiModal({
                 <DialogPrimitive.Title className="text-lg font-bold bg-linear-to-r from-chart-1 via-chart-3 to-chart-5 bg-clip-text text-transparent">
                   搜索番剧
                 </DialogPrimitive.Title>
-                <DialogPrimitive.Description className="text-xs text-muted-foreground">
-                  从 BGM.tv 搜索并添加你喜欢的番剧
-                </DialogPrimitive.Description>
               </div>
               <DialogPrimitive.Close
                 className={cn(
@@ -142,7 +139,7 @@ export function SearchBangumiModal({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="输入番剧名称开始搜索..."
+                placeholder="输入番剧名称"
                 className={cn(
                   "w-full h-11 pl-10 pr-10 rounded-xl",
                   "bg-white/70 dark:bg-zinc-800/70",

@@ -2,8 +2,17 @@ import * as React from "react";
 import { flushSync } from "react-dom";
 import { IconSun, IconMoon } from "@tabler/icons-react";
 
+const THEME_KEY = "theme";
+
+function getInitialTheme(): "light" | "dark" {
+  if (typeof window === "undefined") return "dark";
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export function ThemeToggleButton() {
-  const [theme, setTheme] = React.useState<"light" | "dark">("dark");
+  const [theme, setTheme] = React.useState<"light" | "dark">(getInitialTheme);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -21,6 +30,7 @@ export function ThemeToggleButton() {
           setTheme(newTheme);
         });
         document.documentElement.classList.toggle("dark", newTheme === "dark");
+        localStorage.setItem(THEME_KEY, newTheme);
       });
 
       transition.finished.then(() => {
@@ -31,12 +41,14 @@ export function ThemeToggleButton() {
       setIsAnimating(true);
       setTheme(newTheme);
       document.documentElement.classList.toggle("dark", newTheme === "dark");
+      localStorage.setItem(THEME_KEY, newTheme);
       setTimeout(() => setIsAnimating(false), 800);
     }
   };
 
   React.useEffect(() => {
-    document.documentElement.classList.add("dark");
+    const initialTheme = getInitialTheme();
+    document.documentElement.classList.toggle("dark", initialTheme === "dark");
     document.documentElement.classList.add("-animated");
   }, []);
 
