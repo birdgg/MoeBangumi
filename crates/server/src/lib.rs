@@ -4,6 +4,7 @@ pub mod db;
 pub mod models;
 pub mod openapi;
 pub mod repositories;
+pub mod services;
 pub mod state;
 
 use std::net::SocketAddr;
@@ -15,6 +16,7 @@ use utoipa_scalar::{Scalar, Servable};
 pub use api::create_router;
 pub use config::{Config, Environment};
 pub use db::create_pool;
+pub use services::SettingsService;
 pub use state::AppState;
 
 const STATIC_DIR: &str = "/app/dist";
@@ -32,7 +34,8 @@ pub async fn run_server(
     std::fs::create_dir_all(config.posters_path())?;
 
     let pool = create_pool(&config.database_url).await?;
-    let state = AppState::new(pool, config);
+    let settings = SettingsService::new(&config).await?;
+    let state = AppState::new(pool, config, settings);
     let (router, api) = create_router(state);
 
     let app = router.merge(Scalar::with_url("/docs", api));

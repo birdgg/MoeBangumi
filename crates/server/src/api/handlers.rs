@@ -8,7 +8,7 @@ use serde::Deserialize;
 use utoipa::IntoParams;
 
 use crate::models::{Bangumi, CreateBangumi, CreateRss, Settings, UpdateSettings};
-use crate::repositories::{BangumiRepository, CacheRepository, RssRepository, SettingsRepository};
+use crate::repositories::{BangumiRepository, CacheRepository, RssRepository};
 use crate::state::AppState;
 use tmdb::DiscoverBangumiParams;
 
@@ -266,13 +266,8 @@ pub async fn get_mikan_rss(
     )
 )]
 pub async fn get_settings(State(state): State<AppState>) -> impl IntoResponse {
-    match SettingsRepository::get(&state.db).await {
-        Ok(settings) => (StatusCode::OK, Json(settings)).into_response(),
-        Err(e) => {
-            tracing::error!("Failed to get settings: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-        }
-    }
+    let settings = state.settings.get().await;
+    (StatusCode::OK, Json(settings)).into_response()
 }
 
 /// Update application settings
@@ -290,7 +285,7 @@ pub async fn update_settings(
     State(state): State<AppState>,
     Json(payload): Json<UpdateSettings>,
 ) -> impl IntoResponse {
-    match SettingsRepository::update(&state.db, payload).await {
+    match state.settings.update(payload).await {
         Ok(settings) => (StatusCode::OK, Json(settings)).into_response(),
         Err(e) => {
             tracing::error!("Failed to update settings: {}", e);
@@ -310,7 +305,7 @@ pub async fn update_settings(
     )
 )]
 pub async fn reset_settings(State(state): State<AppState>) -> impl IntoResponse {
-    match SettingsRepository::reset(&state.db).await {
+    match state.settings.reset().await {
         Ok(settings) => (StatusCode::OK, Json(settings)).into_response(),
         Err(e) => {
             tracing::error!("Failed to reset settings: {}", e);

@@ -63,4 +63,9 @@ impl Config {
     pub fn posters_path(&self) -> PathBuf {
         self.data_path.join("posters")
     }
+
+    /// Returns the path to the settings TOML file
+    pub fn settings_path(&self) -> PathBuf {
+        self.data_path.join("settings.toml")
+    }
 }

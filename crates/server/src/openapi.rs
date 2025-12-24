@@ -1,6 +1,9 @@
 use utoipa::OpenApi;
 
-use crate::models::{Settings, UpdateSettings};
+use crate::models::{
+    DownloaderSettings, FilterSettings, Settings, UpdateDownloaderSettings, UpdateFilterSettings,
+    UpdateSettings,
+};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -16,7 +19,11 @@ use crate::models::{Settings, UpdateSettings};
         bgmtv::SearchSubjectsResponse,
         bgmtv::Subject,
         Settings,
-        UpdateSettings
+        DownloaderSettings,
+        FilterSettings,
+        UpdateSettings,
+        UpdateDownloaderSettings,
+        UpdateFilterSettings
     ))
 )]
 pub struct ApiDoc;

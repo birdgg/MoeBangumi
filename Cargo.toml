@@ -31,3 +31,4 @@ regex = "1"
 phf = { version = "0.11", features = ["macros"] }
 tower-http = { version = "0.6", features = ["fs", "cors"] }
 scraper = "0.22"
+toml = "0.8"
