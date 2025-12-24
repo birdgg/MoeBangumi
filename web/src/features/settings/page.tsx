@@ -1,6 +1,8 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { IconDownload, IconFilter } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import { getSettingsOptions } from "@/lib/api";
 import { DownloaderSettings, RegexFilterSettings } from "./components";
 
 type TabId = "downloader" | "regex";
@@ -13,7 +15,7 @@ interface TabItem {
 
 const tabs: TabItem[] = [
   { id: "downloader", label: "下载器", icon: <IconDownload className="size-4" /> },
-  { id: "regex", label: "正则过滤", icon: <IconFilter className="size-4" /> },
+  { id: "regex", label: "全局过滤", icon: <IconFilter className="size-4" /> },
 ];
 
 function SettingsTab({
@@ -67,6 +69,7 @@ function SettingsTab({
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = React.useState<TabId>("downloader");
+  const { data: settings } = useQuery(getSettingsOptions());
 
   return (
     <div className="min-h-full bg-linear-to-br from-chart-1/5 via-background to-chart-3/5 dark:from-zinc-950 dark:via-background dark:to-chart-3/10">
@@ -96,8 +99,8 @@ export function SettingsPage() {
 
           {/* Tab content */}
           <div className="space-y-6">
-            {activeTab === "downloader" && <DownloaderSettings />}
-            {activeTab === "regex" && <RegexFilterSettings />}
+            {activeTab === "downloader" && <DownloaderSettings settings={settings?.downloader} />}
+            {activeTab === "regex" && <RegexFilterSettings settings={settings?.filter} />}
           </div>
         </div>
       </div>

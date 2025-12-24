@@ -17,8 +17,15 @@ import {
   IconLoader2,
   IconCheck,
   IconX,
+  IconDeviceFloppy,
 } from "@tabler/icons-react";
-import { testDownloaderConnection } from "@/lib/api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  testDownloaderConnection,
+  updateSettingsMutation,
+  getSettingsQueryKey,
+  type DownloaderSettings as DownloaderSettingsType,
+} from "@/lib/api";
 
 function SettingsCard({
   children,
@@ -67,16 +74,65 @@ function FormField({
 
 type ConnectionStatus = "idle" | "loading" | "success" | "error";
 
-type DownloaderType = "qbittorrent";
+type DownloaderType = "qBittorrent";
 
-export function DownloaderSettings() {
-  const [downloaderType, setDownloaderType] = React.useState<DownloaderType>("qbittorrent");
+interface DownloaderSettingsProps {
+  settings?: DownloaderSettingsType;
+}
+
+export function DownloaderSettings({ settings }: DownloaderSettingsProps) {
+  const queryClient = useQueryClient();
+  const [downloaderType, setDownloaderType] = React.useState<DownloaderType>("qBittorrent");
   const [showPassword, setShowPassword] = React.useState(false);
   const [connectionStatus, setConnectionStatus] = React.useState<ConnectionStatus>("idle");
   const [errorMessage, setErrorMessage] = React.useState<string>("");
   const [url, setUrl] = React.useState("");
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
+
+  // 保存 mutation
+  const { mutate: saveSettings, isPending: isSaving } = useMutation({
+    ...updateSettingsMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getSettingsQueryKey() });
+    },
+  });
+
+  // 当设置加载完成后，用 API 数据初始化表单
+  React.useEffect(() => {
+    if (settings) {
+      const { type, url, username, password } = settings;
+      if (type) setDownloaderType(type);
+      if (url) setUrl(url);
+      if (username) setUsername(username);
+      if (password) setPassword(password);
+    }
+  }, [settings]);
+
+  // 检测是否有未保存的修改
+  const isDirty = React.useMemo(() => {
+    if (!settings) return url || username || password;
+    return (
+      (settings.type ?? "qBittorrent") !== downloaderType ||
+      (settings.url ?? "") !== url ||
+      (settings.username ?? "") !== username ||
+      (settings.password ?? "") !== password
+    );
+  }, [settings, downloaderType, url, username, password]);
+
+  // 保存设置
+  const handleSave = () => {
+    saveSettings({
+      body: {
+        downloader: {
+          type: downloaderType,
+          url: url || null,
+          username: username || null,
+          password: password || null,
+        },
+      },
+    });
+  };
 
   const handleCheckConnection = async () => {
     setErrorMessage("");
@@ -122,7 +178,7 @@ export function DownloaderSettings() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="qbittorrent">qBittorrent</SelectItem>
+              <SelectItem value="qBittorrent">qBittorrent</SelectItem>
             </SelectContent>
           </Select>
         </FormField>
@@ -212,6 +268,28 @@ export function DownloaderSettings() {
               <span>{errorMessage || "连接失败"}</span>
             </div>
           )}
+        </div>
+
+        {/* Save button */}
+        <div className="flex items-center justify-end border-t border-border/50 pt-5">
+          <Button
+            onClick={handleSave}
+            disabled={!isDirty || isSaving}
+            className={cn(
+              "gap-2",
+              "bg-linear-to-r from-chart-1 to-chart-2 text-white",
+              "shadow-lg shadow-chart-1/20 transition-all duration-300",
+              "hover:shadow-xl hover:shadow-chart-1/30",
+              "disabled:opacity-50"
+            )}
+          >
+            {isSaving ? (
+              <IconLoader2 className="size-4 animate-spin" />
+            ) : (
+              <IconDeviceFloppy className="size-4" />
+            )}
+            {isSaving ? "保存中..." : "保存"}
+          </Button>
         </div>
       </div>
     </SettingsCard>

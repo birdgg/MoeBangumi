@@ -8,7 +8,15 @@ import {
   IconPlus,
   IconTrash,
   IconRegex,
+  IconDeviceFloppy,
+  IconLoader2,
 } from "@tabler/icons-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  updateSettingsMutation,
+  getSettingsQueryKey,
+  type FilterSettings,
+} from "@/lib/api";
 
 function SettingsCard({
   children,
@@ -36,13 +44,54 @@ interface RegexPattern {
   pattern: string;
 }
 
-export function RegexFilterSettings() {
-  const [patterns, setPatterns] = React.useState<RegexPattern[]>([
-    { id: "1", pattern: "\\[繁體\\]" },
-    { id: "2", pattern: "\\[简体\\]" },
-  ]);
+interface RegexFilterSettingsProps {
+  settings?: FilterSettings;
+}
+
+export function RegexFilterSettings({ settings }: RegexFilterSettingsProps) {
+  const queryClient = useQueryClient();
+  const [patterns, setPatterns] = React.useState<RegexPattern[]>([]);
   const [newPattern, setNewPattern] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+
+  // 保存 mutation
+  const { mutate: saveSettings, isPending: isSaving } = useMutation({
+    ...updateSettingsMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getSettingsQueryKey() });
+    },
+  });
+
+  // 当设置加载完成后，用 API 数据初始化
+  React.useEffect(() => {
+    if (settings?.global_rss_filters) {
+      setPatterns(
+        settings.global_rss_filters.map((pattern, index) => ({
+          id: index.toString(),
+          pattern,
+        }))
+      );
+    }
+  }, [settings]);
+
+  // 检测是否有未保存的修改
+  const isDirty = React.useMemo(() => {
+    const currentPatterns = patterns.map((p) => p.pattern);
+    const originalPatterns = settings?.global_rss_filters ?? [];
+    if (currentPatterns.length !== originalPatterns.length) return true;
+    return currentPatterns.some((p, i) => p !== originalPatterns[i]);
+  }, [patterns, settings]);
+
+  // 保存设置
+  const handleSave = () => {
+    saveSettings({
+      body: {
+        filter: {
+          global_rss_filters: patterns.map((p) => p.pattern),
+        },
+      },
+    });
+  };
 
   const handleAddPattern = () => {
     if (!newPattern.trim()) return;
@@ -73,18 +122,6 @@ export function RegexFilterSettings() {
 
   return (
     <SettingsCard>
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-chart-3/20 to-chart-5/20">
-          <IconFilter className="size-5 text-chart-3" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-foreground">正则过滤规则</h3>
-          <p className="text-sm text-muted-foreground">
-            匹配的资源标题将被自动过滤
-          </p>
-        </div>
-      </div>
-
       <div className="space-y-5">
         {/* Add new pattern */}
         <div className="space-y-2">
@@ -171,6 +208,28 @@ export function RegexFilterSettings() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Save button */}
+        <div className="flex items-center justify-end border-t border-border/50 pt-5">
+          <Button
+            onClick={handleSave}
+            disabled={!isDirty || isSaving}
+            className={cn(
+              "gap-2",
+              "bg-linear-to-r from-chart-3 to-chart-5 text-white",
+              "shadow-lg shadow-chart-3/20 transition-all duration-300",
+              "hover:shadow-xl hover:shadow-chart-3/30",
+              "disabled:opacity-50"
+            )}
+          >
+            {isSaving ? (
+              <IconLoader2 className="size-4 animate-spin" />
+            ) : (
+              <IconDeviceFloppy className="size-4" />
+            )}
+            {isSaving ? "保存中..." : "保存"}
+          </Button>
         </div>
       </div>
     </SettingsCard>

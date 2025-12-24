@@ -22,6 +22,17 @@ impl<T> Clearable<T> {
     }
 }
 
+impl Clearable<String> {
+    /// Resolve to String, where Clear means empty string
+    pub fn resolve_or_empty(self, existing: String) -> String {
+        match self {
+            Clearable::Unchanged => existing,
+            Clearable::Clear => String::new(),
+            Clearable::Set(v) => v,
+        }
+    }
+}
+
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for Clearable<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

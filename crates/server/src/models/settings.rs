@@ -16,20 +16,41 @@ pub struct Settings {
 }
 
 /// Downloader configuration (supports qBittorrent)
-#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DownloaderSettings {
     /// Downloader type: qbittorrent
-    #[serde(default, rename = "type")]
-    pub downloader_type: Option<DownloaderType>,
+    #[serde(default = "DownloaderSettings::default_type", rename = "type")]
+    pub downloader_type: DownloaderType,
     /// Downloader Web UI URL (e.g., http://localhost:8080)
-    #[serde(default)]
-    pub url: Option<String>,
+    #[serde(default = "DownloaderSettings::default_url")]
+    pub url: String,
     /// Username (qBittorrent)
     #[serde(default)]
-    pub username: Option<String>,
+    pub username: String,
     /// Password (qBittorrent)
     #[serde(default)]
-    pub password: Option<String>,
+    pub password: String,
+}
+
+impl Default for DownloaderSettings {
+    fn default() -> Self {
+        Self {
+            downloader_type: Self::default_type(),
+            url: Self::default_url(),
+            username: String::new(),
+            password: String::new(),
+        }
+    }
+}
+
+impl DownloaderSettings {
+    fn default_type() -> DownloaderType {
+        DownloaderType::QBittorrent
+    }
+
+    fn default_url() -> String {
+        "http://localhost:8080".to_string()
+    }
 }
 
 /// Filter configuration
@@ -63,25 +84,25 @@ impl Settings {
                     .downloader
                     .as_ref()
                     .and_then(|d| d.downloader_type)
-                    .or(self.downloader.downloader_type),
+                    .unwrap_or(self.downloader.downloader_type),
                 url: update
                     .downloader
                     .as_ref()
                     .map(|d| d.url.clone())
                     .unwrap_or(Clearable::Unchanged)
-                    .resolve(self.downloader.url.clone()),
+                    .resolve_or_empty(self.downloader.url.clone()),
                 username: update
                     .downloader
                     .as_ref()
                     .map(|d| d.username.clone())
                     .unwrap_or(Clearable::Unchanged)
-                    .resolve(self.downloader.username.clone()),
+                    .resolve_or_empty(self.downloader.username.clone()),
                 password: update
                     .downloader
                     .as_ref()
                     .map(|d| d.password.clone())
                     .unwrap_or(Clearable::Unchanged)
-                    .resolve(self.downloader.password.clone()),
+                    .resolve_or_empty(self.downloader.password.clone()),
             },
             filter: FilterSettings {
                 global_rss_filters: update
