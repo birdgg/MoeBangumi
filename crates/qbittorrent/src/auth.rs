@@ -11,6 +11,22 @@ impl QBittorrentClient {
         let response = self.client().post(&url).form(&params).send().await?;
 
         let status = response.status();
+
+        // Extract SID from Set-Cookie header
+        if let Some(cookie) = response.headers().get(reqwest::header::SET_COOKIE) {
+            if let Ok(cookie_str) = cookie.to_str() {
+                // Parse "SID=xxx; path=/" format
+                if let Some(sid) = cookie_str
+                    .split(';')
+                    .next()
+                    .and_then(|s| s.strip_prefix("SID="))
+                {
+                    self.set_sid(sid.to_string()).await;
+                    tracing::debug!("Saved SID from login response");
+                }
+            }
+        }
+
         let body = response.text().await.unwrap_or_default();
 
         if status.is_success() && body == "Ok." {
@@ -31,7 +47,15 @@ impl QBittorrentClient {
     /// POST /api/v2/auth/logout
     pub async fn logout(&self) -> crate::Result<()> {
         let url = self.url("/auth/logout");
-        let response = self.client().post(&url).send().await?;
+
+        let mut request = self.client().post(&url);
+
+        // Add SID cookie if authenticated
+        if let Some(sid) = self.get_sid().await {
+            request = request.header(reqwest::header::COOKIE, format!("SID={}", sid));
+        }
+
+        let response = request.send().await?;
         self.handle_response(response).await
     }
 }

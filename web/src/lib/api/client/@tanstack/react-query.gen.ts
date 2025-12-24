@@ -18,6 +18,8 @@ import {
   searchBgmtv,
   searchMikan,
   searchTmdb,
+  testDownloaderAuth,
+  testDownloaderConnection,
   updateSettings,
 } from "../sdk.gen";
 import type {
@@ -39,6 +41,8 @@ import type {
   SearchMikanResponse,
   SearchTmdbData,
   SearchTmdbResponse,
+  TestDownloaderAuthData,
+  TestDownloaderConnectionData,
   UpdateSettingsData,
   UpdateSettingsResponse,
 } from "../types.gen";
@@ -125,6 +129,60 @@ export const createBangumiMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await createBangumi({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Test downloader authentication
+ */
+export const testDownloaderAuthMutation = (
+  options?: Partial<Options<TestDownloaderAuthData>>,
+): UseMutationOptions<
+  unknown,
+  DefaultError,
+  Options<TestDownloaderAuthData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    DefaultError,
+    Options<TestDownloaderAuthData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await testDownloaderAuth({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Test downloader connection with provided credentials
+ */
+export const testDownloaderConnectionMutation = (
+  options?: Partial<Options<TestDownloaderConnectionData>>,
+): UseMutationOptions<
+  unknown,
+  DefaultError,
+  Options<TestDownloaderConnectionData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    DefaultError,
+    Options<TestDownloaderConnectionData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await testDownloaderConnection({
         ...options,
         ...fnOptions,
         throwOnError: true,

@@ -1,3 +1,4 @@
+use downloader::DownloaderType;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -14,16 +15,19 @@ pub struct Settings {
     pub filter: FilterSettings,
 }
 
-/// Downloader (qBittorrent) configuration
+/// Downloader configuration (supports qBittorrent)
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct DownloaderSettings {
-    /// qBittorrent Web UI URL (e.g., http://localhost:8080)
+    /// Downloader type: qbittorrent
+    #[serde(default, rename = "type")]
+    pub downloader_type: Option<DownloaderType>,
+    /// Downloader Web UI URL (e.g., http://localhost:8080)
     #[serde(default)]
     pub url: Option<String>,
-    /// qBittorrent username
+    /// Username (qBittorrent)
     #[serde(default)]
     pub username: Option<String>,
-    /// qBittorrent password (plain text)
+    /// Password (qBittorrent)
     #[serde(default)]
     pub password: Option<String>,
 }
@@ -55,6 +59,11 @@ impl Settings {
     pub fn merge(&self, update: UpdateSettings) -> Self {
         Self {
             downloader: DownloaderSettings {
+                downloader_type: update
+                    .downloader
+                    .as_ref()
+                    .and_then(|d| d.downloader_type)
+                    .or(self.downloader.downloader_type),
                 url: update
                     .downloader
                     .as_ref()
@@ -99,15 +108,18 @@ pub struct UpdateSettings {
 /// Request body for updating downloader settings
 #[derive(Debug, Clone, Default, Deserialize, ToSchema)]
 pub struct UpdateDownloaderSettings {
-    /// qBittorrent Web UI URL (send null to clear)
+    /// Downloader type: qbittorrent
+    #[serde(default, rename = "type")]
+    pub downloader_type: Option<DownloaderType>,
+    /// Downloader Web UI URL (send null to clear)
     #[serde(default)]
     #[schema(value_type = Option<String>)]
     pub url: Clearable<String>,
-    /// qBittorrent username (send null to clear)
+    /// Username (send null to clear)
     #[serde(default)]
     #[schema(value_type = Option<String>)]
     pub username: Clearable<String>,
-    /// qBittorrent password (send null to clear)
+    /// Password (send null to clear)
     #[serde(default)]
     #[schema(value_type = Option<String>)]
     pub password: Clearable<String>,

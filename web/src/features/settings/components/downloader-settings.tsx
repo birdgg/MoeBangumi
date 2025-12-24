@@ -18,6 +18,7 @@ import {
   IconCheck,
   IconX,
 } from "@tabler/icons-react";
+import { testDownloaderConnection } from "@/lib/api";
 
 function SettingsCard({
   children,
@@ -66,22 +67,50 @@ function FormField({
 
 type ConnectionStatus = "idle" | "loading" | "success" | "error";
 
-type DownloaderType = "qbittorrent" | "transmission" | "aria2";
+type DownloaderType = "qbittorrent";
 
 export function DownloaderSettings() {
   const [downloaderType, setDownloaderType] = React.useState<DownloaderType>("qbittorrent");
   const [showPassword, setShowPassword] = React.useState(false);
   const [connectionStatus, setConnectionStatus] = React.useState<ConnectionStatus>("idle");
+  const [errorMessage, setErrorMessage] = React.useState<string>("");
   const [url, setUrl] = React.useState("");
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
 
-  const handleCheckConnection = () => {
+  const handleCheckConnection = async () => {
+    setErrorMessage("");
+
+    if (!url || !username || !password) {
+      setConnectionStatus("error");
+      setErrorMessage("请填写所有必要字段");
+      return;
+    }
+
     setConnectionStatus("loading");
-    // Simulate connection check
-    setTimeout(() => {
-      setConnectionStatus(Math.random() > 0.5 ? "success" : "error");
-    }, 1500);
+
+    try {
+      const { response } = await testDownloaderConnection({
+        body: {
+          type: downloaderType,
+          url,
+          username,
+          password,
+        },
+      });
+
+      if (response.ok) {
+        setConnectionStatus("success");
+        setErrorMessage("");
+      } else {
+        const text = await response.text();
+        setConnectionStatus("error");
+        setErrorMessage(text || "连接失败");
+      }
+    } catch {
+      setConnectionStatus("error");
+      setErrorMessage("网络错误，请检查服务器是否运行");
+    }
   };
 
   return (
@@ -94,8 +123,6 @@ export function DownloaderSettings() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="qbittorrent">qBittorrent</SelectItem>
-              <SelectItem value="transmission" disabled>Transmission</SelectItem>
-              <SelectItem value="aria2" disabled>Aria2</SelectItem>
             </SelectContent>
           </Select>
         </FormField>
@@ -179,10 +206,10 @@ export function DownloaderSettings() {
           )}
           {connectionStatus === "error" && (
             <div className="flex items-center gap-2 text-sm text-destructive">
-              <div className="flex size-6 items-center justify-center rounded-full bg-destructive/10">
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-destructive/10">
                 <IconX className="size-3.5" />
               </div>
-              连接失败
+              <span>{errorMessage || "连接失败"}</span>
             </div>
           )}
         </div>

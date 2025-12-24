@@ -176,22 +176,28 @@ export type CreateBangumi = {
 };
 
 /**
- * Downloader (qBittorrent) configuration
+ * Downloader configuration (supports qBittorrent)
  */
 export type DownloaderSettings = {
   /**
-   * qBittorrent password (plain text)
+   * Password (qBittorrent)
    */
   password?: string | null;
+  type?: null | DownloaderType;
   /**
-   * qBittorrent Web UI URL (e.g., http://localhost:8080)
+   * Downloader Web UI URL (e.g., http://localhost:8080)
    */
   url?: string | null;
   /**
-   * qBittorrent username
+   * Username (qBittorrent)
    */
   username?: string | null;
 };
+
+/**
+ * Downloader type
+ */
+export type DownloaderType = "qbittorrent";
 
 /**
  * Episode item
@@ -307,6 +313,28 @@ export type Subject = {
   platform?: string | null;
 };
 
+/**
+ * Request body for testing downloader connection
+ */
+export type TestDownloaderRequest = {
+  /**
+   * Password
+   */
+  password: string;
+  /**
+   * Downloader type (e.g., "qbittorrent")
+   */
+  type: DownloaderType;
+  /**
+   * Downloader Web UI URL
+   */
+  url: string;
+  /**
+   * Username
+   */
+  username: string;
+};
+
 export type TvShow = {
   backdrop_path?: string | null;
   first_air_date?: string | null;
@@ -328,15 +356,16 @@ export type TvShow = {
  */
 export type UpdateDownloaderSettings = {
   /**
-   * qBittorrent password (send null to clear)
+   * Password (send null to clear)
    */
   password?: string | null;
+  type?: null | DownloaderType;
   /**
-   * qBittorrent Web UI URL (send null to clear)
+   * Downloader Web UI URL (send null to clear)
    */
   url?: string | null;
   /**
-   * qBittorrent username (send null to clear)
+   * Username (send null to clear)
    */
   username?: string | null;
 };
@@ -406,6 +435,60 @@ export type CreateBangumiResponses = {
 
 export type CreateBangumiResponse =
   CreateBangumiResponses[keyof CreateBangumiResponses];
+
+export type TestDownloaderAuthData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/downloader/auth";
+};
+
+export type TestDownloaderAuthErrors = {
+  /**
+   * Downloader not configured
+   */
+  400: unknown;
+  /**
+   * Authentication failed
+   */
+  401: unknown;
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type TestDownloaderAuthResponses = {
+  /**
+   * Authentication successful
+   */
+  200: unknown;
+};
+
+export type TestDownloaderConnectionData = {
+  body: TestDownloaderRequest;
+  path?: never;
+  query?: never;
+  url: "/api/downloader/test";
+};
+
+export type TestDownloaderConnectionErrors = {
+  /**
+   * Authentication failed
+   */
+  401: unknown;
+  /**
+   * Connection error
+   */
+  500: unknown;
+};
+
+export type TestDownloaderConnectionResponses = {
+  /**
+   * Connection successful
+   */
+  200: unknown;
+};
 
 export type GetEpisodesData = {
   body?: never;

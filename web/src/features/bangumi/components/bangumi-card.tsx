@@ -113,7 +113,7 @@ export function BangumiCard({ bangumi, className, style }: BangumiCardProps) {
             {/* Title with kind badge */}
             <div className="flex items-center gap-1.5 mb-1.5">
               <h3 className="line-clamp-1 text-sm font-bold text-white min-w-0 flex-1 drop-shadow-md">
-                {bangumi.title_original}
+                {bangumi.title_original_chinese}
               </h3>
               {bangumi.kind && (
                 <span

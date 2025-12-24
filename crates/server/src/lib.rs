@@ -4,6 +4,7 @@ pub mod db;
 pub mod models;
 pub mod openapi;
 pub mod repositories;
+pub mod seed;
 pub mod services;
 pub mod state;
 
@@ -34,6 +35,14 @@ pub async fn run_server(
     std::fs::create_dir_all(config.posters_path())?;
 
     let pool = create_pool(&config.database_url).await?;
+
+    // Seed database in dev environment
+    if env.is_dev() {
+        if let Err(e) = seed::seed_bangumi(&pool).await {
+            tracing::warn!("Failed to seed database: {}", e);
+        }
+    }
+
     let settings = SettingsService::new(&config).await?;
     let state = AppState::new(pool, config, settings);
     let (router, api) = create_router(state);

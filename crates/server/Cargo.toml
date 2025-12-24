@@ -20,6 +20,7 @@ reqwest.workspace = true
 tmdb = { path = "../tmdb" }
 bgmtv = { path = "../bgmtv" }
 mikan = { path = "../mikan" }
+downloader = { path = "../downloader" }
 chrono.workspace = true
 tower-http.workspace = true
 toml.workspace = true

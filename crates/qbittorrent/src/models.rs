@@ -12,6 +12,9 @@ pub struct AddTorrentRequest {
     /// Category for the torrent
     #[serde(skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
+    /// Tags for the torrent (comma-separated)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<String>,
 }
 
 impl AddTorrentRequest {
@@ -41,6 +44,23 @@ impl AddTorrentRequest {
     /// Set the category
     pub fn category(mut self, category: impl Into<String>) -> Self {
         self.category = Some(category.into());
+        self
+    }
+
+    /// Set tags (will be joined with comma)
+    pub fn tags(mut self, tags: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let tags_str = tags.into_iter().map(Into::into).collect::<Vec<_>>().join(",");
+        self.tags = Some(tags_str);
+        self
+    }
+
+    /// Add a single tag
+    pub fn add_tag(mut self, tag: impl Into<String>) -> Self {
+        let tag = tag.into();
+        self.tags = Some(match self.tags {
+            Some(existing) => format!("{},{}", existing, tag),
+            None => tag,
+        });
         self
     }
 }

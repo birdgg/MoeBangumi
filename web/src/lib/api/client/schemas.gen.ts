@@ -229,21 +229,38 @@ export const CreateBangumiSchema = {
 
 export const DownloaderSettingsSchema = {
   type: "object",
-  description: "Downloader (qBittorrent) configuration",
+  description: "Downloader configuration (supports qBittorrent)",
   properties: {
     password: {
       type: ["string", "null"],
-      description: "qBittorrent password (plain text)",
+      description: "Password (qBittorrent)",
+    },
+    type: {
+      oneOf: [
+        {
+          type: "null",
+        },
+        {
+          $ref: "#/components/schemas/DownloaderType",
+          description: "Downloader type: qbittorrent",
+        },
+      ],
     },
     url: {
       type: ["string", "null"],
-      description: "qBittorrent Web UI URL (e.g., http://localhost:8080)",
+      description: "Downloader Web UI URL (e.g., http://localhost:8080)",
     },
     username: {
       type: ["string", "null"],
-      description: "qBittorrent username",
+      description: "Username (qBittorrent)",
     },
   },
+} as const;
+
+export const DownloaderTypeSchema = {
+  type: "string",
+  description: "Downloader type",
+  enum: ["qbittorrent"],
 } as const;
 
 export const EpisodeSchema = {
@@ -436,6 +453,30 @@ export const SubjectSchema = {
   },
 } as const;
 
+export const TestDownloaderRequestSchema = {
+  type: "object",
+  description: "Request body for testing downloader connection",
+  required: ["type", "url", "username", "password"],
+  properties: {
+    password: {
+      type: "string",
+      description: "Password",
+    },
+    type: {
+      $ref: "#/components/schemas/DownloaderType",
+      description: 'Downloader type (e.g., "qbittorrent")',
+    },
+    url: {
+      type: "string",
+      description: "Downloader Web UI URL",
+    },
+    username: {
+      type: "string",
+      description: "Username",
+    },
+  },
+} as const;
+
 export const TvShowSchema = {
   type: "object",
   required: [
@@ -510,15 +551,26 @@ export const UpdateDownloaderSettingsSchema = {
   properties: {
     password: {
       type: ["string", "null"],
-      description: "qBittorrent password (send null to clear)",
+      description: "Password (send null to clear)",
+    },
+    type: {
+      oneOf: [
+        {
+          type: "null",
+        },
+        {
+          $ref: "#/components/schemas/DownloaderType",
+          description: "Downloader type: qbittorrent",
+        },
+      ],
     },
     url: {
       type: ["string", "null"],
-      description: "qBittorrent Web UI URL (send null to clear)",
+      description: "Downloader Web UI URL (send null to clear)",
     },
     username: {
       type: ["string", "null"],
-      description: "qBittorrent username (send null to clear)",
+      description: "Username (send null to clear)",
     },
   },
 } as const;

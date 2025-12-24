@@ -1,0 +1,18 @@
+[package]
+name = "downloader"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal dependencies
+qbittorrent = { path = "../qbittorrent" }
+
+# External dependencies
+reqwest = { workspace = true, features = ["json", "cookies"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+utoipa = { workspace = true }

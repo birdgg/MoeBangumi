@@ -22,8 +22,18 @@ impl QBittorrentClient {
         if let Some(category) = request.category {
             form = form.text("category", category);
         }
+        if let Some(tags) = request.tags {
+            form = form.text("tags", tags);
+        }
 
-        let response = self.client().post(&url).multipart(form).send().await?;
+        let mut request = self.client().post(&url).multipart(form);
+
+        // Add SID cookie if authenticated
+        if let Some(sid) = self.get_sid().await {
+            request = request.header(reqwest::header::COOKIE, format!("SID={}", sid));
+        }
+
+        let response = request.send().await?;
 
         let status = response.status();
         if status.as_u16() == 415 {

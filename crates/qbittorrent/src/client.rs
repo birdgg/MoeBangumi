@@ -1,11 +1,13 @@
 use reqwest::Client;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::error::QBittorrentError;
 
 pub struct QBittorrentClient {
     client: Client,
     base_url: Arc<str>,
+    sid: RwLock<Option<String>>,
 }
 
 impl QBittorrentClient {
@@ -25,6 +27,7 @@ impl QBittorrentClient {
         Self {
             client,
             base_url: Arc::from(base_url),
+            sid: RwLock::new(None),
         }
     }
 
@@ -34,6 +37,14 @@ impl QBittorrentClient {
 
     pub(crate) fn url(&self, path: &str) -> String {
         format!("{}/api/v2{}", self.base_url, path)
+    }
+
+    pub(crate) async fn set_sid(&self, sid: String) {
+        *self.sid.write().await = Some(sid);
+    }
+
+    pub(crate) async fn get_sid(&self) -> Option<String> {
+        self.sid.read().await.clone()
     }
 
     pub(crate) async fn handle_response(&self, response: reqwest::Response) -> crate::Result<()> {
