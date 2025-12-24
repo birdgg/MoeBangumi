@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useForm } from "@tanstack/react-form";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { parseBgmtvName } from "@/lib/parser";
 import { type Subject, type CreateBangumi, type TvShow } from "@/lib/api";
@@ -118,10 +119,20 @@ export function AddBangumiModal({
         rss_entries: value.rss_entries,
       };
 
-      await createBangumi.mutateAsync({ body: request });
-      onSuccess?.();
-      resetForm();
-      onOpenChange(false);
+      try {
+        await createBangumi.mutateAsync({ body: request });
+        toast.success("添加成功", {
+          description: `「${value.title_chinese}」已添加到追番列表`,
+        });
+        onSuccess?.();
+        resetForm();
+        onOpenChange(false);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "未知错误";
+        toast.error("添加失败", {
+          description: message,
+        });
+      }
     },
   });
 

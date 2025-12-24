@@ -1,6 +1,7 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getBangumiOptions,
+  getBangumiQueryKey,
   searchBgmtvOptions,
   searchTmdbOptions,
   searchMikanOptions,
@@ -42,8 +43,12 @@ export function useEpisodes(subjectId: number) {
 
 // Create a new bangumi
 export function useCreateBangumi() {
+  const queryClient = useQueryClient();
   return useMutation({
-    ...createBangumiMutation()
+    ...createBangumiMutation(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getBangumiQueryKey() });
+    },
   });
 }
 
