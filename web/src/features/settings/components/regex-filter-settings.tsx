@@ -74,14 +74,6 @@ export function RegexFilterSettings({ settings }: RegexFilterSettingsProps) {
     }
   }, [settings]);
 
-  // 检测是否有未保存的修改
-  const isDirty = React.useMemo(() => {
-    const currentPatterns = patterns.map((p) => p.pattern);
-    const originalPatterns = settings?.global_rss_filters ?? [];
-    if (currentPatterns.length !== originalPatterns.length) return true;
-    return currentPatterns.some((p, i) => p !== originalPatterns[i]);
-  }, [patterns, settings]);
-
   // 保存设置
   const handleSave = () => {
     saveSettings({
@@ -214,7 +206,7 @@ export function RegexFilterSettings({ settings }: RegexFilterSettingsProps) {
         <div className="flex items-center justify-end border-t border-border/50 pt-5">
           <Button
             onClick={handleSave}
-            disabled={!isDirty || isSaving}
+            disabled={isSaving}
             className={cn(
               "gap-2",
               "bg-linear-to-r from-chart-3 to-chart-5 text-white",

@@ -6,7 +6,9 @@ use std::sync::Arc;
 use tmdb::TmdbClient;
 
 use crate::config::Config;
-use crate::services::{DownloaderService, SettingsService};
+use crate::services::{
+    DownloaderService, FileRenameJob, RssFetchJob, SchedulerService, SettingsService,
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -18,6 +20,7 @@ pub struct AppState {
     pub mikan: Arc<MikanClient>,
     pub settings: Arc<SettingsService>,
     pub downloader: Arc<DownloaderService>,
+    pub scheduler: Arc<SchedulerService>,
 }
 
 impl AppState {
@@ -30,6 +33,12 @@ impl AppState {
         // Create downloader service with settings subscription
         let downloader = DownloaderService::new(settings.get().downloader, settings.subscribe());
 
+        // Create and start scheduler service
+        let scheduler = SchedulerService::new()
+            .with_job(RssFetchJob::new())
+            .with_job(FileRenameJob::new());
+        scheduler.start();
+
         Self {
             db,
             config: Arc::new(config),
@@ -39,6 +48,7 @@ impl AppState {
             mikan: Arc::new(mikan),
             settings: Arc::new(settings),
             downloader: Arc::new(downloader),
+            scheduler: Arc::new(scheduler),
         }
     }
 }

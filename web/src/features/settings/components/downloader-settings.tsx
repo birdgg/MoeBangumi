@@ -109,17 +109,6 @@ export function DownloaderSettings({ settings }: DownloaderSettingsProps) {
     }
   }, [settings]);
 
-  // 检测是否有未保存的修改
-  const isDirty = React.useMemo(() => {
-    if (!settings) return url || username || password;
-    return (
-      (settings.type ?? "qBittorrent") !== downloaderType ||
-      (settings.url ?? "") !== url ||
-      (settings.username ?? "") !== username ||
-      (settings.password ?? "") !== password
-    );
-  }, [settings, downloaderType, url, username, password]);
-
   // 保存设置
   const handleSave = () => {
     saveSettings({
@@ -274,7 +263,7 @@ export function DownloaderSettings({ settings }: DownloaderSettingsProps) {
         <div className="flex items-center justify-end border-t border-border/50 pt-5">
           <Button
             onClick={handleSave}
-            disabled={!isDirty || isSaving}
+            disabled={isSaving}
             className={cn(
               "gap-2",
               "bg-linear-to-r from-chart-1 to-chart-2 text-white",

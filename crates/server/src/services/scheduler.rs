@@ -1,0 +1,94 @@
+mod file_rename_job;
+mod rss_fetch_job;
+mod traits;
+
+pub use file_rename_job::FileRenameJob;
+pub use rss_fetch_job::RssFetchJob;
+pub use traits::{JobResult, SchedulerJob};
+
+use std::sync::Arc;
+
+/// Scheduler service that manages periodic background tasks.
+///
+/// The scheduler runs registered jobs at their specified intervals.
+/// Each job runs independently in its own tokio task.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let scheduler = SchedulerService::new()
+///     .with_job(RssFetchJob::new())
+///     .with_job(FileRenameJob::new());
+///
+/// scheduler.start();
+/// ```
+pub struct SchedulerService {
+    jobs: Vec<Arc<dyn SchedulerJob>>,
+}
+
+impl SchedulerService {
+    /// Creates a new scheduler service with no jobs.
+    pub fn new() -> Self {
+        Self { jobs: Vec::new() }
+    }
+
+    /// Adds a job to the scheduler.
+    ///
+    /// Jobs are not started until [`start`](Self::start) is called.
+    pub fn with_job<J: SchedulerJob + 'static>(mut self, job: J) -> Self {
+        self.jobs.push(Arc::new(job));
+        self
+    }
+
+    /// Starts all registered jobs.
+    ///
+    /// Each job runs in its own tokio task and executes at its specified interval.
+    /// This method returns immediately after spawning all tasks.
+    pub fn start(&self) {
+        tracing::info!("Starting scheduler with {} jobs", self.jobs.len());
+
+        for job in &self.jobs {
+            let job = Arc::clone(job);
+            tokio::spawn(async move {
+                Self::run_job_loop(job).await;
+            });
+        }
+
+        tracing::info!("Scheduler started");
+    }
+
+    /// Runs a single job in an infinite loop.
+    async fn run_job_loop(job: Arc<dyn SchedulerJob>) {
+        let name = job.name();
+        let interval = job.interval();
+
+        tracing::info!("Job '{}' started with interval {:?}", name, interval);
+
+        let mut timer = tokio::time::interval(interval);
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            timer.tick().await;
+
+            match job.execute().await {
+                Ok(()) => {
+                    tracing::debug!("Job '{}' completed successfully", name);
+                }
+                Err(e) => {
+                    tracing::error!("Job '{}' failed: {}", name, e);
+                }
+            }
+        }
+    }
+
+    /// Returns the number of registered jobs.
+    pub fn job_count(&self) -> usize {
+        self.jobs.len()
+    }
+}
+
+impl Default for SchedulerService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
