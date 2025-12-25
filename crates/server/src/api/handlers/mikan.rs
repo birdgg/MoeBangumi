@@ -4,7 +4,6 @@ use axum::{
 };
 
 use crate::error::AppResult;
-use crate::repositories::CacheRepository;
 use crate::state::AppState;
 
 use super::{IdQuery, MIKAN_DETAIL_CACHE_TTL};
@@ -25,22 +24,15 @@ pub async fn get_mikan_rss(
     Query(query): Query<IdQuery>,
 ) -> AppResult<Json<mikan::BangumiDetail>> {
     let cache_key = format!("mikan:detail:{}", query.id);
+    let mikan = state.mikan.clone();
+    let id = query.id.clone();
 
-    // Try cache first
-    if let Ok(Some(cached)) =
-        CacheRepository::get::<mikan::BangumiDetail>(&state.db, &cache_key, MIKAN_DETAIL_CACHE_TTL)
-            .await
-    {
-        return Ok(Json(cached));
-    }
-
-    // Fetch from Mikan
-    let detail = state.mikan.get_bangumi_detail(&query.id).await?;
-
-    // Cache the results
-    if let Err(e) = CacheRepository::set(&state.db, &cache_key, &detail).await {
-        tracing::warn!("Failed to cache Mikan detail: {}", e);
-    }
+    let detail = state
+        .cache
+        .get_or_fetch(&cache_key, MIKAN_DETAIL_CACHE_TTL, || async move {
+            mikan.get_bangumi_detail(&id).await
+        })
+        .await?;
 
     Ok(Json(detail))
 }

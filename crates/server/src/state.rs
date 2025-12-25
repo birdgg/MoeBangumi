@@ -8,8 +8,8 @@ use tmdb::TmdbClient;
 
 use crate::config::Config;
 use crate::services::{
-    DownloaderService, FileRenameJob, LogCleanupJob, LogService, PosterService, RssFetchJob,
-    SchedulerService, SettingsService,
+    BangumiService, CacheService, DownloaderService, FileRenameJob, LogCleanupJob, LogService,
+    PosterService, RssFetchJob, SchedulerService, SettingsService,
 };
 
 #[derive(Clone)]
@@ -27,6 +27,8 @@ pub struct AppState {
     pub scheduler: Arc<SchedulerService>,
     pub rss_fetch_job: Arc<RssFetchJob>,
     pub logs: Arc<LogService>,
+    pub bangumi: Arc<BangumiService>,
+    pub cache: Arc<CacheService>,
 }
 
 impl AppState {
@@ -47,7 +49,13 @@ impl AppState {
         let downloader = DownloaderService::new(Arc::clone(&settings));
 
         // Create poster service
-        let poster = PosterService::new(http_client.clone(), config.posters_path());
+        let poster = Arc::new(PosterService::new(http_client.clone(), config.posters_path()));
+
+        // Create bangumi service
+        let bangumi = Arc::new(BangumiService::new(db.clone(), Arc::clone(&poster)));
+
+        // Create cache service
+        let cache = Arc::new(CacheService::new(db.clone()));
 
         // Create shared Arc references for scheduler jobs
         let rss_arc = Arc::new(rss);
@@ -77,10 +85,12 @@ impl AppState {
             rss: rss_arc,
             settings,
             downloader: downloader_arc,
-            poster: Arc::new(poster),
+            poster,
             scheduler: Arc::new(scheduler),
             rss_fetch_job,
             logs,
+            bangumi,
+            cache,
         }
     }
 }

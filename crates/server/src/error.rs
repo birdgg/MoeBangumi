@@ -37,6 +37,10 @@ pub enum AppError {
     #[error("海报错误: {0}")]
     Poster(#[from] crate::services::PosterError),
 
+    /// Bangumi 服务错误
+    #[error("Bangumi 错误: {0}")]
+    Bangumi(#[from] crate::services::BangumiError),
+
     /// 外部 API 错误 (bgmtv, tmdb, mikan)
     #[error("外部 API 错误: {0}")]
     ExternalApi(String),
@@ -100,6 +104,13 @@ impl IntoResponse for AppError {
                     "海报服务错误".to_string(),
                     Some(e.to_string()),
                 )
+            }
+            AppError::Bangumi(e) => {
+                let status = match e {
+                    crate::services::BangumiError::NotFound => StatusCode::NOT_FOUND,
+                    _ => StatusCode::INTERNAL_SERVER_ERROR,
+                };
+                (status, "Bangumi 错误".to_string(), Some(e.to_string()))
             }
             AppError::ExternalApi(msg) => {
                 tracing::error!("External API error: {}", msg);

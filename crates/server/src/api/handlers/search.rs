@@ -4,7 +4,6 @@ use axum::{
 };
 
 use crate::error::AppResult;
-use crate::repositories::CacheRepository;
 use crate::state::AppState;
 use tmdb::DiscoverBangumiParams;
 
@@ -67,25 +66,15 @@ pub async fn search_mikan(
     Query(query): Query<SearchQuery>,
 ) -> AppResult<Json<Vec<mikan::SearchResult>>> {
     let cache_key = format!("mikan:search:{}", query.keyword);
+    let mikan = state.mikan.clone();
+    let keyword = query.keyword.clone();
 
-    // Try cache first
-    if let Ok(Some(cached)) = CacheRepository::get::<Vec<mikan::SearchResult>>(
-        &state.db,
-        &cache_key,
-        MIKAN_SEARCH_CACHE_TTL,
-    )
-    .await
-    {
-        return Ok(Json(cached));
-    }
-
-    // Fetch from Mikan
-    let results = state.mikan.search_bangumi(&query.keyword).await?;
-
-    // Cache the results
-    if let Err(e) = CacheRepository::set(&state.db, &cache_key, &results).await {
-        tracing::warn!("Failed to cache Mikan search results: {}", e);
-    }
+    let results = state
+        .cache
+        .get_or_fetch(&cache_key, MIKAN_SEARCH_CACHE_TTL, || async move {
+            mikan.search_bangumi(&keyword).await
+        })
+        .await?;
 
     Ok(Json(results))
 }

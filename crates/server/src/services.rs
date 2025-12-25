@@ -1,3 +1,5 @@
+mod bangumi;
+mod cache;
 mod downloader;
 mod log;
 mod poster;
@@ -5,6 +7,8 @@ mod scheduler;
 mod settings;
 mod tracing_layer;
 
+pub use bangumi::{BangumiError, BangumiService};
+pub use cache::{CacheError, CacheService};
 pub use downloader::{
     AddTorrentOptions, Downloader, DownloaderClient, DownloaderConfig, DownloaderError,
     DownloaderService, DownloaderType,
