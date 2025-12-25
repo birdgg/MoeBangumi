@@ -164,6 +164,10 @@ Each feature's route is defined in `src/routes/` with a simple import of the pag
   - Theme colors are defined in `index.css` and can be changed dynamically via `ThemeColorSelector`
   - Color mapping: `chart-1` (primary), `chart-2`, `chart-3` (secondary), `chart-4`, `chart-5` (accent)
 
+## Database Migrations
+
+Since the project is not yet released, database schema changes should be added directly to `migrations/001_init.sql` instead of creating new migration files. After modifying the init file, delete `data/moe.db` to recreate the database on next server start.
+
 ## Coding Conventions
 
 ### Rust Module Style

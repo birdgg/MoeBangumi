@@ -4,7 +4,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::{broadcast, RwLock};
 
-use crate::models::{CreateLog, Log, LogLevel};
+use crate::models::{CreateLog, Log, LogLevel, LogQueryParams};
 use crate::repositories::LogRepository;
 
 #[derive(Debug, Error)]
@@ -94,6 +94,11 @@ impl LogService {
     /// Get recent logs from in-memory buffer
     pub async fn recent(&self, limit: usize) -> Vec<Log> {
         self.buffer.read().await.get_recent(limit)
+    }
+
+    /// List logs with optional filtering and pagination
+    pub async fn list(&self, params: LogQueryParams) -> Result<Vec<Log>, LogError> {
+        Ok(LogRepository::list(&self.db, params).await?)
     }
 
     /// Clean up old logs from database

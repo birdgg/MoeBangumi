@@ -11,7 +11,6 @@ use tokio_stream::StreamExt;
 
 use crate::error::AppResult;
 use crate::models::{Log, LogQueryParams};
-use crate::repositories::LogRepository;
 use crate::state::AppState;
 
 /// Get logs with optional filtering and pagination
@@ -29,7 +28,7 @@ pub async fn get_logs(
     State(state): State<AppState>,
     Query(params): Query<LogQueryParams>,
 ) -> AppResult<Json<Vec<Log>>> {
-    let logs = LogRepository::list(&state.db, params).await?;
+    let logs = state.logs.list(params).await?;
     Ok(Json(logs))
 }
 
