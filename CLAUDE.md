@@ -19,6 +19,12 @@ cargo check
 
 # Enable debug logging
 RUST_LOG=debug cargo run -p cli
+
+# Run tests
+cargo test
+
+# Run tests for a specific crate
+cargo test -p server
 ```
 
 ### Frontend (Web)
@@ -54,34 +60,48 @@ DATA_PATH=./data  # Data directory for SQLite and posters (default: ./data for d
 
 ## Architecture
 
-This is a Rust workspace containing a TODO REST API built with Axum and SQLite.
+This is a Rust workspace for a Bangumi (anime) tracking and download management application, built with Axum and SQLite.
 
 ### Workspace Structure
 
 - **crates/cli** - CLI entry point, reads config from .env and starts server
-- **crates/server** - Core library with web server logic
-- **crates/bgmtv** - BGM.tv API client crate
-- **crates/qbittorrent** - qBittorrent Web API client crate
+- **crates/server** - Core library with web server, API routes, and business logic
+- **crates/bgmtv** - BGM.tv (Bangumi) API client for anime metadata
+- **crates/qbittorrent** - qBittorrent Web API client
+- **crates/downloader** - Downloader abstraction layer (supports qBittorrent, extensible)
+- **crates/mikan** - Mikan (蜜柑计划) client for anime resource discovery
+- **crates/parser** - Anime filename parser (extracts episode, season, subtitle group, resolution, etc.)
+- **crates/pathgen** - Episode download path generator (Plex/Jellyfin compatible naming)
+- **crates/rss** - RSS feed client for anime resources (Mikan, Nyaa support)
+- **crates/tmdb** - TMDB API client for movie/TV metadata
 - **web/** - Frontend application (React + Vite)
 
 ### Server Module Organization
 
 ```
 server/src/
-├── api/
-├── models.rs       # Data models (Bangumi, CreateBangumi, etc.)
-├── openapi.rs      # OpenAPI documentation
-├── state.rs        # AppState with shared resources
-└── config.rs       # Configuration struct
+├── api/              # API route handlers (grouped by resource)
+├── api.rs            # API module aggregation
+├── models/           # Data models (Bangumi, RSS, Settings, etc.)
+├── models.rs         # Models module aggregation
+├── repositories/     # Database access layer
+├── repositories.rs   # Repositories module aggregation
+├── services/         # Business logic and external service integrations
+├── services.rs       # Services module aggregation
+├── config.rs         # Configuration struct
+├── db.rs             # Database connection and migrations
+├── lib.rs            # Library entry point
+├── openapi.rs        # OpenAPI/Swagger documentation
+├── seed.rs           # Database seeding utilities
+└── state.rs          # AppState with shared resources (DB pool, clients)
 ```
 
 ### Key Patterns
 
-- **State sharing**: SQLite connection pool passed via Axum router state
+- **Layered architecture**: API handlers → Services → Repositories → Database
+- **State sharing**: SQLite connection pool and API clients passed via Axum router state
 - **Async**: All database operations and handlers are async (Tokio runtime)
 - **Error handling**: Handlers log errors with tracing and return appropriate HTTP status codes
-
-### API Endpoints
 
 ## Frontend Architecture
 

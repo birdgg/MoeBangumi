@@ -35,8 +35,11 @@ impl AppState {
         let mikan = MikanClient::new(http_client.clone());
         let rss = RssClient::with_client(http_client.clone());
 
-        // Create downloader service with settings subscription
-        let downloader = DownloaderService::new(settings.get().downloader, settings.subscribe());
+        // Wrap settings in Arc first (needed by DownloaderService)
+        let settings = Arc::new(settings);
+
+        // Create downloader service with settings reference
+        let downloader = DownloaderService::new(Arc::clone(&settings));
 
         // Create poster service
         let poster = PosterService::new(http_client.clone(), config.posters_path());
@@ -63,7 +66,7 @@ impl AppState {
             bgmtv: Arc::new(bgmtv),
             mikan: Arc::new(mikan),
             rss: rss_arc,
-            settings: Arc::new(settings),
+            settings,
             downloader: downloader_arc,
             poster: Arc::new(poster),
             scheduler: Arc::new(scheduler),

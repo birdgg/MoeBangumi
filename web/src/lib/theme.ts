@@ -233,30 +233,7 @@ export const themeColors: ThemeColor[] = [
       },
     },
     preview: "bg-violet-500",
-  },
-  {
-    name: "zinc",
-    label: "Zinc",
-    colors: {
-      light: {
-        chart1: "oklch(0.75 0.01 0)",
-        chart2: "oklch(0.65 0.01 0)",
-        chart3: "oklch(0.55 0.01 0)",
-        chart4: "oklch(0.45 0.01 0)",
-        chart5: "oklch(0.35 0.01 0)",
-        sidebarPrimary: "oklch(0.45 0.01 0)",
-      },
-      dark: {
-        chart1: "oklch(0.75 0.01 0)",
-        chart2: "oklch(0.65 0.01 0)",
-        chart3: "oklch(0.55 0.01 0)",
-        chart4: "oklch(0.45 0.01 0)",
-        chart5: "oklch(0.35 0.01 0)",
-        sidebarPrimary: "oklch(0.65 0.01 0)",
-      },
-    },
-    preview: "bg-zinc-500",
-  },
+  }
 ];
 
 const THEME_COLOR_KEY = "moe-theme-color";

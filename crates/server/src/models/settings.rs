@@ -30,6 +30,9 @@ pub struct DownloaderSettings {
     /// Password (qBittorrent)
     #[serde(default)]
     pub password: String,
+    /// Default save path for downloads
+    #[serde(default = "DownloaderSettings::default_save_path")]
+    pub save_path: String,
 }
 
 impl Default for DownloaderSettings {
@@ -39,6 +42,7 @@ impl Default for DownloaderSettings {
             url: Self::default_url(),
             username: String::new(),
             password: String::new(),
+            save_path: Self::default_save_path(),
         }
     }
 }
@@ -50,6 +54,10 @@ impl DownloaderSettings {
 
     fn default_url() -> String {
         "http://localhost:8080".to_string()
+    }
+
+    fn default_save_path() -> String {
+        "/Media/Bangumi".to_string()
     }
 }
 
@@ -103,6 +111,12 @@ impl Settings {
                     .map(|d| d.password.clone())
                     .unwrap_or(Clearable::Unchanged)
                     .resolve_or_empty(self.downloader.password.clone()),
+                save_path: update
+                    .downloader
+                    .as_ref()
+                    .map(|d| d.save_path.clone())
+                    .unwrap_or(Clearable::Unchanged)
+                    .resolve_or_empty(self.downloader.save_path.clone()),
             },
             filter: FilterSettings {
                 global_rss_filters: update
@@ -144,6 +158,10 @@ pub struct UpdateDownloaderSettings {
     #[serde(default)]
     #[schema(value_type = Option<String>)]
     pub password: Clearable<String>,
+    /// Default save path for downloads (send null to clear)
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub save_path: Clearable<String>,
 }
 
 /// Request body for updating filter settings
