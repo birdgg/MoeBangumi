@@ -1,16 +1,24 @@
-use server::Environment;
+use server::{create_log_channel, DatabaseLayer, Environment};
 use std::env;
 use std::net::SocketAddr;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
+    // Create log channel for database layer
+    let (log_sender, log_receiver) = create_log_channel();
+
+    // Initialize tracing with database layer
+    tracing_subscriber::registry()
+        .with(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive(tracing::Level::INFO.into()),
         )
+        .with(tracing_subscriber::fmt::layer())
+        .with(DatabaseLayer::new(log_sender))
         .init();
 
     let app_env = Environment::from_str(&env::var("APP_ENV").unwrap_or_default());
@@ -23,5 +31,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
 
-    server::run_server(addr, app_env, &data_path, &tmdb_api_key).await
+    server::run_server(addr, app_env, &data_path, &tmdb_api_key, Some(log_receiver)).await
 }

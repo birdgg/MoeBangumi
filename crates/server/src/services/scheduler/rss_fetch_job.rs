@@ -73,7 +73,7 @@ impl SchedulerJob for RssFetchJob {
                     total_filtered += filtered;
                 }
                 Err(e) => {
-                    tracing::error!("Failed to process RSS {} (id={}): {}", rss.url, rss.id, e);
+                    tracing::error!("RSS 订阅处理失败: {} (id={}) - {}", rss.url, rss.id, e);
                     // Continue processing other RSS feeds
                 }
             }
@@ -213,7 +213,7 @@ impl RssFetchJob {
                     new_count += 1;
                 }
                 Err(e) => {
-                    tracing::error!("Failed to add to downloader: {}: {}", title, e);
+                    tracing::error!("下载任务添加失败: {} - {}", title, e);
                     // Mark task as failed
                     DownloadTaskRepository::mark_failed(&self.db, task.id, &e.to_string()).await?;
                 }

@@ -1,10 +1,10 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::IntoResponse,
     Json,
 };
 
+use crate::error::{AppError, AppResult};
 use crate::models::{
     Bangumi, BangumiWithRss, Clearable, CreateBangumi, CreateRss, UpdateBangumi,
     UpdateBangumiRequest,
@@ -26,7 +26,7 @@ use crate::state::AppState;
 pub async fn create_bangumi(
     State(state): State<AppState>,
     Json(mut payload): Json<CreateBangumi>,
-) -> impl IntoResponse {
+) -> AppResult<(StatusCode, Json<Bangumi>)> {
     // Extract RSS entries before creating bangumi
     let rss_entries = payload.rss_entries.clone();
 
@@ -37,30 +37,24 @@ pub async fn create_bangumi(
         }
     }
 
-    match BangumiRepository::create(&state.db, payload).await {
-        Ok(bangumi) => {
-            // Create RSS subscriptions for the new bangumi
-            for entry in rss_entries {
-                let create_rss = CreateRss {
-                    bangumi_id: bangumi.id,
-                    url: entry.url,
-                    enabled: true,
-                    exclude_filters: entry.filters,
-                    is_primary: entry.is_primary,
-                };
+    let bangumi = BangumiRepository::create(&state.db, payload).await?;
 
-                if let Err(e) = RssRepository::create(&state.db, create_rss).await {
-                    tracing::error!("Failed to create RSS subscription: {}", e);
-                }
-            }
+    // Create RSS subscriptions for the new bangumi
+    for entry in rss_entries {
+        let create_rss = CreateRss {
+            bangumi_id: bangumi.id,
+            url: entry.url,
+            enabled: true,
+            exclude_filters: entry.filters,
+            is_primary: entry.is_primary,
+        };
 
-            (StatusCode::CREATED, Json(bangumi)).into_response()
-        }
-        Err(e) => {
-            tracing::error!("Failed to create bangumi: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
+        if let Err(e) = RssRepository::create(&state.db, create_rss).await {
+            tracing::error!("Failed to create RSS subscription: {}", e);
         }
     }
+
+    Ok((StatusCode::CREATED, Json(bangumi)))
 }
 
 /// Get all bangumi
@@ -73,14 +67,9 @@ pub async fn create_bangumi(
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_bangumi(State(state): State<AppState>) -> impl IntoResponse {
-    match BangumiRepository::get_all(&state.db).await {
-        Ok(bangumi_list) => (StatusCode::OK, Json(bangumi_list)).into_response(),
-        Err(e) => {
-            tracing::error!("Failed to get all bangumi: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-        }
-    }
+pub async fn get_bangumi(State(state): State<AppState>) -> AppResult<Json<Vec<Bangumi>>> {
+    let bangumi_list = BangumiRepository::get_all(&state.db).await?;
+    Ok(Json(bangumi_list))
 }
 
 /// Get a bangumi by ID with its RSS subscriptions
@@ -100,30 +89,17 @@ pub async fn get_bangumi(State(state): State<AppState>) -> impl IntoResponse {
 pub async fn get_bangumi_by_id(
     State(state): State<AppState>,
     Path(id): Path<i64>,
-) -> impl IntoResponse {
-    match BangumiRepository::get_by_id(&state.db, id).await {
-        Ok(Some(bangumi)) => {
-            // Get RSS subscriptions for this bangumi
-            match RssRepository::get_by_bangumi_id(&state.db, id).await {
-                Ok(rss_entries) => {
-                    let result = BangumiWithRss {
-                        bangumi,
-                        rss_entries,
-                    };
-                    (StatusCode::OK, Json(result)).into_response()
-                }
-                Err(e) => {
-                    tracing::error!("Failed to get RSS for bangumi {}: {}", id, e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-                }
-            }
-        }
-        Ok(None) => (StatusCode::NOT_FOUND, "Bangumi not found").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to get bangumi {}: {}", id, e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-        }
-    }
+) -> AppResult<Json<BangumiWithRss>> {
+    let bangumi = BangumiRepository::get_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::not_found("Bangumi not found"))?;
+
+    let rss_entries = RssRepository::get_by_bangumi_id(&state.db, id).await?;
+
+    Ok(Json(BangumiWithRss {
+        bangumi,
+        rss_entries,
+    }))
 }
 
 /// Update a bangumi
@@ -145,16 +121,11 @@ pub async fn update_bangumi(
     State(state): State<AppState>,
     Path(id): Path<i64>,
     Json(payload): Json<UpdateBangumiRequest>,
-) -> impl IntoResponse {
+) -> AppResult<Json<BangumiWithRss>> {
     // Check if bangumi exists
-    match BangumiRepository::get_by_id(&state.db, id).await {
-        Ok(Some(_)) => {}
-        Ok(None) => return (StatusCode::NOT_FOUND, "Bangumi not found").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to get bangumi {}: {}", id, e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
-        }
-    }
+    BangumiRepository::get_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::not_found("Bangumi not found"))?;
 
     // Build update data
     let update_data = UpdateBangumi {
@@ -169,18 +140,12 @@ pub async fn update_bangumi(
     };
 
     // Update bangumi
-    if let Err(e) = BangumiRepository::update(&state.db, id, update_data).await {
-        tracing::error!("Failed to update bangumi {}: {}", id, e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
-    }
+    BangumiRepository::update(&state.db, id, update_data).await?;
 
     // Sync RSS entries if provided
     if let Some(rss_entries) = payload.rss_entries {
         // Delete existing RSS entries
-        if let Err(e) = RssRepository::delete_by_bangumi_id(&state.db, id).await {
-            tracing::error!("Failed to delete RSS for bangumi {}: {}", id, e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response();
-        }
+        RssRepository::delete_by_bangumi_id(&state.db, id).await?;
 
         // Create new RSS entries
         for entry in rss_entries {
@@ -199,24 +164,14 @@ pub async fn update_bangumi(
     }
 
     // Return updated bangumi with RSS
-    match BangumiRepository::get_by_id(&state.db, id).await {
-        Ok(Some(bangumi)) => match RssRepository::get_by_bangumi_id(&state.db, id).await {
-            Ok(rss_entries) => {
-                let result = BangumiWithRss {
-                    bangumi,
-                    rss_entries,
-                };
-                (StatusCode::OK, Json(result)).into_response()
-            }
-            Err(e) => {
-                tracing::error!("Failed to get RSS for bangumi {}: {}", id, e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-            }
-        },
-        Ok(None) => (StatusCode::NOT_FOUND, "Bangumi not found").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to get bangumi {}: {}", id, e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-        }
-    }
+    let bangumi = BangumiRepository::get_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::not_found("Bangumi not found"))?;
+
+    let rss_entries = RssRepository::get_by_bangumi_id(&state.db, id).await?;
+
+    Ok(Json(BangumiWithRss {
+        bangumi,
+        rss_entries,
+    }))
 }

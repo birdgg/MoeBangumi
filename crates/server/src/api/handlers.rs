@@ -1,6 +1,7 @@
 mod bangumi;
 mod downloader;
 mod episodes;
+mod events;
 mod mikan;
 mod scheduler;
 mod search;
@@ -31,6 +32,7 @@ pub struct IdQuery {
 pub use bangumi::{create_bangumi, get_bangumi, get_bangumi_by_id, update_bangumi};
 pub use downloader::{test_downloader_connection, TestDownloaderRequest};
 pub use episodes::get_episodes;
+pub use events::{cleanup_events, get_events, stream_events};
 pub use mikan::get_mikan_rss;
 pub use scheduler::trigger_rss_fetch;
 pub use search::{search_bgmtv, search_mikan, search_tmdb};
@@ -43,6 +45,8 @@ pub use bangumi::{__path_create_bangumi, __path_get_bangumi, __path_get_bangumi_
 pub use downloader::__path_test_downloader_connection;
 #[doc(hidden)]
 pub use episodes::__path_get_episodes;
+#[doc(hidden)]
+pub use events::{__path_cleanup_events, __path_get_events, __path_stream_events};
 #[doc(hidden)]
 pub use mikan::__path_get_mikan_rss;
 #[doc(hidden)]

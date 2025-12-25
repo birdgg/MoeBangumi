@@ -1,10 +1,9 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::IntoResponse,
     Json,
 };
 
+use crate::error::AppResult;
 use crate::repositories::CacheRepository;
 use crate::state::AppState;
 
@@ -24,7 +23,7 @@ use super::{IdQuery, MIKAN_DETAIL_CACHE_TTL};
 pub async fn get_mikan_rss(
     State(state): State<AppState>,
     Query(query): Query<IdQuery>,
-) -> impl IntoResponse {
+) -> AppResult<Json<mikan::BangumiDetail>> {
     let cache_key = format!("mikan:detail:{}", query.id);
 
     // Try cache first
@@ -32,21 +31,16 @@ pub async fn get_mikan_rss(
         CacheRepository::get::<mikan::BangumiDetail>(&state.db, &cache_key, MIKAN_DETAIL_CACHE_TTL)
             .await
     {
-        return (StatusCode::OK, Json(cached)).into_response();
+        return Ok(Json(cached));
     }
 
     // Fetch from Mikan
-    match state.mikan.get_bangumi_detail(&query.id).await {
-        Ok(detail) => {
-            // Cache the results
-            if let Err(e) = CacheRepository::set(&state.db, &cache_key, &detail).await {
-                tracing::warn!("Failed to cache Mikan detail: {}", e);
-            }
-            (StatusCode::OK, Json(detail)).into_response()
-        }
-        Err(e) => {
-            tracing::error!("Failed to get Mikan RSS for {}: {}", query.id, e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-        }
+    let detail = state.mikan.get_bangumi_detail(&query.id).await?;
+
+    // Cache the results
+    if let Err(e) = CacheRepository::set(&state.db, &cache_key, &detail).await {
+        tracing::warn!("Failed to cache Mikan detail: {}", e);
     }
+
+    Ok(Json(detail))
 }

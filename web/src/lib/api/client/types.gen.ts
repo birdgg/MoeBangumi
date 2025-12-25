@@ -253,6 +253,31 @@ export type Episode = {
 export type EpisodeType = "Main" | "Special" | "Opening" | "Ending";
 
 /**
+ * System event entity
+ */
+export type Event = {
+  created_at: string;
+  /**
+   * 详细信息，如错误堆栈或额外上下文
+   */
+  details?: string | null;
+  id: number;
+  /**
+   * 事件级别: info, warning, error
+   */
+  level: EventLevel;
+  /**
+   * 事件消息，简短描述发生了什么
+   */
+  message: string;
+};
+
+/**
+ * Event severity level
+ */
+export type EventLevel = "info" | "warning" | "error";
+
+/**
  * Filter configuration
  */
 export type FilterSettings = {
@@ -644,6 +669,80 @@ export type GetEpisodesResponses = {
 
 export type GetEpisodesResponse =
   GetEpisodesResponses[keyof GetEpisodesResponses];
+
+export type CleanupEventsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/events";
+};
+
+export type CleanupEventsErrors = {
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type CleanupEventsResponses = {
+  /**
+   * Old events deleted
+   */
+  200: number;
+};
+
+export type CleanupEventsResponse =
+  CleanupEventsResponses[keyof CleanupEventsResponses];
+
+export type GetEventsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Filter by event level
+     */
+    level?: string | null;
+    /**
+     * Maximum number of events to return (default: 50, max: 500)
+     */
+    limit?: number | null;
+    /**
+     * Number of events to skip (for pagination)
+     */
+    offset?: number | null;
+  };
+  url: "/api/events";
+};
+
+export type GetEventsErrors = {
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type GetEventsResponses = {
+  /**
+   * Events retrieved successfully
+   */
+  200: Array<Event>;
+};
+
+export type GetEventsResponse = GetEventsResponses[keyof GetEventsResponses];
+
+export type StreamEventsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/events/stream";
+};
+
+export type StreamEventsResponses = {
+  /**
+   * SSE event stream
+   */
+  200: unknown;
+};
 
 export type GetMikanRssData = {
   body?: never;

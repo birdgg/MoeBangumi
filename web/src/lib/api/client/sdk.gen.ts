@@ -3,6 +3,9 @@
 import type { Client, Options as Options2, TDataShape } from "./client";
 import { client } from "./client.gen";
 import type {
+  CleanupEventsData,
+  CleanupEventsErrors,
+  CleanupEventsResponses,
   CreateBangumiData,
   CreateBangumiErrors,
   CreateBangumiResponses,
@@ -15,6 +18,9 @@ import type {
   GetEpisodesData,
   GetEpisodesErrors,
   GetEpisodesResponses,
+  GetEventsData,
+  GetEventsErrors,
+  GetEventsResponses,
   GetMikanRssData,
   GetMikanRssErrors,
   GetMikanRssResponses,
@@ -33,6 +39,8 @@ import type {
   SearchTmdbData,
   SearchTmdbErrors,
   SearchTmdbResponses,
+  StreamEventsData,
+  StreamEventsResponses,
   TestDownloaderConnectionData,
   TestDownloaderConnectionErrors,
   TestDownloaderConnectionResponses,
@@ -156,6 +164,42 @@ export const getEpisodes = <ThrowOnError extends boolean = false>(
     GetEpisodesErrors,
     ThrowOnError
   >({ url: "/api/episodes/{subject_id}", ...options });
+
+/**
+ * Delete old events (cleanup endpoint)
+ */
+export const cleanupEvents = <ThrowOnError extends boolean = false>(
+  options?: Options<CleanupEventsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).delete<
+    CleanupEventsResponses,
+    CleanupEventsErrors,
+    ThrowOnError
+  >({ url: "/api/events", ...options });
+
+/**
+ * Get events with optional filtering and pagination
+ */
+export const getEvents = <ThrowOnError extends boolean = false>(
+  options?: Options<GetEventsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetEventsResponses,
+    GetEventsErrors,
+    ThrowOnError
+  >({ url: "/api/events", ...options });
+
+/**
+ * Stream events via Server-Sent Events (SSE)
+ */
+export const streamEvents = <ThrowOnError extends boolean = false>(
+  options?: Options<StreamEventsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).sse.get<
+    StreamEventsResponses,
+    unknown,
+    ThrowOnError
+  >({ url: "/api/events/stream", ...options });
 
 /**
  * Get bangumi detail with RSS URLs from Mikan

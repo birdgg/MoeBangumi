@@ -1,6 +1,7 @@
-use axum::{http::StatusCode, response::IntoResponse, Json};
+use axum::Json;
 use serde::Deserialize;
 
+use crate::error::AppResult;
 use crate::services::{Downloader, DownloaderClient, DownloaderConfig, DownloaderType};
 
 /// Request body for testing downloader connection
@@ -31,7 +32,7 @@ pub struct TestDownloaderRequest {
 )]
 pub async fn test_downloader_connection(
     Json(payload): Json<TestDownloaderRequest>,
-) -> impl IntoResponse {
+) -> AppResult<&'static str> {
     let config = DownloaderConfig {
         downloader_type: payload.downloader_type,
         url: payload.url,
@@ -39,23 +40,9 @@ pub async fn test_downloader_connection(
         password: Some(payload.password),
     };
 
-    let client = match DownloaderClient::from_config(config) {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Failed to create downloader client: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create downloader client")
-                .into_response();
-        }
-    };
+    let client = DownloaderClient::from_config(config)?;
+    client.authenticate().await?;
 
-    match client.authenticate().await {
-        Ok(()) => {
-            tracing::info!("Downloader connection test successful");
-            (StatusCode::OK, "Connection successful").into_response()
-        }
-        Err(e) => {
-            tracing::error!("Downloader connection test failed: {}", e);
-            (StatusCode::UNAUTHORIZED, format!("Connection failed: {}", e)).into_response()
-        }
-    }
+    tracing::info!("Downloader connection test successful");
+    Ok("Connection successful")
 }

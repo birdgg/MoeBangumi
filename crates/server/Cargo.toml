@@ -28,3 +28,6 @@ chrono.workspace = true
 tower-http.workspace = true
 toml.workspace = true
 regex.workspace = true
+futures = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }
+tracing-subscriber.workspace = true

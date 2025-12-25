@@ -12,6 +12,7 @@ import {
   IconCalendarWeek,
   IconSettings,
   IconSparkles,
+  IconFileText,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
@@ -19,12 +20,13 @@ interface SidebarItem {
   id: string;
   label: string;
   icon: React.ReactNode;
-  path?: "/" | "/settings";
+  path?: "/" | "/settings" | "/events";
 }
 
 const sidebarItems: SidebarItem[] = [
   { id: "anime", label: "动漫", icon: <IconDeviceTv />, path: "/" },
   { id: "schedule", label: "每日放送", icon: <IconCalendarWeek /> },
+  { id: "events", label: "日志", icon: <IconFileText />, path: "/events" },
   { id: "settings", label: "设置", icon: <IconSettings />, path: "/settings" },
 ];
 
@@ -52,6 +54,7 @@ export function AppSidebar() {
   const getActiveItem = () => {
     if (location.pathname === "/settings") return "settings";
     if (location.pathname === "/schedule") return "schedule";
+    if (location.pathname === "/events") return "events";
     return "anime";
   };
   const activeItem = getActiveItem();

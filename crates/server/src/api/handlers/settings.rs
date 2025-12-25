@@ -1,5 +1,6 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, Json};
 
+use crate::error::AppResult;
 use crate::models::{Settings, UpdateSettings};
 use crate::state::AppState;
 
@@ -13,9 +14,8 @@ use crate::state::AppState;
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_settings(State(state): State<AppState>) -> impl IntoResponse {
-    let settings = state.settings.get();
-    (StatusCode::OK, Json(settings)).into_response()
+pub async fn get_settings(State(state): State<AppState>) -> Json<Settings> {
+    Json(state.settings.get())
 }
 
 /// Update application settings
@@ -32,14 +32,9 @@ pub async fn get_settings(State(state): State<AppState>) -> impl IntoResponse {
 pub async fn update_settings(
     State(state): State<AppState>,
     Json(payload): Json<UpdateSettings>,
-) -> impl IntoResponse {
-    match state.settings.update(payload).await {
-        Ok(settings) => (StatusCode::OK, Json(settings)).into_response(),
-        Err(e) => {
-            tracing::error!("Failed to update settings: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-        }
-    }
+) -> AppResult<Json<Settings>> {
+    let settings = state.settings.update(payload).await?;
+    Ok(Json(settings))
 }
 
 /// Reset settings to defaults
@@ -52,12 +47,7 @@ pub async fn update_settings(
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn reset_settings(State(state): State<AppState>) -> impl IntoResponse {
-    match state.settings.reset().await {
-        Ok(settings) => (StatusCode::OK, Json(settings)).into_response(),
-        Err(e) => {
-            tracing::error!("Failed to reset settings: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error").into_response()
-        }
-    }
+pub async fn reset_settings(State(state): State<AppState>) -> AppResult<Json<Settings>> {
+    let settings = state.settings.reset().await?;
+    Ok(Json(settings))
 }

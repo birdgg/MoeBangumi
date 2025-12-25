@@ -1,5 +1,6 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse};
+use axum::extract::State;
 
+use crate::error::{AppError, AppResult};
 use crate::services::SchedulerJob;
 use crate::state::AppState;
 
@@ -13,21 +14,15 @@ use crate::state::AppState;
         (status = 500, description = "Job execution failed")
     )
 )]
-pub async fn trigger_rss_fetch(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn trigger_rss_fetch(State(state): State<AppState>) -> AppResult<&'static str> {
     tracing::info!("Manually triggering RSS fetch job");
 
-    match state.rss_fetch_job.execute().await {
-        Ok(()) => {
-            tracing::info!("Manual RSS fetch job completed successfully");
-            (StatusCode::OK, "RSS fetch job completed successfully").into_response()
-        }
-        Err(e) => {
-            tracing::error!("Manual RSS fetch job failed: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("RSS fetch job failed: {}", e),
-            )
-                .into_response()
-        }
-    }
+    state
+        .rss_fetch_job
+        .execute()
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
+
+    tracing::info!("Manual RSS fetch job completed successfully");
+    Ok("RSS fetch job completed successfully")
 }

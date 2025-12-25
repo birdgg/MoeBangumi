@@ -2,16 +2,20 @@
 
 import {
   type DefaultError,
+  type InfiniteData,
+  infiniteQueryOptions,
   queryOptions,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 
 import { client } from "../client.gen";
 import {
+  cleanupEvents,
   createBangumi,
   getBangumi,
   getBangumiById,
   getEpisodes,
+  getEvents,
   getMikanRss,
   getSettings,
   type Options,
@@ -25,6 +29,8 @@ import {
   updateSettings,
 } from "../sdk.gen";
 import type {
+  CleanupEventsData,
+  CleanupEventsResponse,
   CreateBangumiData,
   CreateBangumiResponse,
   GetBangumiByIdData,
@@ -33,6 +39,8 @@ import type {
   GetBangumiResponse,
   GetEpisodesData,
   GetEpisodesResponse,
+  GetEventsData,
+  GetEventsResponse,
   GetMikanRssData,
   GetMikanRssResponse,
   GetSettingsData,
@@ -248,6 +256,141 @@ export const getEpisodesOptions = (options: Options<GetEpisodesData>) =>
     },
     queryKey: getEpisodesQueryKey(options),
   });
+
+/**
+ * Delete old events (cleanup endpoint)
+ */
+export const cleanupEventsMutation = (
+  options?: Partial<Options<CleanupEventsData>>,
+): UseMutationOptions<
+  CleanupEventsResponse,
+  DefaultError,
+  Options<CleanupEventsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CleanupEventsResponse,
+    DefaultError,
+    Options<CleanupEventsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await cleanupEvents({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const getEventsQueryKey = (options?: Options<GetEventsData>) =>
+  createQueryKey("getEvents", options);
+
+/**
+ * Get events with optional filtering and pagination
+ */
+export const getEventsOptions = (options?: Options<GetEventsData>) =>
+  queryOptions<
+    GetEventsResponse,
+    DefaultError,
+    GetEventsResponse,
+    ReturnType<typeof getEventsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getEvents({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getEventsQueryKey(options),
+  });
+
+const createInfiniteParams = <
+  K extends Pick<QueryKey<Options>[0], "body" | "headers" | "path" | "query">,
+>(
+  queryKey: QueryKey<Options>,
+  page: K,
+) => {
+  const params = { ...queryKey[0] };
+  if (page.body) {
+    params.body = {
+      ...(queryKey[0].body as any),
+      ...(page.body as any),
+    };
+  }
+  if (page.headers) {
+    params.headers = {
+      ...queryKey[0].headers,
+      ...page.headers,
+    };
+  }
+  if (page.path) {
+    params.path = {
+      ...(queryKey[0].path as any),
+      ...(page.path as any),
+    };
+  }
+  if (page.query) {
+    params.query = {
+      ...(queryKey[0].query as any),
+      ...(page.query as any),
+    };
+  }
+  return params as unknown as typeof page;
+};
+
+export const getEventsInfiniteQueryKey = (
+  options?: Options<GetEventsData>,
+): QueryKey<Options<GetEventsData>> =>
+  createQueryKey("getEvents", options, true);
+
+/**
+ * Get events with optional filtering and pagination
+ */
+export const getEventsInfiniteOptions = (options?: Options<GetEventsData>) =>
+  infiniteQueryOptions<
+    GetEventsResponse,
+    DefaultError,
+    InfiniteData<GetEventsResponse>,
+    QueryKey<Options<GetEventsData>>,
+    | number
+    | null
+    | Pick<
+        QueryKey<Options<GetEventsData>>[0],
+        "body" | "headers" | "path" | "query"
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<GetEventsData>>[0],
+          "body" | "headers" | "path" | "query"
+        > =
+          typeof pageParam === "object"
+            ? pageParam
+            : {
+                query: {
+                  offset: pageParam,
+                },
+              };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await getEvents({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        });
+        return data;
+      },
+      queryKey: getEventsInfiniteQueryKey(options),
+    },
+  );
 
 export const getMikanRssQueryKey = (options: Options<GetMikanRssData>) =>
   createQueryKey("getMikanRss", options);

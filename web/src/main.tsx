@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { RouterProvider, createRouter } from "@tanstack/react-router"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { Toaster } from "@/components/ui/sonner"
+import { EventStreamProvider } from "@/components/event-stream-provider"
 
 import "./index.css"
 import { queryClient } from "./lib/query-client"
@@ -31,8 +32,10 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <Toaster position="bottom-right" />
+        <EventStreamProvider>
+          <RouterProvider router={router} />
+          <Toaster position="bottom-right" />
+        </EventStreamProvider>
       </QueryClientProvider>
     </StrictMode>
   )

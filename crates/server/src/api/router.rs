@@ -21,6 +21,8 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::reset_settings))
         .routes(routes!(handlers::test_downloader_connection))
         .routes(routes!(handlers::trigger_rss_fetch))
+        .routes(routes!(handlers::get_events, handlers::cleanup_events))
+        .routes(routes!(handlers::stream_events))
         .with_state(state)
         .split_for_parts();
 

@@ -1,6 +1,7 @@
 pub mod api;
 pub mod config;
 pub mod db;
+pub mod error;
 pub mod models;
 pub mod openapi;
 pub mod repositories;
@@ -17,7 +18,8 @@ use utoipa_scalar::{Scalar, Servable};
 pub use api::create_router;
 pub use config::{Config, Environment};
 pub use db::create_pool;
-pub use services::SettingsService;
+pub use error::{AppError, AppResult};
+pub use services::{create_log_channel, start_log_writer, DatabaseLayer, LogReceiver, SettingsService};
 pub use state::AppState;
 
 const STATIC_DIR: &str = "/app/dist";
@@ -27,6 +29,7 @@ pub async fn run_server(
     env: Environment,
     data_path: &str,
     tmdb_api_key: &str,
+    log_receiver: Option<LogReceiver>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::new(env, data_path, tmdb_api_key.to_string());
 
@@ -46,6 +49,12 @@ pub async fn run_server(
     let settings = SettingsService::new(&config).await?;
     let posters_path = config.posters_path();
     let state = AppState::new(pool, config, settings);
+
+    // Start log writer if receiver is provided
+    if let Some(receiver) = log_receiver {
+        start_log_writer(receiver, state.events.clone());
+    }
+
     let (router, api) = create_router(state);
 
     // Serve poster images from data directory

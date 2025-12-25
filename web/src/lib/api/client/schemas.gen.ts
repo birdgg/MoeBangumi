@@ -326,6 +326,40 @@ export const EpisodeTypeSchema = {
   enum: ["Main", "Special", "Opening", "Ending"],
 } as const;
 
+export const EventSchema = {
+  type: "object",
+  description: "System event entity",
+  required: ["id", "created_at", "level", "message"],
+  properties: {
+    created_at: {
+      type: "string",
+      format: "date-time",
+    },
+    details: {
+      type: ["string", "null"],
+      description: "详细信息，如错误堆栈或额外上下文",
+    },
+    id: {
+      type: "integer",
+      format: "int64",
+    },
+    level: {
+      $ref: "#/components/schemas/EventLevel",
+      description: "事件级别: info, warning, error",
+    },
+    message: {
+      type: "string",
+      description: "事件消息，简短描述发生了什么",
+    },
+  },
+} as const;
+
+export const EventLevelSchema = {
+  type: "string",
+  description: "Event severity level",
+  enum: ["info", "warning", "error"],
+} as const;
+
 export const FilterSettingsSchema = {
   type: "object",
   description: "Filter configuration",

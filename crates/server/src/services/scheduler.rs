@@ -1,7 +1,9 @@
+mod event_cleanup_job;
 mod file_rename_job;
 mod rss_fetch_job;
 mod traits;
 
+pub use event_cleanup_job::EventCleanupJob;
 pub use file_rename_job::FileRenameJob;
 pub use rss_fetch_job::RssFetchJob;
 pub use traits::{JobResult, SchedulerJob};
