@@ -21,6 +21,7 @@ tmdb = { path = "../tmdb" }
 bgmtv = { path = "../bgmtv" }
 mikan = { path = "../mikan" }
 qbittorrent = { path = "../qbittorrent" }
+downloader = { path = "../downloader" }
 chrono.workspace = true
 tower-http.workspace = true
 toml.workspace = true

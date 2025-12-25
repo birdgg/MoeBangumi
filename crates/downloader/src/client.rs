@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 
-use super::config::DownloaderConfig;
-use super::error::{DownloaderError, Result};
-use super::models::AddTorrentOptions;
-use super::qbittorrent_impl::QBittorrentDownloader;
-use super::traits::Downloader;
-use crate::models::DownloaderType;
+use crate::config::DownloaderConfig;
+use crate::error::{DownloaderError, Result};
+use crate::models::{AddTorrentOptions, DownloaderType};
+use crate::qbittorrent_impl::QBittorrentDownloader;
+use crate::traits::Downloader;
 
 /// Unified downloader client (enum dispatch)
 pub enum DownloaderClient {

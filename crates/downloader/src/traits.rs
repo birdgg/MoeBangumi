@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use super::error::Result;
-use super::models::AddTorrentOptions;
+use crate::error::Result;
+use crate::models::AddTorrentOptions;
 
 /// Unified downloader interface
 #[async_trait]

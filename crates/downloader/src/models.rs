@@ -1,3 +1,14 @@
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+
+/// Downloader type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum DownloaderType {
+    #[default]
+    QBittorrent,
+}
+
 /// Options for adding a torrent
 #[derive(Debug, Clone, Default)]
 pub struct AddTorrentOptions {
