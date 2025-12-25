@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
 import { IconDownload } from "@tabler/icons-react";
 import type { Bangumi } from "@/lib/api";
+import { SeasonBadge } from "./season-badge";
+import { StatusBadge } from "./status-badge";
 
 interface BangumiCardProps {
   bangumi: Bangumi;
@@ -10,25 +12,11 @@ interface BangumiCardProps {
   onClick?: () => void;
 }
 
-// Helper function to format season with cute emoji
-function formatSeason(season: number, year: number): { text: string; emoji: string } {
-  const seasonMap: Record<number, { name: string; emoji: string }> = {
-    1: { name: "冬", emoji: "❄️" },
-    2: { name: "春", emoji: "🌸" },
-    3: { name: "夏", emoji: "🌻" },
-    4: { name: "秋", emoji: "🍂" },
-  };
-  const s = seasonMap[season] || { name: "", emoji: "✨" };
-  return { text: `${year}${s.name}`, emoji: s.emoji };
-}
-
 export function BangumiCard({ bangumi, className, style, animate = true, onClick }: BangumiCardProps) {
   const progress =
     bangumi.current_episode && bangumi.total_episodes > 0
       ? Math.round((bangumi.current_episode / bangumi.total_episodes) * 100)
       : 0;
-
-  const season = formatSeason(bangumi.season, bangumi.year);
 
   return (
     <div
@@ -82,34 +70,8 @@ export function BangumiCard({ bangumi, className, style, animate = true, onClick
 
           {/* Top badges row */}
           <div className="absolute inset-x-2 top-2 flex items-center justify-between">
-            {/* Status badge */}
-            <div
-              className={cn(
-                "flex items-center gap-1 rounded-full px-2 py-0.5",
-                "text-[10px] font-bold",
-                "backdrop-blur-md transition-all duration-300",
-                "shadow-sm",
-                bangumi.finished
-                  ? "bg-emerald-400/90 text-emerald-950"
-                  : "bg-amber-300/90 text-amber-900"
-              )}
-            >
-              <span>{bangumi.finished ? "✓" : "♡"}</span>
-              <span>{bangumi.finished ? "完结" : "追番中"}</span>
-            </div>
-
-            {/* Season badge */}
-            <span
-              className={cn(
-                "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5",
-                "text-[10px] font-bold",
-                "bg-white/80 text-chart-2 backdrop-blur-md shadow-sm",
-                "dark:bg-zinc-900/80 dark:text-chart-1"
-              )}
-            >
-              <span>{season.emoji}</span>
-              <span>{season.text}</span>
-            </span>
+            <StatusBadge finished={bangumi.finished} variant="overlay" />
+            <SeasonBadge season={bangumi.season} year={bangumi.year} />
           </div>
 
           {/* Bottom info overlay */}

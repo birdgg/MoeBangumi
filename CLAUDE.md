@@ -133,6 +133,7 @@ Each feature's route is defined in `src/routes/` with a simple import of the pag
 - **CSS Variables**: Theme colors defined in `index.css` using oklch
 - **Dark mode**: Toggle via `.dark` class on document element
 - **Component styling**: Uses `cn()` helper for conditional class merging
+- **Extract reusable components**: When similar UI patterns appear in multiple places (e.g., info cards, form sections), extract them into shared components in the feature's `components/` directory. Components should be flexible via props rather than duplicating code.
 
 ### TailwindCSS 4 Conventions
 

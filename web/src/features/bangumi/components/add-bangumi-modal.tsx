@@ -17,7 +17,6 @@ import {
   IconX,
   IconSparkles,
   IconLoader2,
-  IconDeviceTv,
   IconDownload,
   IconFolder,
   IconHash,
@@ -26,15 +25,12 @@ import {
   IconSearch,
   IconPlus,
   IconTrash,
-  IconCalendar,
-  IconStack2,
-  IconPlayerPlay,
-  IconCircleCheck,
   IconStar,
   IconStarFilled,
 } from "@tabler/icons-react";
 import { TmdbMatcher } from "./tmdb-matcher";
 import { MikanRssModal } from "./mikan-rss-modal";
+import { BangumiInfoCard } from "./bangumi-info-card";
 
 interface RssEntry {
   url: string;
@@ -219,9 +215,6 @@ export function AddBangumiModal({
               <DialogPrimitive.Title className="flex-1 text-base font-semibold bg-linear-to-r from-chart-3 via-chart-1 to-chart-5 bg-clip-text text-transparent">
                 添加番剧
               </DialogPrimitive.Title>
-              <DialogPrimitive.Description className="sr-only">
-                填写番剧信息并添加到追番列表
-              </DialogPrimitive.Description>
               <DialogPrimitive.Close
                 className={cn(
                   "flex size-7 items-center justify-center rounded-md",
@@ -248,94 +241,17 @@ export function AddBangumiModal({
             <div className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {/* Subject Info Card */}
               {subject && (
-                <div className="relative overflow-hidden rounded-xl border border-chart-3/20 dark:border-chart-1/20 bg-linear-to-br from-chart-3/5 via-transparent to-chart-1/5 dark:from-chart-3/10 dark:to-chart-1/10">
-                  {/* Background blur effect from poster */}
-                  {subject.image && (
-                    <div
-                      className="absolute inset-0 opacity-20 dark:opacity-30 blur-2xl scale-150"
-                      style={{
-                        backgroundImage: `url(${subject.image})`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                      }}
-                    />
-                  )}
-
-                  <div className="relative flex gap-4 p-4">
-                    {/* Poster */}
-                    <div className="shrink-0">
-                      {subject.image ? (
-                        <img
-                          src={subject.image}
-                          alt={subject.name_cn || subject.name}
-                          className="w-20 h-28 object-cover rounded-lg shadow-lg ring-1 ring-white/10"
-                        />
-                      ) : (
-                        <div className="w-20 h-28 rounded-lg bg-chart-3/20 dark:bg-chart-1/20 flex items-center justify-center">
-                          <IconDeviceTv className="size-8 text-chart-3/50 dark:text-chart-1/50" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                      <div className="space-y-1">
-                        <h3 className="font-semibold text-foreground truncate">
-                          {subject.name_cn || subject.name}
-                        </h3>
-                        {subject.name_cn && subject.name !== subject.name_cn && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {subject.name}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {subject.date && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-3/15 dark:bg-chart-3/20 text-chart-3 dark:text-chart-3">
-                            <IconCalendar className="size-3" />
-                            {subject.date}
-                          </span>
-                        )}
-                        {subject.eps && subject.eps > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-1/15 dark:bg-chart-1/20 text-chart-1 dark:text-chart-1">
-                            <IconStack2 className="size-3" />
-                            {subject.eps} 话
-                          </span>
-                        )}
-                        {parsedTitles.season > 1 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-5/15 dark:bg-chart-5/20 text-chart-5 dark:text-chart-5">
-                            第 {parsedTitles.season} 季
-                          </span>
-                        )}
-                        {subject.platform && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-2/15 dark:bg-chart-2/20 text-chart-2 dark:text-chart-2">
-                            {subject.platform}
-                          </span>
-                        )}
-                        <span className={cn(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs",
-                          isFinished
-                            ? "bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                            : "bg-amber-500/15 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400"
-                        )}>
-                          {isFinished ? (
-                            <>
-                              <IconCircleCheck className="size-3" />
-                              已完结
-                            </>
-                          ) : (
-                            <>
-                              <IconPlayerPlay className="size-3" />
-                              放送中
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <BangumiInfoCard
+                  posterUrl={subject.image}
+                  titleChinese={subject.name_cn || subject.name}
+                  titleJapanese={subject.name_cn ? subject.name : null}
+                  year={subject.date ? parseInt(subject.date.split("-")[0]) : null}
+                  broadcastSeason={subject.date ? Math.ceil(parseInt(subject.date.split("-")[1]) / 3) : null}
+                  totalEpisodes={subject.eps}
+                  seasonNumber={parsedTitles.season}
+                  platform={subject.platform}
+                  isFinished={isFinished}
+                />
               )}
 
               <FieldGroup>

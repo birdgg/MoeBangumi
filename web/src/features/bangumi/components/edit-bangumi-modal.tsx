@@ -23,6 +23,7 @@ import {
   IconStarFilled,
 } from "@tabler/icons-react";
 import { MikanRssModal } from "./mikan-rss-modal";
+import { BangumiInfoCard } from "./bangumi-info-card";
 
 interface RssFormEntry {
   url: string;
@@ -120,17 +121,17 @@ export function EditBangumiModal({
         <DialogPrimitive.Backdrop
           className={cn(
             "fixed inset-0 z-50",
-            "bg-black/20 dark:bg-black/40 backdrop-blur-sm",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "duration-200"
+            "bg-black/20 dark:bg-black/40",
+            "data-[state=open]:animate-modal-backdrop-in",
+            "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+            "duration-300"
           )}
         />
 
         {/* Modal */}
         <DialogPrimitive.Popup
           className={cn(
-            "fixed top-1/2 z-50 -translate-y-1/2",
+            "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
             "w-[calc(100%-2rem)] max-w-xl",
             "max-h-[90vh] overflow-hidden",
             "rounded-2xl",
@@ -139,32 +140,28 @@ export function EditBangumiModal({
             "border border-chart-3/30 dark:border-chart-1/30",
             "shadow-2xl shadow-chart-3/20 dark:shadow-chart-1/50",
             "backdrop-blur-xl",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-            "duration-300 ease-out",
+            "data-[state=open]:animate-modal-popup-in",
+            "data-[state=closed]:animate-modal-popup-out",
             "outline-none",
-            "transition-all",
-            mikanModalOpen
-              ? "left-[25%] -translate-x-1/2 scale-95 opacity-80"
-              : "left-1/2 -translate-x-1/2"
+            "will-change-transform",
+            mikanModalOpen &&
+            "left-[25%]! scale-95 opacity-80 transition-all duration-300"
           )}
         >
           {/* Decorative elements */}
-          <div className="pointer-events-none absolute -right-20 -top-20 size-40 rounded-full bg-linear-to-br from-chart-3/30 to-chart-1/30 blur-3xl dark:from-chart-3/20 dark:to-chart-1/20" />
+          <div className="pointer-events-none absolute -right-20 -top-20 size-40 rounded-full bg-linear-to-br from-chart-3/30 to-chart-1/30 blur-3xl dark:from-chart-3/20 dark:to-chart-1/20 animate-modal-glow" />
+          <div className="pointer-events-none absolute -left-16 -bottom-16 size-32 rounded-full bg-linear-to-tr from-chart-1/20 to-chart-5/20 blur-2xl dark:from-chart-1/15 dark:to-chart-5/15 animate-modal-glow [animation-delay:2s]" />
 
           {/* Header */}
-          <div className="relative border-b border-chart-3/30 dark:border-chart-1/20 px-4 py-3">
+          <div className="relative border-b border-chart-3/30 dark:border-chart-1/20 px-4 py-3 animate-modal-header">
             <div className="flex items-center gap-2.5">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-chart-3 to-chart-1 text-white shadow-md shadow-chart-1/30">
-                <IconEdit className="size-4" />
+              <div className="relative flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-chart-3 to-chart-1 text-white shadow-md shadow-chart-1/30 overflow-hidden">
+                <IconEdit className="size-4 relative z-10" />
+                <div className="absolute inset-0 animate-shimmer" />
               </div>
               <DialogPrimitive.Title className="flex-1 text-base font-semibold bg-linear-to-r from-chart-3 via-chart-1 to-chart-5 bg-clip-text text-transparent">
                 编辑番剧
               </DialogPrimitive.Title>
-              <DialogPrimitive.Description className="sr-only">
-                编辑番剧的下载设置
-              </DialogPrimitive.Description>
               <DialogPrimitive.Close
                 className={cn(
                   "flex size-7 items-center justify-center rounded-md",
@@ -188,7 +185,7 @@ export function EditBangumiModal({
             }}
             className="relative flex flex-col max-h-[calc(90vh-80px)]"
           >
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] animate-modal-content">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <IconLoader2 className="size-8 animate-spin text-chart-1" />
@@ -196,25 +193,19 @@ export function EditBangumiModal({
               ) : (
                 <>
                   {/* Bangumi Info Header */}
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-chart-3/5 dark:bg-chart-1/5 border border-chart-3/20 dark:border-chart-1/20">
-                    {bangumi.poster_url && (
-                      <img
-                        src={bangumi.poster_url}
-                        alt={bangumi.title_chinese}
-                        className="w-12 h-16 object-cover rounded-lg shadow-md"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground truncate">
-                        {bangumi.title_chinese}
-                      </h3>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {bangumi.title_original_chinese}
-                      </p>
-                    </div>
-                  </div>
+                  <BangumiInfoCard
+                    posterUrl={bangumi.poster_url}
+                    titleChinese={bangumi.title_chinese}
+                    titleJapanese={bangumi.title_original_japanese}
+                    year={bangumi.year}
+                    broadcastSeason={bangumi.season}
+                    totalEpisodes={bangumi.total_episodes}
+                    platform={bangumi.kind}
+                    isFinished={bangumi.finished}
+                    className="animate-modal-content [animation-delay:0.2s]"
+                  />
 
-                  <FieldGroup>
+                  <FieldGroup className="animate-modal-content [animation-delay:0.25s]">
                     {/* Episode Offset */}
                     <form.Field name="episode_offset">
                       {(field) => (
@@ -508,7 +499,7 @@ export function EditBangumiModal({
             </div>
 
             {/* Footer */}
-            <div className="relative shrink-0 border-t border-chart-3/30 dark:border-chart-1/20 p-4 bg-linear-to-br from-white/95 via-white/90 to-chart-3/10 dark:from-zinc-900/95 dark:via-zinc-900/90 dark:to-chart-1/20">
+            <div className="relative shrink-0 border-t border-chart-3/30 dark:border-chart-1/20 p-4 bg-linear-to-br from-white/95 via-white/90 to-chart-3/10 dark:from-zinc-900/95 dark:via-zinc-900/90 dark:to-chart-1/20 animate-modal-content [animation-delay:0.2s]">
               <div className="flex justify-end gap-3">
                 <DialogPrimitive.Close
                   render={
