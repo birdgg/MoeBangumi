@@ -20,6 +20,7 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::update_settings))
         .routes(routes!(handlers::reset_settings))
         .routes(routes!(handlers::test_downloader_connection))
+        .routes(routes!(handlers::trigger_rss_fetch))
         .with_state(state)
         .split_for_parts();
 

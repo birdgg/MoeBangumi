@@ -1,12 +1,13 @@
 import * as React from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconRefresh } from "@tabler/icons-react";
 import { SearchBangumiModal, AddBangumiModal } from "@/features/bangumi/components";
-import { type Subject } from "@/lib/api";
+import { type Subject, triggerRssFetchMutation } from "@/lib/api";
 import { ThemeColorSelector } from "@/components/theme-color-selector";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { AppSidebar } from "@/components/app-sidebar";
+import { useMutation } from "@tanstack/react-query";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -25,6 +26,25 @@ function AddBangumiButton({ onClick }: AddBangumiButtonProps) {
       <span className="absolute inset-0 bg-linear-to-r from-chart-2 via-chart-3 to-chart-1 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
       <IconPlus className="relative z-10 size-4 transition-transform duration-300 group-hover:rotate-90" />
       <span className="relative z-10 hidden font-medium sm:inline">添加番剧</span>
+    </Button>
+  );
+}
+
+function RefreshRssButton() {
+  const mutation = useMutation(triggerRssFetchMutation());
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-9 rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+      onClick={() => mutation.mutate({})}
+      disabled={mutation.isPending}
+      title="刷新 RSS"
+    >
+      <IconRefresh
+        className={`size-4 ${mutation.isPending ? "animate-spin" : ""}`}
+      />
     </Button>
   );
 }
@@ -53,6 +73,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           <div className="flex items-center gap-2">
             <AddBangumiButton onClick={() => setSearchModalOpen(true)} />
+            <RefreshRssButton />
             <ThemeColorSelector />
             <ThemeToggleButton />
           </div>

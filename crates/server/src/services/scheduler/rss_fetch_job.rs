@@ -10,6 +10,7 @@ use crate::models::{CreateDownloadTask, CreateTorrent};
 use crate::repositories::{DownloadTaskRepository, RssRepository, TorrentRepository};
 use crate::services::DownloaderService;
 use downloader::AddTorrentOptions;
+use parser::Parser;
 
 /// RSS fetching job that runs every hour.
 ///
@@ -18,6 +19,7 @@ pub struct RssFetchJob {
     db: SqlitePool,
     rss_client: Arc<RssClient>,
     downloader: Arc<DownloaderService>,
+    parser: Parser,
 }
 
 impl RssFetchJob {
@@ -31,6 +33,7 @@ impl RssFetchJob {
             db,
             rss_client,
             downloader,
+            parser: Parser::new(),
         }
     }
 }
@@ -116,31 +119,74 @@ impl RssFetchJob {
 
             // Check exclude filters
             if matches_any_filter(title, &filters) {
-                tracing::debug!("Filtered out: {}", title);
+                tracing::debug!("Filtered out by exclude filter: {}", title);
                 filtered_count += 1;
                 continue;
             }
 
-            // Check if torrent already exists
+            // Parse title to extract episode number
+            let episode_number = match self.parser.parse(title) {
+                Ok(parse_result) => parse_result.episode,
+                Err(e) => {
+                    tracing::warn!("Failed to parse title '{}': {}", title, e);
+                    None
+                }
+            };
+
+            // Skip if episode number cannot be parsed
+            let Some(episode) = episode_number else {
+                tracing::warn!("Skipping RSS item without episode number: {}", title);
+                filtered_count += 1;
+                continue;
+            };
+
+            // For non-primary RSS, filter by episode number
+            if !rss.is_primary {
+                // Check if this episode already exists for this bangumi
+                let existing = TorrentRepository::get_by_bangumi_episode(
+                    &self.db,
+                    rss.bangumi_id,
+                    episode,
+                )
+                .await?;
+
+                if !existing.is_empty() {
+                    tracing::debug!(
+                        "Filtered out: episode {} already exists for bangumi {} (title: {})",
+                        episode,
+                        rss.bangumi_id,
+                        title
+                    );
+                    filtered_count += 1;
+                    continue;
+                }
+            }
+
+            // Check if torrent already exists by info_hash
             if TorrentRepository::exists_by_info_hash(&self.db, info_hash).await? {
-                tracing::debug!("Skipping duplicate: {}", title);
+                tracing::debug!("Skipping duplicate info_hash: {}", title);
                 skipped_count += 1;
                 continue;
             }
 
-            // Create torrent record
+            // Create torrent record with parsed episode number
             let torrent = TorrentRepository::create(
                 &self.db,
                 CreateTorrent {
                     bangumi_id: rss.bangumi_id,
                     rss_id: Some(rss.id),
                     info_hash: info_hash.to_string(),
-                    episode_number: 0, // Not extracting episode number for now
+                    episode_number: episode,
                 },
             )
             .await?;
 
-            tracing::info!("New torrent: {} (id={})", title, torrent.id);
+            tracing::info!(
+                "New torrent: {} (id={}, episode={})",
+                title,
+                torrent.id,
+                torrent.episode_number
+            );
 
             // Create download task
             let task = DownloadTaskRepository::create(

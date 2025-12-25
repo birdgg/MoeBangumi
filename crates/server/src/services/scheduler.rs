@@ -40,6 +40,14 @@ impl SchedulerService {
         self
     }
 
+    /// Adds an already-wrapped Arc job to the scheduler.
+    ///
+    /// This is useful when you need to keep a reference to the job for manual triggering.
+    pub fn with_arc_job<J: SchedulerJob + 'static>(mut self, job: Arc<J>) -> Self {
+        self.jobs.push(job);
+        self
+    }
+
     /// Starts all registered jobs.
     ///
     /// Each job runs in its own tokio task and executes at its specified interval.

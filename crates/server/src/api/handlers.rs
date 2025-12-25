@@ -2,6 +2,7 @@ mod bangumi;
 mod downloader;
 mod episodes;
 mod mikan;
+mod scheduler;
 mod search;
 mod settings;
 
@@ -31,6 +32,7 @@ pub use bangumi::{create_bangumi, get_bangumi, get_bangumi_by_id, update_bangumi
 pub use downloader::{test_downloader_connection, TestDownloaderRequest};
 pub use episodes::get_episodes;
 pub use mikan::get_mikan_rss;
+pub use scheduler::trigger_rss_fetch;
 pub use search::{search_bgmtv, search_mikan, search_tmdb};
 pub use settings::{get_settings, reset_settings, update_settings};
 
@@ -45,5 +47,7 @@ pub use episodes::__path_get_episodes;
 pub use mikan::__path_get_mikan_rss;
 #[doc(hidden)]
 pub use search::{__path_search_bgmtv, __path_search_mikan, __path_search_tmdb};
+#[doc(hidden)]
+pub use scheduler::__path_trigger_rss_fetch;
 #[doc(hidden)]
 pub use settings::{__path_get_settings, __path_reset_settings, __path_update_settings};

@@ -257,6 +257,10 @@ export const DownloaderSettingsSchema = {
       type: "string",
       description: "Password (qBittorrent)",
     },
+    save_path: {
+      type: "string",
+      description: "Default save path for downloads",
+    },
     type: {
       $ref: "#/components/schemas/DownloaderType",
       description: "Downloader type: qbittorrent",
@@ -687,6 +691,10 @@ export const UpdateDownloaderSettingsSchema = {
     password: {
       type: ["string", "null"],
       description: "Password (send null to clear)",
+    },
+    save_path: {
+      type: ["string", "null"],
+      description: "Default save path for downloads (send null to clear)",
     },
     type: {
       oneOf: [

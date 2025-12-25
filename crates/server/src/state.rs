@@ -25,6 +25,7 @@ pub struct AppState {
     pub downloader: Arc<DownloaderService>,
     pub poster: Arc<PosterService>,
     pub scheduler: Arc<SchedulerService>,
+    pub rss_fetch_job: Arc<RssFetchJob>,
 }
 
 impl AppState {
@@ -48,13 +49,16 @@ impl AppState {
         let rss_arc = Arc::new(rss);
         let downloader_arc = Arc::new(downloader);
 
+        // Create RSS fetch job (stored separately for manual triggering)
+        let rss_fetch_job = Arc::new(RssFetchJob::new(
+            db.clone(),
+            Arc::clone(&rss_arc),
+            Arc::clone(&downloader_arc),
+        ));
+
         // Create and start scheduler service
         let scheduler = SchedulerService::new()
-            .with_job(RssFetchJob::new(
-                db.clone(),
-                Arc::clone(&rss_arc),
-                Arc::clone(&downloader_arc),
-            ))
+            .with_arc_job(Arc::clone(&rss_fetch_job))
             .with_job(FileRenameJob::new());
         scheduler.start();
 
@@ -70,6 +74,7 @@ impl AppState {
             downloader: downloader_arc,
             poster: Arc::new(poster),
             scheduler: Arc::new(scheduler),
+            rss_fetch_job,
         }
     }
 }

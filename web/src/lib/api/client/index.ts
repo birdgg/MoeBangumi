@@ -13,6 +13,7 @@ export {
   searchMikan,
   searchTmdb,
   testDownloaderConnection,
+  triggerRssFetch,
   updateBangumi,
   updateSettings,
 } from "./sdk.gen";
@@ -80,6 +81,9 @@ export type {
   TestDownloaderConnectionErrors,
   TestDownloaderConnectionResponses,
   TestDownloaderRequest,
+  TriggerRssFetchData,
+  TriggerRssFetchErrors,
+  TriggerRssFetchResponses,
   TvShow,
   UpdateBangumiData,
   UpdateBangumiErrors,

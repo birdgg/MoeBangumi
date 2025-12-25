@@ -36,6 +36,9 @@ import type {
   TestDownloaderConnectionData,
   TestDownloaderConnectionErrors,
   TestDownloaderConnectionResponses,
+  TriggerRssFetchData,
+  TriggerRssFetchErrors,
+  TriggerRssFetchResponses,
   UpdateBangumiData,
   UpdateBangumiErrors,
   UpdateBangumiResponses,
@@ -165,6 +168,18 @@ export const getMikanRss = <ThrowOnError extends boolean = false>(
     GetMikanRssErrors,
     ThrowOnError
   >({ url: "/api/mikan/rss", ...options });
+
+/**
+ * Manually trigger RSS fetch job
+ */
+export const triggerRssFetch = <ThrowOnError extends boolean = false>(
+  options?: Options<TriggerRssFetchData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<
+    TriggerRssFetchResponses,
+    TriggerRssFetchErrors,
+    ThrowOnError
+  >({ url: "/api/scheduler/rss-fetch", ...options });
 
 /**
  * Search for bangumi (Japanese anime) on BGM.tv

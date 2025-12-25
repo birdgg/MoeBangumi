@@ -194,6 +194,10 @@ export type DownloaderSettings = {
    */
   password?: string;
   /**
+   * Default save path for downloads
+   */
+  save_path?: string;
+  /**
    * Downloader type: qbittorrent
    */
   type?: DownloaderType;
@@ -440,6 +444,10 @@ export type UpdateDownloaderSettings = {
    * Password (send null to clear)
    */
   password?: string | null;
+  /**
+   * Default save path for downloads (send null to clear)
+   */
+  save_path?: string | null;
   type?: null | DownloaderType;
   /**
    * Downloader Web UI URL (send null to clear)
@@ -665,6 +673,27 @@ export type GetMikanRssResponses = {
 
 export type GetMikanRssResponse =
   GetMikanRssResponses[keyof GetMikanRssResponses];
+
+export type TriggerRssFetchData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/scheduler/rss-fetch";
+};
+
+export type TriggerRssFetchErrors = {
+  /**
+   * Job execution failed
+   */
+  500: unknown;
+};
+
+export type TriggerRssFetchResponses = {
+  /**
+   * RSS fetch job triggered successfully
+   */
+  200: unknown;
+};
 
 export type SearchBgmtvData = {
   body?: never;
