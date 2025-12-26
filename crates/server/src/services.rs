@@ -11,7 +11,7 @@ pub use bangumi::{BangumiError, BangumiService};
 pub use cache::{CacheError, CacheService};
 pub use downloader::{
     AddTorrentOptions, Downloader, DownloaderClient, DownloaderConfig, DownloaderError,
-    DownloaderService, DownloaderType,
+    DownloaderService, DownloaderType, ServerState, SyncMainData, SyncTorrentInfo, TorrentInfo,
 };
 pub use log::{LogError, LogService};
 pub use poster::{PosterError, PosterService};

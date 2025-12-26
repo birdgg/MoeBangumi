@@ -12,18 +12,22 @@ import { client } from "../client.gen";
 import {
   cleanupLogs,
   createBangumi,
+  deleteTorrents,
   getBangumi,
   getBangumiById,
   getEpisodes,
   getLogs,
   getMikanRss,
-  getServerInfo,
   getSettings,
+  listTorrents,
   type Options,
+  pauseTorrents,
   resetSettings,
+  resumeTorrents,
   searchBgmtv,
   searchMikan,
   searchTmdb,
+  syncMaindata,
   testDownloaderConnection,
   torrentCompleted,
   triggerRssFetch,
@@ -35,6 +39,7 @@ import type {
   CleanupLogsResponse,
   CreateBangumiData,
   CreateBangumiResponse,
+  DeleteTorrentsData,
   GetBangumiByIdData,
   GetBangumiByIdResponse,
   GetBangumiData,
@@ -45,18 +50,22 @@ import type {
   GetLogsResponse,
   GetMikanRssData,
   GetMikanRssResponse,
-  GetServerInfoData,
-  GetServerInfoResponse,
   GetSettingsData,
   GetSettingsResponse,
+  ListTorrentsData,
+  ListTorrentsResponse,
+  PauseTorrentsData,
   ResetSettingsData,
   ResetSettingsResponse,
+  ResumeTorrentsData,
   SearchBgmtvData,
   SearchBgmtvResponse,
   SearchMikanData,
   SearchMikanResponse,
   SearchTmdbData,
   SearchTmdbResponse,
+  SyncMaindataData,
+  SyncMaindataResponse,
   TestDownloaderConnectionData,
   TorrentCompletedData,
   TriggerRssFetchData,
@@ -598,24 +607,21 @@ export const resetSettingsMutation = (
   return mutationOptions;
 };
 
-export const getServerInfoQueryKey = (options?: Options<GetServerInfoData>) =>
-  createQueryKey("getServerInfo", options);
+export const listTorrentsQueryKey = (options?: Options<ListTorrentsData>) =>
+  createQueryKey("listTorrents", options);
 
 /**
- * Get server info including available network interfaces
- *
- * Returns a list of network interfaces and suggested webhook URLs
- * for configuring qBittorrent callback.
+ * List all torrents
  */
-export const getServerInfoOptions = (options?: Options<GetServerInfoData>) =>
+export const listTorrentsOptions = (options?: Options<ListTorrentsData>) =>
   queryOptions<
-    GetServerInfoResponse,
+    ListTorrentsResponse,
     DefaultError,
-    GetServerInfoResponse,
-    ReturnType<typeof getServerInfoQueryKey>
+    ListTorrentsResponse,
+    ReturnType<typeof listTorrentsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getServerInfo({
+      const { data } = await listTorrents({
         ...options,
         ...queryKey[0],
         signal,
@@ -623,7 +629,104 @@ export const getServerInfoOptions = (options?: Options<GetServerInfoData>) =>
       });
       return data;
     },
-    queryKey: getServerInfoQueryKey(options),
+    queryKey: listTorrentsQueryKey(options),
+  });
+
+/**
+ * Delete torrents
+ */
+export const deleteTorrentsMutation = (
+  options?: Partial<Options<DeleteTorrentsData>>,
+): UseMutationOptions<unknown, DefaultError, Options<DeleteTorrentsData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    DefaultError,
+    Options<DeleteTorrentsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await deleteTorrents({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Pause torrents
+ */
+export const pauseTorrentsMutation = (
+  options?: Partial<Options<PauseTorrentsData>>,
+): UseMutationOptions<unknown, DefaultError, Options<PauseTorrentsData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    DefaultError,
+    Options<PauseTorrentsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await pauseTorrents({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Resume torrents
+ */
+export const resumeTorrentsMutation = (
+  options?: Partial<Options<ResumeTorrentsData>>,
+): UseMutationOptions<unknown, DefaultError, Options<ResumeTorrentsData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    DefaultError,
+    Options<ResumeTorrentsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await resumeTorrents({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const syncMaindataQueryKey = (options?: Options<SyncMaindataData>) =>
+  createQueryKey("syncMaindata", options);
+
+/**
+ * Sync maindata for incremental torrent updates
+ *
+ * Returns full torrent data on first call (rid=0), then incremental changes on subsequent calls.
+ * Use the returned `rid` value in the next request to get only changed data.
+ */
+export const syncMaindataOptions = (options?: Options<SyncMaindataData>) =>
+  queryOptions<
+    SyncMaindataResponse,
+    DefaultError,
+    SyncMaindataResponse,
+    ReturnType<typeof syncMaindataQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await syncMaindata({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: syncMaindataQueryKey(options),
   });
 
 /**

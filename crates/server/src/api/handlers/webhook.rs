@@ -11,6 +11,8 @@ use crate::state::AppState;
 pub struct TorrentCompletedQuery {
     /// Torrent info hash from qBittorrent
     pub hash: String,
+    /// Torrent name
+    pub name: String,
 }
 
 /// Webhook endpoint for qBittorrent torrent completion callback.
@@ -66,14 +68,12 @@ pub async fn torrent_completed(
     let bangumi = BangumiRepository::get_by_id(&state.db, torrent.bangumi_id)
         .await
         .map_err(|e| AppError::internal(e.to_string()))?
-        .ok_or_else(|| {
-            AppError::internal(format!("Bangumi {} not found", torrent.bangumi_id))
-        })?;
+        .ok_or_else(|| AppError::internal(format!("Bangumi {} not found", torrent.bangumi_id)))?;
 
     // Get files in the torrent
     let files = state
         .downloader
-        .get_torrent_files(&hash)
+        .get_task_files(&hash)
         .await
         .map_err(|e| AppError::internal(e.to_string()))?;
 

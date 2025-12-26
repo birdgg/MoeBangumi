@@ -7,7 +7,8 @@ use crate::services::SettingsService;
 // Re-export types from downloader crate
 pub use downloader::{
     AddTorrentOptions, Downloader, DownloaderClient, DownloaderConfig, DownloaderError,
-    DownloaderType, TorrentFile, TorrentInfo,
+    DownloaderExt, DownloaderType, ServerState, SyncMainData, SyncTorrentInfo, TorrentFile,
+    TorrentInfo,
 };
 
 /// Cached client with the settings it was created from
@@ -106,9 +107,9 @@ impl DownloaderService {
         tracing::info!("Creating/rebuilding downloader client...");
         let client = Self::create_client(&current_settings)?;
 
-        // Authenticate (note: we hold the write lock during authentication,
+        // Login (note: we hold the write lock during authentication,
         // which blocks other operations but ensures consistency)
-        client.authenticate().await?;
+        client.login().await?;
         tracing::info!(
             "Downloader ({}) authenticated successfully",
             client.downloader_type()
@@ -128,7 +129,7 @@ impl DownloaderService {
         let guard = self.cached.read().await;
         if let Some(cached) = guard.as_ref() {
             tracing::info!("Re-authenticating downloader...");
-            cached.client.authenticate().await?;
+            cached.client.login().await?;
             tracing::info!("Re-authentication successful");
             Ok(())
         } else {
@@ -141,8 +142,8 @@ impl DownloaderService {
         self.ensure_client().await.is_ok()
     }
 
-    /// Add a torrent using the current downloader
-    pub async fn add_torrent(&self, options: AddTorrentOptions) -> downloader::Result<String> {
+    /// Add a task using the current downloader
+    pub async fn add_task(&self, options: AddTorrentOptions) -> downloader::Result<String> {
         // Ensure we have a valid client
         self.ensure_client().await?;
 
@@ -153,7 +154,7 @@ impl DownloaderService {
                 .as_ref()
                 .map(|c| &c.client)
                 .ok_or(DownloaderError::NotConfigured)?;
-            client.add_torrent(options.clone()).await
+            client.add_task(options.clone()).await
         };
 
         match result {
@@ -169,7 +170,7 @@ impl DownloaderService {
                     .as_ref()
                     .map(|c| &c.client)
                     .ok_or(DownloaderError::NotConfigured)?;
-                client.add_torrent(options).await
+                client.add_task(options).await
             }
             Err(e) => Err(e),
         }
@@ -181,42 +182,8 @@ impl DownloaderService {
         guard.as_ref().map(|c| c.client.downloader_type())
     }
 
-    /// Perform a health check on the downloader
-    pub async fn health_check(&self) -> downloader::Result<()> {
-        // Ensure we have a valid client
-        self.ensure_client().await?;
-
-        // First attempt
-        let result = {
-            let guard = self.cached.read().await;
-            let client = guard
-                .as_ref()
-                .map(|c| &c.client)
-                .ok_or(DownloaderError::NotConfigured)?;
-            client.health_check().await
-        };
-
-        match result {
-            Ok(()) => Ok(()),
-            Err(e) if Self::is_auth_error(&e) => {
-                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
-
-                // Try to re-authenticate and retry once
-                self.reauthenticate().await?;
-
-                let guard = self.cached.read().await;
-                let client = guard
-                    .as_ref()
-                    .map(|c| &c.client)
-                    .ok_or(DownloaderError::NotConfigured)?;
-                client.health_check().await
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Get torrent information by hash
-    pub async fn get_torrent_info(
+    /// Get task information by hash
+    pub async fn get_task_info(
         &self,
         hash: &str,
     ) -> downloader::Result<Option<TorrentInfo>> {
@@ -228,7 +195,7 @@ impl DownloaderService {
                 .as_ref()
                 .map(|c| &c.client)
                 .ok_or(DownloaderError::NotConfigured)?;
-            client.get_torrent_info(hash).await
+            client.get_task_info(hash).await
         };
 
         match result {
@@ -242,14 +209,14 @@ impl DownloaderService {
                     .as_ref()
                     .map(|c| &c.client)
                     .ok_or(DownloaderError::NotConfigured)?;
-                client.get_torrent_info(hash).await
+                client.get_task_info(hash).await
             }
             Err(e) => Err(e),
         }
     }
 
-    /// Get files for a specific torrent
-    pub async fn get_torrent_files(&self, hash: &str) -> downloader::Result<Vec<TorrentFile>> {
+    /// Get files for a specific task
+    pub async fn get_task_files(&self, hash: &str) -> downloader::Result<Vec<TorrentFile>> {
         self.ensure_client().await?;
 
         let result = {
@@ -258,7 +225,7 @@ impl DownloaderService {
                 .as_ref()
                 .map(|c| &c.client)
                 .ok_or(DownloaderError::NotConfigured)?;
-            client.get_torrent_files(hash).await
+            client.get_task_files(hash).await
         };
 
         match result {
@@ -272,7 +239,7 @@ impl DownloaderService {
                     .as_ref()
                     .map(|c| &c.client)
                     .ok_or(DownloaderError::NotConfigured)?;
-                client.get_torrent_files(hash).await
+                client.get_task_files(hash).await
             }
             Err(e) => Err(e),
         }
@@ -368,6 +335,160 @@ impl DownloaderService {
                     .map(|c| &c.client)
                     .ok_or(DownloaderError::NotConfigured)?;
                 client.disable_autorun().await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Get all tasks
+    pub async fn get_tasks(&self) -> downloader::Result<Vec<TorrentInfo>> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.get_tasks().await
+        };
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.get_tasks().await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Pause task by hashes
+    pub async fn pause_task(&self, hashes: &[&str]) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.pause_task(hashes).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.pause_task(hashes).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Resume task by hashes
+    pub async fn resume_task(&self, hashes: &[&str]) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.resume_task(hashes).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.resume_task(hashes).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Delete task by hashes
+    pub async fn delete_task(
+        &self,
+        hashes: &[&str],
+        delete_files: bool,
+    ) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.delete_task(hashes, delete_files).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.delete_task(hashes, delete_files).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Get tasks info for incremental updates
+    pub async fn get_tasks_info(&self, rid: i64) -> downloader::Result<SyncMainData> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.get_tasks_info(rid).await
+        };
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.get_tasks_info(rid).await
             }
             Err(e) => Err(e),
         }

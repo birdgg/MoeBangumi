@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 // Re-export torrent info types from qbittorrent crate
-pub use qbittorrent::{TorrentFile, TorrentInfo};
+pub use qbittorrent::{ServerState, SyncMainData, SyncTorrentInfo, TorrentFile, TorrentInfo};
 
 /// Downloader type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]

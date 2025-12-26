@@ -24,6 +24,11 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::get_logs, handlers::cleanup_logs))
         .routes(routes!(handlers::stream_logs))
         .routes(routes!(handlers::torrent_completed))
+        .routes(routes!(handlers::list_torrents))
+        .routes(routes!(handlers::pause_torrents))
+        .routes(routes!(handlers::resume_torrents))
+        .routes(routes!(handlers::delete_torrents))
+        .routes(routes!(handlers::sync_maindata))
         .with_state(state)
         .split_for_parts();
 

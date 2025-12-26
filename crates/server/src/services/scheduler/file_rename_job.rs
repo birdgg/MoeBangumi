@@ -71,7 +71,7 @@ impl FileRenameJob {
             .ok_or_else(|| format!("Torrent {} not found", task.torrent_id))?;
 
         // Check torrent status in qBittorrent
-        let info = match self.downloader.get_torrent_info(&torrent.info_hash).await {
+        let info = match self.downloader.get_task_info(&torrent.info_hash).await {
             Ok(Some(info)) => info,
             Ok(None) => {
                 tracing::warn!(
@@ -111,7 +111,7 @@ impl FileRenameJob {
         // Get files in the torrent
         let files = self
             .downloader
-            .get_torrent_files(&torrent.info_hash)
+            .get_task_files(&torrent.info_hash)
             .await?;
 
         // Find the main video file (largest completed video file)

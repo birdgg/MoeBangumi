@@ -196,4 +196,70 @@ impl QBittorrentClient {
         let response = request.send().await?;
         self.handle_response(response).await
     }
+
+    /// Pause torrent(s)
+    /// POST /api/v2/torrents/pause
+    ///
+    /// # Arguments
+    /// * `hashes` - Torrent hashes, or `&["all"]` for all torrents
+    pub async fn pause_torrents(&self, hashes: &[&str]) -> crate::Result<()> {
+        let url = self.url("/torrents/pause");
+
+        let hashes_str = hashes.join("|");
+        let form = Form::new().text("hashes", hashes_str);
+
+        let mut request = self.client().post(&url).multipart(form);
+
+        if let Some(sid) = self.get_sid().await {
+            request = request.header(reqwest::header::COOKIE, format!("SID={}", sid));
+        }
+
+        let response = request.send().await?;
+        self.handle_response(response).await
+    }
+
+    /// Resume torrent(s)
+    /// POST /api/v2/torrents/resume
+    ///
+    /// # Arguments
+    /// * `hashes` - Torrent hashes, or `&["all"]` for all torrents
+    pub async fn resume_torrents(&self, hashes: &[&str]) -> crate::Result<()> {
+        let url = self.url("/torrents/resume");
+
+        let hashes_str = hashes.join("|");
+        let form = Form::new().text("hashes", hashes_str);
+
+        let mut request = self.client().post(&url).multipart(form);
+
+        if let Some(sid) = self.get_sid().await {
+            request = request.header(reqwest::header::COOKIE, format!("SID={}", sid));
+        }
+
+        let response = request.send().await?;
+        self.handle_response(response).await
+    }
+
+    /// Delete torrent(s)
+    /// POST /api/v2/torrents/delete
+    ///
+    /// # Arguments
+    /// * `hashes` - Torrent hashes, or `&["all"]` for all torrents
+    /// * `delete_files` - Whether to delete downloaded files
+    pub async fn delete_torrents(&self, hashes: &[&str], delete_files: bool) -> crate::Result<()> {
+        let url = self.url("/torrents/delete");
+
+        let hashes_str = hashes.join("|");
+        let form = Form::new()
+            .text("hashes", hashes_str)
+            .text("deleteFiles", delete_files.to_string());
+
+        let mut request = self.client().post(&url).multipart(form);
+
+        if let Some(sid) = self.get_sid().await {
+            request = request.header(reqwest::header::COOKIE, format!("SID={}", sid));
+        }
+
+        let response = request.send().await?;
+        self.handle_response(response).await
+    }
 }

@@ -196,7 +196,7 @@ impl RssFetchJob {
                 .save_path(&save_path)
                 .rename(&filename);
 
-            match self.downloader.add_torrent(options).await {
+            match self.downloader.add_task(options).await {
                 Ok(_) => {
                     tracing::debug!("Added to downloader: {}", title);
                     // Update task status to downloading

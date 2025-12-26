@@ -16,6 +16,9 @@ pub enum DownloaderError {
 
     #[error("Downloader not configured")]
     NotConfigured,
+
+    #[error("Operation not supported: {0}")]
+    NotSupported(String),
 }
 
 pub type Result<T> = std::result::Result<T, DownloaderError>;

@@ -41,7 +41,7 @@ pub async fn test_downloader_connection(
     };
 
     let client = DownloaderClient::from_config(config)?;
-    client.authenticate().await?;
+    client.login().await?;
 
     tracing::info!("Downloader connection test successful");
     Ok("Connection successful")

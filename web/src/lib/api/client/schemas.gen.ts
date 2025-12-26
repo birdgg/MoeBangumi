@@ -154,6 +154,21 @@ export const BangumiWithRssSchema = {
   description: "Bangumi with its RSS subscriptions",
 } as const;
 
+export const ControlTorrentsRequestSchema = {
+  type: "object",
+  description: "Request to control torrents (pause/resume)",
+  required: ["hashes"],
+  properties: {
+    hashes: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "List of torrent hashes",
+    },
+  },
+} as const;
+
 export const CreateBangumiSchema = {
   type: "object",
   description: "Request body for creating a new bangumi",
@@ -245,6 +260,25 @@ export const CreateBangumiSchema = {
       type: "integer",
       format: "int32",
       description: "Year (required)",
+    },
+  },
+} as const;
+
+export const DeleteTorrentsRequestSchema = {
+  type: "object",
+  description: "Request to delete torrents",
+  required: ["hashes"],
+  properties: {
+    delete_files: {
+      type: "boolean",
+      description: "Whether to delete downloaded files (default: true)",
+    },
+    hashes: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "List of torrent hashes",
     },
   },
 } as const;
@@ -375,26 +409,6 @@ export const LogLevelSchema = {
   enum: ["info", "warning", "error"],
 } as const;
 
-export const NetworkInterfaceSchema = {
-  type: "object",
-  description: "Network interface information",
-  required: ["name", "ip", "is_loopback"],
-  properties: {
-    ip: {
-      type: "string",
-      description: "IP address",
-    },
-    is_loopback: {
-      type: "boolean",
-      description: "Whether this is a loopback interface",
-    },
-    name: {
-      type: "string",
-      description: 'Interface name (e.g., "en0", "eth0")',
-    },
-  },
-} as const;
-
 export const RssSchema = {
   type: "object",
   description: "RSS subscription entity",
@@ -511,30 +525,29 @@ export const SearchSubjectsResponseSchema = {
   },
 } as const;
 
-export const ServerInfoSchema = {
+export const ServerStateSchema = {
   type: "object",
-  description: "Server info including network interfaces",
-  required: ["port", "interfaces", "suggested_urls"],
+  description: "Server state from sync maindata",
   properties: {
-    interfaces: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/NetworkInterface",
-      },
-      description: "Available network interfaces with their IPs",
+    dl_info_data: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Total downloaded data (bytes)",
     },
-    port: {
-      type: "integer",
-      format: "int32",
-      description: "Server port",
-      minimum: 0,
+    dl_info_speed: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Global download speed (bytes/s)",
     },
-    suggested_urls: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      description: "Suggested webhook URLs (non-loopback interfaces)",
+    up_info_data: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Total uploaded data (bytes)",
+    },
+    up_info_speed: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Global upload speed (bytes/s)",
     },
   },
 } as const;
@@ -648,6 +661,142 @@ export const SubjectImagesSchema = {
   },
 } as const;
 
+export const SyncMainDataSchema = {
+  type: "object",
+  description:
+    "Sync maindata response from qBittorrent\nUsed for incremental updates - only changed fields are included",
+  required: ["rid"],
+  properties: {
+    full_update: {
+      type: "boolean",
+      description:
+        "Whether this is a full update (true) or incremental (false)",
+    },
+    rid: {
+      type: "integer",
+      format: "int64",
+      description:
+        "Response ID for incremental updates\nPass this value in subsequent requests to get only changes",
+    },
+    server_state: {
+      oneOf: [
+        {
+          type: "null",
+        },
+        {
+          $ref: "#/components/schemas/ServerState",
+          description: "Server state info",
+        },
+      ],
+    },
+    torrents: {
+      type: "object",
+      description:
+        "Torrent data - hash -> partial torrent info\nIn incremental mode, only changed torrents are included",
+      additionalProperties: {
+        $ref: "#/components/schemas/SyncTorrentInfo",
+      },
+      propertyNames: {
+        type: "string",
+      },
+    },
+    torrents_removed: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "List of removed torrent hashes (incremental updates only)",
+    },
+  },
+} as const;
+
+export const SyncTorrentInfoSchema = {
+  type: "object",
+  description:
+    "Partial torrent info for sync API\nAll fields are optional because incremental updates only include changed fields",
+  properties: {
+    added_on: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Time when torrent was added (Unix timestamp)",
+    },
+    category: {
+      type: ["string", "null"],
+      description: "Category",
+    },
+    completion_on: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Time when torrent completed (Unix timestamp)",
+    },
+    content_path: {
+      type: ["string", "null"],
+      description: "Content path",
+    },
+    dlspeed: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Download speed (bytes/s)",
+    },
+    downloaded: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Amount of data downloaded (bytes)",
+    },
+    eta: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Torrent ETA (seconds)",
+    },
+    name: {
+      type: ["string", "null"],
+      description: "Torrent name",
+    },
+    num_leechs: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Number of leechers",
+    },
+    num_seeds: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Number of seeds",
+    },
+    progress: {
+      type: ["number", "null"],
+      format: "double",
+      description: "Torrent progress (0.0 to 1.0)",
+    },
+    ratio: {
+      type: ["number", "null"],
+      format: "double",
+      description: "Share ratio",
+    },
+    save_path: {
+      type: ["string", "null"],
+      description: "Full path to the torrent's download location",
+    },
+    size: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Torrent total size (bytes)",
+    },
+    state: {
+      type: ["string", "null"],
+      description: "Torrent state",
+    },
+    tags: {
+      type: ["string", "null"],
+      description: "Tags (comma separated)",
+    },
+    upspeed: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Upload speed (bytes/s)",
+    },
+  },
+} as const;
+
 export const TestDownloaderRequestSchema = {
   type: "object",
   description: "Request body for testing downloader connection",
@@ -668,6 +817,60 @@ export const TestDownloaderRequestSchema = {
     username: {
       type: "string",
       description: "Username",
+    },
+  },
+} as const;
+
+export const TorrentInfoSchema = {
+  type: "object",
+  description: "Torrent information from qBittorrent",
+  required: [
+    "hash",
+    "name",
+    "state",
+    "progress",
+    "save_path",
+    "size",
+    "downloaded",
+    "eta",
+  ],
+  properties: {
+    downloaded: {
+      type: "integer",
+      format: "int64",
+      description: "Amount of data downloaded (bytes)",
+    },
+    eta: {
+      type: "integer",
+      format: "int64",
+      description: "Torrent ETA (seconds)",
+    },
+    hash: {
+      type: "string",
+      description: "Torrent hash",
+    },
+    name: {
+      type: "string",
+      description: "Torrent name",
+    },
+    progress: {
+      type: "number",
+      format: "double",
+      description: "Torrent progress (0.0 to 1.0)",
+    },
+    save_path: {
+      type: "string",
+      description: "Full path to the torrent's download location",
+    },
+    size: {
+      type: "integer",
+      format: "int64",
+      description: "Torrent total size (bytes)",
+    },
+    state: {
+      type: "string",
+      description:
+        "Torrent state (downloading, uploading, pausedDL, pausedUP, stalledDL, stalledUP, checkingDL, checkingUP, completed, etc.)",
     },
   },
 } as const;

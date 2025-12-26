@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Torrent information from qBittorrent
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct TorrentInfo {
     /// Torrent hash
     pub hash: String,
@@ -148,4 +151,100 @@ impl AddTorrentRequest {
         self.rename = Some(name.into());
         self
     }
+}
+
+/// Sync maindata response from qBittorrent
+/// Used for incremental updates - only changed fields are included
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+pub struct SyncMainData {
+    /// Response ID for incremental updates
+    /// Pass this value in subsequent requests to get only changes
+    pub rid: i64,
+    /// Whether this is a full update (true) or incremental (false)
+    #[serde(default)]
+    pub full_update: bool,
+    /// Torrent data - hash -> partial torrent info
+    /// In incremental mode, only changed torrents are included
+    #[serde(default)]
+    pub torrents: HashMap<String, SyncTorrentInfo>,
+    /// List of removed torrent hashes (incremental updates only)
+    #[serde(default)]
+    pub torrents_removed: Vec<String>,
+    /// Server state info
+    #[serde(default)]
+    pub server_state: Option<ServerState>,
+}
+
+/// Partial torrent info for sync API
+/// All fields are optional because incremental updates only include changed fields
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+pub struct SyncTorrentInfo {
+    /// Torrent name
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Torrent state
+    #[serde(default)]
+    pub state: Option<String>,
+    /// Torrent progress (0.0 to 1.0)
+    #[serde(default)]
+    pub progress: Option<f64>,
+    /// Full path to the torrent's download location
+    #[serde(default)]
+    pub save_path: Option<String>,
+    /// Torrent total size (bytes)
+    #[serde(default)]
+    pub size: Option<i64>,
+    /// Amount of data downloaded (bytes)
+    #[serde(default)]
+    pub downloaded: Option<i64>,
+    /// Torrent ETA (seconds)
+    #[serde(default)]
+    pub eta: Option<i64>,
+    /// Download speed (bytes/s)
+    #[serde(default)]
+    pub dlspeed: Option<i64>,
+    /// Upload speed (bytes/s)
+    #[serde(default)]
+    pub upspeed: Option<i64>,
+    /// Number of seeds
+    #[serde(default)]
+    pub num_seeds: Option<i64>,
+    /// Number of leechers
+    #[serde(default)]
+    pub num_leechs: Option<i64>,
+    /// Share ratio
+    #[serde(default)]
+    pub ratio: Option<f64>,
+    /// Time when torrent was added (Unix timestamp)
+    #[serde(default)]
+    pub added_on: Option<i64>,
+    /// Time when torrent completed (Unix timestamp)
+    #[serde(default)]
+    pub completion_on: Option<i64>,
+    /// Category
+    #[serde(default)]
+    pub category: Option<String>,
+    /// Tags (comma separated)
+    #[serde(default)]
+    pub tags: Option<String>,
+    /// Content path
+    #[serde(default)]
+    pub content_path: Option<String>,
+}
+
+/// Server state from sync maindata
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+pub struct ServerState {
+    /// Global download speed (bytes/s)
+    #[serde(default)]
+    pub dl_info_speed: Option<i64>,
+    /// Global upload speed (bytes/s)
+    #[serde(default)]
+    pub up_info_speed: Option<i64>,
+    /// Total downloaded data (bytes)
+    #[serde(default)]
+    pub dl_info_data: Option<i64>,
+    /// Total uploaded data (bytes)
+    #[serde(default)]
+    pub up_info_data: Option<i64>,
 }

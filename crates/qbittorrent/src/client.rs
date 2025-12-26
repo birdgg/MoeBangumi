@@ -47,6 +47,11 @@ impl QBittorrentClient {
         self.sid.read().await.clone()
     }
 
+    /// Check if the client has an active session (has SID stored)
+    pub async fn is_authenticated(&self) -> bool {
+        self.sid.read().await.is_some()
+    }
+
     pub(crate) async fn handle_response(&self, response: reqwest::Response) -> crate::Result<()> {
         let status = response.status();
         if !status.is_success() {

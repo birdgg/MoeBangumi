@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-use qbittorrent::{AddTorrentRequest, QBittorrentClient, TorrentFile, TorrentInfo};
+use qbittorrent::{AddTorrentRequest, QBittorrentClient, SyncMainData, TorrentFile, TorrentInfo};
 use serde::Serialize;
 use url::Url;
 
 use crate::error::{DownloaderError, Result};
 use crate::models::AddTorrentOptions;
-use crate::traits::Downloader;
+use crate::traits::{Downloader, DownloaderExt};
 
 /// Preferences for configuring qBittorrent autorun
 #[derive(Serialize)]
@@ -45,13 +45,27 @@ impl QBittorrentDownloader {
 
 #[async_trait]
 impl Downloader for QBittorrentDownloader {
-    async fn authenticate(&self) -> Result<()> {
+    async fn login(&self) -> Result<()> {
         self.client.login(&self.username, &self.password).await?;
         tracing::debug!("qBittorrent authenticated successfully");
         Ok(())
     }
 
-    async fn add_torrent(&self, options: AddTorrentOptions) -> Result<String> {
+    async fn is_login(&self) -> Result<bool> {
+        Ok(self.client.is_authenticated().await)
+    }
+
+    async fn get_tasks(&self) -> Result<Vec<TorrentInfo>> {
+        let torrents = self.client.get_torrents_info(None).await?;
+        Ok(torrents)
+    }
+
+    async fn get_tasks_info(&self, rid: i64) -> Result<SyncMainData> {
+        let data = self.client.sync_maindata(rid).await?;
+        Ok(data)
+    }
+
+    async fn add_task(&self, options: AddTorrentOptions) -> Result<String> {
         let mut request = AddTorrentRequest::with_url(&options.url);
 
         if let Some(path) = options.save_path {
@@ -76,48 +90,55 @@ impl Downloader for QBittorrentDownloader {
         Ok(options.url)
     }
 
-    async fn health_check(&self) -> Result<()> {
-        // Try to authenticate as health check
-        self.authenticate().await
+    async fn pause_task(&self, hashes: &[&str]) -> Result<()> {
+        self.client.pause_torrents(hashes).await?;
+        Ok(())
+    }
+
+    async fn resume_task(&self, hashes: &[&str]) -> Result<()> {
+        self.client.resume_torrents(hashes).await?;
+        Ok(())
+    }
+
+    async fn delete_task(&self, hashes: &[&str], delete_files: bool) -> Result<()> {
+        self.client.delete_torrents(hashes, delete_files).await?;
+        Ok(())
+    }
+
+    async fn add_tags(&self, hash: &str, tags: &[&str]) -> Result<()> {
+        self.client.add_tags(&[hash], tags).await?;
+        Ok(())
+    }
+
+    async fn remove_tags(&self, hash: &str, tags: &[&str]) -> Result<()> {
+        self.client.remove_tags(&[hash], tags).await?;
+        Ok(())
+    }
+
+    async fn get_task_files(&self, hash: &str) -> Result<Vec<TorrentFile>> {
+        let files = self.client.get_torrent_files(hash).await?;
+        Ok(files)
+    }
+
+    async fn rename_file(&self, hash: &str, old_path: &str, new_path: &str) -> Result<()> {
+        self.client.rename_file(hash, old_path, new_path).await?;
+        Ok(())
     }
 
     fn downloader_type(&self) -> &'static str {
         "qBittorrent"
     }
+}
 
-    async fn get_torrent_info(&self, hash: &str) -> Result<Option<TorrentInfo>> {
+/// Extended methods for qBittorrent (DownloaderExt implementation)
+#[async_trait]
+impl DownloaderExt for QBittorrentDownloader {
+    async fn get_task_info(&self, hash: &str) -> Result<Option<TorrentInfo>> {
         let infos = self.client.get_torrents_info(Some(&[hash])).await?;
         Ok(infos.into_iter().next())
     }
 
-    async fn get_torrent_files(&self, hash: &str) -> Result<Vec<TorrentFile>> {
-        let files = self.client.get_torrent_files(hash).await?;
-        Ok(files)
-    }
-}
-
-/// qBittorrent-specific methods (not part of the common Downloader trait)
-impl QBittorrentDownloader {
-    /// Rename a file within a torrent
-    ///
-    /// # Arguments
-    /// * `hash` - The torrent hash
-    /// * `old_path` - The current file path (relative to torrent root)
-    /// * `new_path` - The new file path (relative to torrent root)
-    pub async fn rename_file(&self, hash: &str, old_path: &str, new_path: &str) -> Result<()> {
-        self.client.rename_file(hash, old_path, new_path).await?;
-        Ok(())
-    }
-
-    /// Configure autorun to call a webhook URL when torrents complete
-    ///
-    /// # Arguments
-    /// * `webhook_url` - The base URL of the server (e.g., "http://192.168.1.100:3000")
-    ///   Must be a valid HTTP or HTTPS URL. The webhook path will be appended automatically.
-    ///
-    /// # Errors
-    /// Returns an error if the URL is invalid or uses an unsupported protocol.
-    pub async fn configure_autorun(&self, webhook_url: &str) -> Result<()> {
+    async fn configure_autorun(&self, webhook_url: &str) -> Result<()> {
         // Validate and parse the URL to prevent command injection
         let parsed_url = Url::parse(webhook_url).map_err(|e| {
             DownloaderError::Config(format!("Invalid webhook URL '{}': {}", webhook_url, e))
@@ -153,8 +174,7 @@ impl QBittorrentDownloader {
         Ok(())
     }
 
-    /// Disable autorun callback
-    pub async fn disable_autorun(&self) -> Result<()> {
+    async fn disable_autorun(&self) -> Result<()> {
         let prefs = DisableAutorunPreferences {
             autorun_enabled: false,
         };

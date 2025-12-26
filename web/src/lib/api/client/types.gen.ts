@@ -104,6 +104,16 @@ export type BangumiWithRss = Bangumi & {
 };
 
 /**
+ * Request to control torrents (pause/resume)
+ */
+export type ControlTorrentsRequest = {
+  /**
+   * List of torrent hashes
+   */
+  hashes: Array<string>;
+};
+
+/**
  * Request body for creating a new bangumi
  */
 export type CreateBangumi = {
@@ -183,6 +193,20 @@ export type CreateBangumi = {
    * Year (required)
    */
   year: number;
+};
+
+/**
+ * Request to delete torrents
+ */
+export type DeleteTorrentsRequest = {
+  /**
+   * Whether to delete downloaded files (default: true)
+   */
+  delete_files?: boolean;
+  /**
+   * List of torrent hashes
+   */
+  hashes: Array<string>;
 };
 
 /**
@@ -289,24 +313,6 @@ export type Log = {
 export type LogLevel = "info" | "warning" | "error";
 
 /**
- * Network interface information
- */
-export type NetworkInterface = {
-  /**
-   * IP address
-   */
-  ip: string;
-  /**
-   * Whether this is a loopback interface
-   */
-  is_loopback: boolean;
-  /**
-   * Interface name (e.g., "en0", "eth0")
-   */
-  name: string;
-};
-
-/**
  * RSS subscription entity
  */
 export type Rss = {
@@ -370,21 +376,25 @@ export type SearchSubjectsResponse = {
 };
 
 /**
- * Server info including network interfaces
+ * Server state from sync maindata
  */
-export type ServerInfo = {
+export type ServerState = {
   /**
-   * Available network interfaces with their IPs
+   * Total downloaded data (bytes)
    */
-  interfaces: Array<NetworkInterface>;
+  dl_info_data?: number | null;
   /**
-   * Server port
+   * Global download speed (bytes/s)
    */
-  port: number;
+  dl_info_speed?: number | null;
   /**
-   * Suggested webhook URLs (non-loopback interfaces)
+   * Total uploaded data (bytes)
    */
-  suggested_urls: Array<string>;
+  up_info_data?: number | null;
+  /**
+   * Global upload speed (bytes/s)
+   */
+  up_info_speed?: number | null;
 };
 
 /**
@@ -439,6 +449,109 @@ export type SubjectImages = {
 };
 
 /**
+ * Sync maindata response from qBittorrent
+ * Used for incremental updates - only changed fields are included
+ */
+export type SyncMainData = {
+  /**
+   * Whether this is a full update (true) or incremental (false)
+   */
+  full_update?: boolean;
+  /**
+   * Response ID for incremental updates
+   * Pass this value in subsequent requests to get only changes
+   */
+  rid: number;
+  server_state?: null | ServerState;
+  /**
+   * Torrent data - hash -> partial torrent info
+   * In incremental mode, only changed torrents are included
+   */
+  torrents?: {
+    [key: string]: SyncTorrentInfo;
+  };
+  /**
+   * List of removed torrent hashes (incremental updates only)
+   */
+  torrents_removed?: Array<string>;
+};
+
+/**
+ * Partial torrent info for sync API
+ * All fields are optional because incremental updates only include changed fields
+ */
+export type SyncTorrentInfo = {
+  /**
+   * Time when torrent was added (Unix timestamp)
+   */
+  added_on?: number | null;
+  /**
+   * Category
+   */
+  category?: string | null;
+  /**
+   * Time when torrent completed (Unix timestamp)
+   */
+  completion_on?: number | null;
+  /**
+   * Content path
+   */
+  content_path?: string | null;
+  /**
+   * Download speed (bytes/s)
+   */
+  dlspeed?: number | null;
+  /**
+   * Amount of data downloaded (bytes)
+   */
+  downloaded?: number | null;
+  /**
+   * Torrent ETA (seconds)
+   */
+  eta?: number | null;
+  /**
+   * Torrent name
+   */
+  name?: string | null;
+  /**
+   * Number of leechers
+   */
+  num_leechs?: number | null;
+  /**
+   * Number of seeds
+   */
+  num_seeds?: number | null;
+  /**
+   * Torrent progress (0.0 to 1.0)
+   */
+  progress?: number | null;
+  /**
+   * Share ratio
+   */
+  ratio?: number | null;
+  /**
+   * Full path to the torrent's download location
+   */
+  save_path?: string | null;
+  /**
+   * Torrent total size (bytes)
+   */
+  size?: number | null;
+  /**
+   * Torrent state
+   */
+  state?: string | null;
+  /**
+   * Tags (comma separated)
+   */
+  tags?: string | null;
+  /**
+   * Upload speed (bytes/s)
+   */
+  upspeed?: number | null;
+};
+
+/**
  * Request body for testing downloader connection
  */
 export type TestDownloaderRequest = {
@@ -458,6 +571,44 @@ export type TestDownloaderRequest = {
    * Username
    */
   username: string;
+};
+
+/**
+ * Torrent information from qBittorrent
+ */
+export type TorrentInfo = {
+  /**
+   * Amount of data downloaded (bytes)
+   */
+  downloaded: number;
+  /**
+   * Torrent ETA (seconds)
+   */
+  eta: number;
+  /**
+   * Torrent hash
+   */
+  hash: string;
+  /**
+   * Torrent name
+   */
+  name: string;
+  /**
+   * Torrent progress (0.0 to 1.0)
+   */
+  progress: number;
+  /**
+   * Full path to the torrent's download location
+   */
+  save_path: string;
+  /**
+   * Torrent total size (bytes)
+   */
+  size: number;
+  /**
+   * Torrent state (downloading, uploading, pausedDL, pausedUP, stalledDL, stalledUP, checkingDL, checkingUP, completed, etc.)
+   */
+  state: string;
 };
 
 export type TvShow = {
@@ -993,22 +1144,141 @@ export type ResetSettingsResponses = {
 export type ResetSettingsResponse =
   ResetSettingsResponses[keyof ResetSettingsResponses];
 
-export type GetServerInfoData = {
+export type ListTorrentsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/api/settings/server-info";
+  url: "/api/torrents";
 };
 
-export type GetServerInfoResponses = {
+export type ListTorrentsErrors = {
   /**
-   * Server info with network interfaces
+   * Downloader not configured
    */
-  200: ServerInfo;
+  400: unknown;
+  /**
+   * Internal server error
+   */
+  500: unknown;
 };
 
-export type GetServerInfoResponse =
-  GetServerInfoResponses[keyof GetServerInfoResponses];
+export type ListTorrentsResponses = {
+  /**
+   * List of all torrents
+   */
+  200: Array<TorrentInfo>;
+};
+
+export type ListTorrentsResponse =
+  ListTorrentsResponses[keyof ListTorrentsResponses];
+
+export type DeleteTorrentsData = {
+  body: DeleteTorrentsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/torrents/delete";
+};
+
+export type DeleteTorrentsErrors = {
+  /**
+   * Invalid request (empty hashes) or downloader not configured
+   */
+  400: unknown;
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type DeleteTorrentsResponses = {
+  /**
+   * Torrents deleted successfully
+   */
+  200: unknown;
+};
+
+export type PauseTorrentsData = {
+  body: ControlTorrentsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/torrents/pause";
+};
+
+export type PauseTorrentsErrors = {
+  /**
+   * Invalid request (empty hashes) or downloader not configured
+   */
+  400: unknown;
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type PauseTorrentsResponses = {
+  /**
+   * Torrents paused successfully
+   */
+  200: unknown;
+};
+
+export type ResumeTorrentsData = {
+  body: ControlTorrentsRequest;
+  path?: never;
+  query?: never;
+  url: "/api/torrents/resume";
+};
+
+export type ResumeTorrentsErrors = {
+  /**
+   * Invalid request (empty hashes) or downloader not configured
+   */
+  400: unknown;
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type ResumeTorrentsResponses = {
+  /**
+   * Torrents resumed successfully
+   */
+  200: unknown;
+};
+
+export type SyncMaindataData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Response ID from previous request. Use 0 for initial request.
+     */
+    rid?: number;
+  };
+  url: "/api/torrents/sync";
+};
+
+export type SyncMaindataErrors = {
+  /**
+   * Downloader not configured
+   */
+  400: unknown;
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type SyncMaindataResponses = {
+  /**
+   * Sync maindata with torrent updates
+   */
+  200: SyncMainData;
+};
+
+export type SyncMaindataResponse =
+  SyncMaindataResponses[keyof SyncMaindataResponses];
 
 export type TorrentCompletedData = {
   body?: never;

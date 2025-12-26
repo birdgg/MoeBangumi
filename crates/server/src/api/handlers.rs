@@ -6,6 +6,7 @@ mod mikan;
 mod scheduler;
 mod search;
 mod settings;
+mod torrents;
 mod webhook;
 
 use serde::Deserialize;
@@ -39,6 +40,10 @@ pub use scheduler::trigger_rss_fetch;
 pub use search::{search_bgmtv, search_mikan, search_tmdb};
 pub use settings::{get_settings, reset_settings, update_settings};
 pub use webhook::torrent_completed;
+pub use torrents::{
+    delete_torrents, list_torrents, pause_torrents, resume_torrents, sync_maindata,
+    ControlTorrentsRequest, DeleteTorrentsRequest, SyncMainDataQuery,
+};
 
 // Re-export utoipa path structs for OpenAPI routing
 #[doc(hidden)]
@@ -59,3 +64,8 @@ pub use scheduler::__path_trigger_rss_fetch;
 pub use settings::{__path_get_settings, __path_reset_settings, __path_update_settings};
 #[doc(hidden)]
 pub use webhook::__path_torrent_completed;
+#[doc(hidden)]
+pub use torrents::{
+    __path_delete_torrents, __path_list_torrents, __path_pause_torrents,
+    __path_resume_torrents, __path_sync_maindata,
+};

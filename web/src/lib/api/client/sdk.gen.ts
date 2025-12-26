@@ -9,6 +9,9 @@ import type {
   CreateBangumiData,
   CreateBangumiErrors,
   CreateBangumiResponses,
+  DeleteTorrentsData,
+  DeleteTorrentsErrors,
+  DeleteTorrentsResponses,
   GetBangumiByIdData,
   GetBangumiByIdErrors,
   GetBangumiByIdResponses,
@@ -24,14 +27,21 @@ import type {
   GetMikanRssData,
   GetMikanRssErrors,
   GetMikanRssResponses,
-  GetServerInfoData,
-  GetServerInfoResponses,
   GetSettingsData,
   GetSettingsErrors,
   GetSettingsResponses,
+  ListTorrentsData,
+  ListTorrentsErrors,
+  ListTorrentsResponses,
+  PauseTorrentsData,
+  PauseTorrentsErrors,
+  PauseTorrentsResponses,
   ResetSettingsData,
   ResetSettingsErrors,
   ResetSettingsResponses,
+  ResumeTorrentsData,
+  ResumeTorrentsErrors,
+  ResumeTorrentsResponses,
   SearchBgmtvData,
   SearchBgmtvErrors,
   SearchBgmtvResponses,
@@ -43,6 +53,9 @@ import type {
   SearchTmdbResponses,
   StreamLogsData,
   StreamLogsResponses,
+  SyncMaindataData,
+  SyncMaindataErrors,
+  SyncMaindataResponses,
   TestDownloaderConnectionData,
   TestDownloaderConnectionErrors,
   TestDownloaderConnectionResponses,
@@ -310,19 +323,88 @@ export const resetSettings = <ThrowOnError extends boolean = false>(
   >({ url: "/api/settings/reset", ...options });
 
 /**
- * Get server info including available network interfaces
- *
- * Returns a list of network interfaces and suggested webhook URLs
- * for configuring qBittorrent callback.
+ * List all torrents
  */
-export const getServerInfo = <ThrowOnError extends boolean = false>(
-  options?: Options<GetServerInfoData, ThrowOnError>,
+export const listTorrents = <ThrowOnError extends boolean = false>(
+  options?: Options<ListTorrentsData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    GetServerInfoResponses,
-    unknown,
+    ListTorrentsResponses,
+    ListTorrentsErrors,
     ThrowOnError
-  >({ url: "/api/settings/server-info", ...options });
+  >({ url: "/api/torrents", ...options });
+
+/**
+ * Delete torrents
+ */
+export const deleteTorrents = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteTorrentsData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    DeleteTorrentsResponses,
+    DeleteTorrentsErrors,
+    ThrowOnError
+  >({
+    url: "/api/torrents/delete",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Pause torrents
+ */
+export const pauseTorrents = <ThrowOnError extends boolean = false>(
+  options: Options<PauseTorrentsData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    PauseTorrentsResponses,
+    PauseTorrentsErrors,
+    ThrowOnError
+  >({
+    url: "/api/torrents/pause",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resume torrents
+ */
+export const resumeTorrents = <ThrowOnError extends boolean = false>(
+  options: Options<ResumeTorrentsData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    ResumeTorrentsResponses,
+    ResumeTorrentsErrors,
+    ThrowOnError
+  >({
+    url: "/api/torrents/resume",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Sync maindata for incremental torrent updates
+ *
+ * Returns full torrent data on first call (rid=0), then incremental changes on subsequent calls.
+ * Use the returned `rid` value in the next request to get only changed data.
+ */
+export const syncMaindata = <ThrowOnError extends boolean = false>(
+  options?: Options<SyncMaindataData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    SyncMaindataResponses,
+    SyncMaindataErrors,
+    ThrowOnError
+  >({ url: "/api/torrents/sync", ...options });
 
 /**
  * Webhook endpoint for qBittorrent torrent completion callback.

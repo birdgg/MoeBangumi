@@ -13,6 +13,7 @@ import {
   IconSettings,
   IconSparkles,
   IconFileText,
+  IconDownload,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
@@ -20,11 +21,12 @@ interface SidebarItem {
   id: string;
   label: string;
   icon: React.ReactNode;
-  path?: "/" | "/settings" | "/logs";
+  path?: "/" | "/settings" | "/logs" | "/downloads";
 }
 
 const sidebarItems: SidebarItem[] = [
   { id: "anime", label: "动漫", icon: <IconDeviceTv />, path: "/" },
+  { id: "downloads", label: "下载", icon: <IconDownload />, path: "/downloads" },
   { id: "schedule", label: "每日放送", icon: <IconCalendarWeek /> },
   { id: "logs", label: "日志", icon: <IconFileText />, path: "/logs" },
   { id: "settings", label: "设置", icon: <IconSettings />, path: "/settings" },
@@ -55,6 +57,7 @@ export function AppSidebar() {
     if (location.pathname === "/settings") return "settings";
     if (location.pathname === "/schedule") return "schedule";
     if (location.pathname === "/logs") return "logs";
+    if (location.pathname === "/downloads") return "downloads";
     return "anime";
   };
   const activeItem = getActiveItem();
