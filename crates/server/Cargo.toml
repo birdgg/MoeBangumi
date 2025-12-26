@@ -24,6 +24,7 @@ qbittorrent = { path = "../qbittorrent" }
 downloader = { path = "../downloader" }
 rss = { path = "../rss" }
 parser = { path = "../parser" }
+pathgen = { path = "../pathgen" }
 chrono.workspace = true
 tower-http.workspace = true
 toml.workspace = true

@@ -34,6 +34,18 @@ pub async fn update_settings(
     Json(payload): Json<UpdateSettings>,
 ) -> AppResult<Json<Settings>> {
     let settings = state.settings.update(payload).await?;
+
+    // Configure qBittorrent autorun if webhook_url is set
+    if !settings.downloader.webhook_url.is_empty() {
+        if let Err(e) = state
+            .downloader
+            .configure_autorun(&settings.downloader.webhook_url)
+            .await
+        {
+            tracing::warn!("Failed to configure downloader autorun: {}", e);
+        }
+    }
+
     Ok(Json(settings))
 }
 

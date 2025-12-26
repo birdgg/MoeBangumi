@@ -1,11 +1,14 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+// Re-export torrent info types from qbittorrent crate
+pub use qbittorrent::{TorrentFile, TorrentInfo};
+
 /// Downloader type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
-#[serde(rename_all = "lowercase")]
 pub enum DownloaderType {
     #[default]
+    #[serde(rename = "qBittorrent")]
     QBittorrent,
 }
 
@@ -20,6 +23,8 @@ pub struct AddTorrentOptions {
     pub category: Option<String>,
     /// Tags/labels
     pub tags: Vec<String>,
+    /// Rename torrent (content name)
+    pub rename: Option<String>,
 }
 
 impl AddTorrentOptions {
@@ -52,6 +57,12 @@ impl AddTorrentOptions {
     /// Add a single tag
     pub fn add_tag(mut self, tag: impl Into<String>) -> Self {
         self.tags.push(tag.into());
+        self
+    }
+
+    /// Set the rename (torrent content name)
+    pub fn rename(mut self, name: impl Into<String>) -> Self {
+        self.rename = Some(name.into());
         self
     }
 }

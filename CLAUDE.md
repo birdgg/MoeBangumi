@@ -17,14 +17,9 @@ cargo run -p cli
 # Check compilation without building
 cargo check
 
-# Enable debug logging
-RUST_LOG=debug cargo run -p cli
-
 # Run tests
 cargo test
 
-# Run tests for a specific crate
-cargo test -p server
 ```
 
 ### Frontend (Web)
@@ -41,9 +36,6 @@ bun run dev
 # Production build
 bun run build
 
-# Preview production build
-bun run preview
-
 # Lint
 bun run lint
 ```
@@ -55,7 +47,6 @@ Configuration is read from environment variables. Create a `.env` file in the pr
 ```env
 APP_ENV=dev       # Environment: dev or prod (default: dev)
 PORT=3000         # Server port (default: 3000)
-DATA_PATH=./data  # Data directory for SQLite and posters (default: ./data for dev, /data for prod)
 ```
 
 ## Architecture
@@ -130,10 +121,6 @@ web/src/
 ├── components/
 │   ├── ui/               # shadcn UI components
 ├── features/             # Feature-based modules
-│   ├── bangumi/
-│   │   ├── page.tsx      # Bangumi list page
-│   │   ├── components/   # Feature-specific components
-│   │   └── hooks/        # Feature-specific hooks
 └── routes/
 ```
 
@@ -142,18 +129,28 @@ web/src/
 Features are organized in `src/features/` with each feature containing:
 - `page.tsx` - Main page component
 - `components/` - Feature-specific UI components
-  - `index.ts` - Barrel export for all components
+- `index.ts` - Barrel export for all components
 - `hooks/` - Feature-specific React hooks (queries, mutations)
 
 Each feature's route is defined in `src/routes/` with a simple import of the page component.
 
+### Design Aesthetic
+Always design with cute bangumi aesthetic:
+- Colors: Soft pastels (sakura pink, sky blue, mint, cream) with smooth gradients
+- Shapes: Rounded corners, pill buttons, avoid sharp angles
+- Shadows: Soft colored shadows, subtle glow on hover
+- Decorations: Stars ✦, hearts ♡, sparkles ✨, floating elements
+- Typography: Rounded, playful fonts with gentle spacing
+- Effects: Frosted glass blur, bouncy micro-animations
+- Anime touch: Character art accents, seasonal motifs, expressive icons
+
 ### Key Frontend Patterns
 
+- **Design Style**: when design page or component, consider cute style first
 - **File-based routing**: Routes defined in `src/routes/` directory
 - **CSS Variables**: Theme colors defined in `index.css` using oklch
 - **Dark mode**: Toggle via `.dark` class on document element
 - **Component styling**: Uses `cn()` helper for conditional class merging
-- **Extract reusable components**: When similar UI patterns appear in multiple places (e.g., info cards, form sections), extract them into shared components in the feature's `components/` directory. Components should be flexible via props rather than duplicating code.
 
 ### TailwindCSS 4 Conventions
 

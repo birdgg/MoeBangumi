@@ -3,9 +3,9 @@
 import type { Client, Options as Options2, TDataShape } from "./client";
 import { client } from "./client.gen";
 import type {
-  CleanupEventsData,
-  CleanupEventsErrors,
-  CleanupEventsResponses,
+  CleanupLogsData,
+  CleanupLogsErrors,
+  CleanupLogsResponses,
   CreateBangumiData,
   CreateBangumiErrors,
   CreateBangumiResponses,
@@ -18,12 +18,14 @@ import type {
   GetEpisodesData,
   GetEpisodesErrors,
   GetEpisodesResponses,
-  GetEventsData,
-  GetEventsErrors,
-  GetEventsResponses,
+  GetLogsData,
+  GetLogsErrors,
+  GetLogsResponses,
   GetMikanRssData,
   GetMikanRssErrors,
   GetMikanRssResponses,
+  GetServerInfoData,
+  GetServerInfoResponses,
   GetSettingsData,
   GetSettingsErrors,
   GetSettingsResponses,
@@ -39,11 +41,14 @@ import type {
   SearchTmdbData,
   SearchTmdbErrors,
   SearchTmdbResponses,
-  StreamEventsData,
-  StreamEventsResponses,
+  StreamLogsData,
+  StreamLogsResponses,
   TestDownloaderConnectionData,
   TestDownloaderConnectionErrors,
   TestDownloaderConnectionResponses,
+  TorrentCompletedData,
+  TorrentCompletedErrors,
+  TorrentCompletedResponses,
   TriggerRssFetchData,
   TriggerRssFetchErrors,
   TriggerRssFetchResponses,
@@ -166,40 +171,40 @@ export const getEpisodes = <ThrowOnError extends boolean = false>(
   >({ url: "/api/episodes/{subject_id}", ...options });
 
 /**
- * Delete old events (cleanup endpoint)
+ * Delete old logs (cleanup endpoint)
  */
-export const cleanupEvents = <ThrowOnError extends boolean = false>(
-  options?: Options<CleanupEventsData, ThrowOnError>,
+export const cleanupLogs = <ThrowOnError extends boolean = false>(
+  options?: Options<CleanupLogsData, ThrowOnError>,
 ) =>
   (options?.client ?? client).delete<
-    CleanupEventsResponses,
-    CleanupEventsErrors,
+    CleanupLogsResponses,
+    CleanupLogsErrors,
     ThrowOnError
-  >({ url: "/api/events", ...options });
+  >({ url: "/api/logs", ...options });
 
 /**
- * Get events with optional filtering and pagination
+ * Get logs with optional filtering and pagination
  */
-export const getEvents = <ThrowOnError extends boolean = false>(
-  options?: Options<GetEventsData, ThrowOnError>,
+export const getLogs = <ThrowOnError extends boolean = false>(
+  options?: Options<GetLogsData, ThrowOnError>,
 ) =>
   (options?.client ?? client).get<
-    GetEventsResponses,
-    GetEventsErrors,
+    GetLogsResponses,
+    GetLogsErrors,
     ThrowOnError
-  >({ url: "/api/events", ...options });
+  >({ url: "/api/logs", ...options });
 
 /**
- * Stream events via Server-Sent Events (SSE)
+ * Stream logs via Server-Sent Events (SSE)
  */
-export const streamEvents = <ThrowOnError extends boolean = false>(
-  options?: Options<StreamEventsData, ThrowOnError>,
+export const streamLogs = <ThrowOnError extends boolean = false>(
+  options?: Options<StreamLogsData, ThrowOnError>,
 ) =>
   (options?.client ?? client).sse.get<
-    StreamEventsResponses,
+    StreamLogsResponses,
     unknown,
     ThrowOnError
-  >({ url: "/api/events/stream", ...options });
+  >({ url: "/api/logs/stream", ...options });
 
 /**
  * Get bangumi detail with RSS URLs from Mikan
@@ -303,3 +308,36 @@ export const resetSettings = <ThrowOnError extends boolean = false>(
     ResetSettingsErrors,
     ThrowOnError
   >({ url: "/api/settings/reset", ...options });
+
+/**
+ * Get server info including available network interfaces
+ *
+ * Returns a list of network interfaces and suggested webhook URLs
+ * for configuring qBittorrent callback.
+ */
+export const getServerInfo = <ThrowOnError extends boolean = false>(
+  options?: Options<GetServerInfoData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetServerInfoResponses,
+    unknown,
+    ThrowOnError
+  >({ url: "/api/settings/server-info", ...options });
+
+/**
+ * Webhook endpoint for qBittorrent torrent completion callback.
+ *
+ * Configure qBittorrent to call this endpoint when a torrent finishes downloading:
+ * Settings -> Downloads -> "Run external program on torrent finished"
+ * Command: `curl -X POST "http://your-server:3000/api/webhook/torrent-completed?hash=%I"`
+ *
+ * The `%I` placeholder will be replaced with the torrent's info hash.
+ */
+export const torrentCompleted = <ThrowOnError extends boolean = false>(
+  options: Options<TorrentCompletedData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    TorrentCompletedResponses,
+    TorrentCompletedErrors,
+    ThrowOnError
+  >({ url: "/api/webhook/torrent-completed", ...options });

@@ -10,13 +10,14 @@ import {
 
 import { client } from "../client.gen";
 import {
-  cleanupEvents,
+  cleanupLogs,
   createBangumi,
   getBangumi,
   getBangumiById,
   getEpisodes,
-  getEvents,
+  getLogs,
   getMikanRss,
+  getServerInfo,
   getSettings,
   type Options,
   resetSettings,
@@ -24,13 +25,14 @@ import {
   searchMikan,
   searchTmdb,
   testDownloaderConnection,
+  torrentCompleted,
   triggerRssFetch,
   updateBangumi,
   updateSettings,
 } from "../sdk.gen";
 import type {
-  CleanupEventsData,
-  CleanupEventsResponse,
+  CleanupLogsData,
+  CleanupLogsResponse,
   CreateBangumiData,
   CreateBangumiResponse,
   GetBangumiByIdData,
@@ -39,10 +41,12 @@ import type {
   GetBangumiResponse,
   GetEpisodesData,
   GetEpisodesResponse,
-  GetEventsData,
-  GetEventsResponse,
+  GetLogsData,
+  GetLogsResponse,
   GetMikanRssData,
   GetMikanRssResponse,
+  GetServerInfoData,
+  GetServerInfoResponse,
   GetSettingsData,
   GetSettingsResponse,
   ResetSettingsData,
@@ -54,6 +58,7 @@ import type {
   SearchTmdbData,
   SearchTmdbResponse,
   TestDownloaderConnectionData,
+  TorrentCompletedData,
   TriggerRssFetchData,
   UpdateBangumiData,
   UpdateBangumiResponse,
@@ -258,22 +263,22 @@ export const getEpisodesOptions = (options: Options<GetEpisodesData>) =>
   });
 
 /**
- * Delete old events (cleanup endpoint)
+ * Delete old logs (cleanup endpoint)
  */
-export const cleanupEventsMutation = (
-  options?: Partial<Options<CleanupEventsData>>,
+export const cleanupLogsMutation = (
+  options?: Partial<Options<CleanupLogsData>>,
 ): UseMutationOptions<
-  CleanupEventsResponse,
+  CleanupLogsResponse,
   DefaultError,
-  Options<CleanupEventsData>
+  Options<CleanupLogsData>
 > => {
   const mutationOptions: UseMutationOptions<
-    CleanupEventsResponse,
+    CleanupLogsResponse,
     DefaultError,
-    Options<CleanupEventsData>
+    Options<CleanupLogsData>
   > = {
     mutationFn: async (fnOptions) => {
-      const { data } = await cleanupEvents({
+      const { data } = await cleanupLogs({
         ...options,
         ...fnOptions,
         throwOnError: true,
@@ -284,21 +289,21 @@ export const cleanupEventsMutation = (
   return mutationOptions;
 };
 
-export const getEventsQueryKey = (options?: Options<GetEventsData>) =>
-  createQueryKey("getEvents", options);
+export const getLogsQueryKey = (options?: Options<GetLogsData>) =>
+  createQueryKey("getLogs", options);
 
 /**
- * Get events with optional filtering and pagination
+ * Get logs with optional filtering and pagination
  */
-export const getEventsOptions = (options?: Options<GetEventsData>) =>
+export const getLogsOptions = (options?: Options<GetLogsData>) =>
   queryOptions<
-    GetEventsResponse,
+    GetLogsResponse,
     DefaultError,
-    GetEventsResponse,
-    ReturnType<typeof getEventsQueryKey>
+    GetLogsResponse,
+    ReturnType<typeof getLogsQueryKey>
   >({
     queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getEvents({
+      const { data } = await getLogs({
         ...options,
         ...queryKey[0],
         signal,
@@ -306,7 +311,7 @@ export const getEventsOptions = (options?: Options<GetEventsData>) =>
       });
       return data;
     },
-    queryKey: getEventsQueryKey(options),
+    queryKey: getLogsQueryKey(options),
   });
 
 const createInfiniteParams = <
@@ -343,24 +348,23 @@ const createInfiniteParams = <
   return params as unknown as typeof page;
 };
 
-export const getEventsInfiniteQueryKey = (
-  options?: Options<GetEventsData>,
-): QueryKey<Options<GetEventsData>> =>
-  createQueryKey("getEvents", options, true);
+export const getLogsInfiniteQueryKey = (
+  options?: Options<GetLogsData>,
+): QueryKey<Options<GetLogsData>> => createQueryKey("getLogs", options, true);
 
 /**
- * Get events with optional filtering and pagination
+ * Get logs with optional filtering and pagination
  */
-export const getEventsInfiniteOptions = (options?: Options<GetEventsData>) =>
+export const getLogsInfiniteOptions = (options?: Options<GetLogsData>) =>
   infiniteQueryOptions<
-    GetEventsResponse,
+    GetLogsResponse,
     DefaultError,
-    InfiniteData<GetEventsResponse>,
-    QueryKey<Options<GetEventsData>>,
+    InfiniteData<GetLogsResponse>,
+    QueryKey<Options<GetLogsData>>,
     | number
     | null
     | Pick<
-        QueryKey<Options<GetEventsData>>[0],
+        QueryKey<Options<GetLogsData>>[0],
         "body" | "headers" | "path" | "query"
       >
   >(
@@ -369,7 +373,7 @@ export const getEventsInfiniteOptions = (options?: Options<GetEventsData>) =>
       queryFn: async ({ pageParam, queryKey, signal }) => {
         // @ts-ignore
         const page: Pick<
-          QueryKey<Options<GetEventsData>>[0],
+          QueryKey<Options<GetLogsData>>[0],
           "body" | "headers" | "path" | "query"
         > =
           typeof pageParam === "object"
@@ -380,7 +384,7 @@ export const getEventsInfiniteOptions = (options?: Options<GetEventsData>) =>
                 },
               };
         const params = createInfiniteParams(queryKey, page);
-        const { data } = await getEvents({
+        const { data } = await getLogs({
           ...options,
           ...params,
           signal,
@@ -388,7 +392,7 @@ export const getEventsInfiniteOptions = (options?: Options<GetEventsData>) =>
         });
         return data;
       },
-      queryKey: getEventsInfiniteQueryKey(options),
+      queryKey: getLogsInfiniteQueryKey(options),
     },
   );
 
@@ -584,6 +588,63 @@ export const resetSettingsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await resetSettings({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const getServerInfoQueryKey = (options?: Options<GetServerInfoData>) =>
+  createQueryKey("getServerInfo", options);
+
+/**
+ * Get server info including available network interfaces
+ *
+ * Returns a list of network interfaces and suggested webhook URLs
+ * for configuring qBittorrent callback.
+ */
+export const getServerInfoOptions = (options?: Options<GetServerInfoData>) =>
+  queryOptions<
+    GetServerInfoResponse,
+    DefaultError,
+    GetServerInfoResponse,
+    ReturnType<typeof getServerInfoQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getServerInfo({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getServerInfoQueryKey(options),
+  });
+
+/**
+ * Webhook endpoint for qBittorrent torrent completion callback.
+ *
+ * Configure qBittorrent to call this endpoint when a torrent finishes downloading:
+ * Settings -> Downloads -> "Run external program on torrent finished"
+ * Command: `curl -X POST "http://your-server:3000/api/webhook/torrent-completed?hash=%I"`
+ *
+ * The `%I` placeholder will be replaced with the torrent's info hash.
+ */
+export const torrentCompletedMutation = (
+  options?: Partial<Options<TorrentCompletedData>>,
+): UseMutationOptions<unknown, DefaultError, Options<TorrentCompletedData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    DefaultError,
+    Options<TorrentCompletedData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await torrentCompleted({
         ...options,
         ...fnOptions,
         throwOnError: true,

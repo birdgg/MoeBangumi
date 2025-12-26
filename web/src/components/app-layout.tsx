@@ -64,7 +64,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   return (
-    <SidebarProvider>
+    <SidebarProvider style={{ "--sidebar-width": "14rem" } as React.CSSProperties}>
       <AppSidebar />
 
       <SidebarInset className="bg-background">

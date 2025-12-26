@@ -23,6 +23,7 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::trigger_rss_fetch))
         .routes(routes!(handlers::get_logs, handlers::cleanup_logs))
         .routes(routes!(handlers::stream_logs))
+        .routes(routes!(handlers::torrent_completed))
         .with_state(state)
         .split_for_parts();
 

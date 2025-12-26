@@ -7,6 +7,6 @@ mod torrents;
 
 pub use client::QBittorrentClient;
 pub use error::QBittorrentError;
-pub use models::AddTorrentRequest;
+pub use models::{AddTorrentRequest, TorrentFile, TorrentInfo};
 
 pub type Result<T> = std::result::Result<T, QBittorrentError>;

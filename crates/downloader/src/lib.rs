@@ -8,7 +8,7 @@ mod traits;
 pub use client::DownloaderClient;
 pub use config::DownloaderConfig;
 pub use error::DownloaderError;
-pub use models::{AddTorrentOptions, DownloaderType};
+pub use models::{AddTorrentOptions, DownloaderType, TorrentFile, TorrentInfo};
 pub use traits::Downloader;
 
 /// Result type alias for downloader operations

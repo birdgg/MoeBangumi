@@ -18,10 +18,10 @@ pub trait PathFormatter: Send + Sync {
 /// Default path formatter implementing Plex/Jellyfin compatible naming
 ///
 /// Format for TV shows:
-/// `{title} ({year}) {tmdb-ID}/Season XX/{title} - sXXeYY`
+/// `{title} ({year}) {{tmdb-ID}}/Season XX/{title} - sXXeYY`
 ///
 /// Format for movies:
-/// `{title} ({year}) {tmdb-ID}/{title}`
+/// `{title} ({year}) {{tmdb-ID}}/{title}`
 #[derive(Debug, Clone, Default)]
 pub struct DefaultFormatter;
 
@@ -31,12 +31,12 @@ impl DefaultFormatter {
         Self
     }
 
-    /// Format the base directory name: "迷宫饭 (2024) tmdb-119121"
+    /// Format the base directory name: "迷宫饭 (2024) {tmdb-119121}"
     fn format_base_dir(&self, info: &PathInfo) -> String {
         let title = PathSanitizer::sanitize(&info.title);
 
         if let Some(tmdb_id) = info.tmdb_id {
-            format!("{} ({}) tmdb-{}", title, info.year, tmdb_id)
+            format!("{} ({}) {{tmdb-{}}}", title, info.year, tmdb_id)
         } else {
             format!("{} ({})", title, info.year)
         }
@@ -109,7 +109,7 @@ mod tests {
         let path = formatter.format(&info).unwrap();
         assert_eq!(
             path.to_str().unwrap(),
-            "迷宫饭 (2024) tmdb-119121/Season 01/迷宫饭 - s01e12"
+            "迷宫饭 (2024) {tmdb-119121}/Season 01/迷宫饭 - s01e12"
         );
     }
 
@@ -123,7 +123,7 @@ mod tests {
         let path = formatter.format(&info).unwrap();
         assert_eq!(
             path.to_str().unwrap(),
-            "电影名称 (2024) tmdb-12345/电影名称"
+            "电影名称 (2024) {tmdb-12345}/电影名称"
         );
     }
 
@@ -135,7 +135,7 @@ mod tests {
         let dir = formatter.format_directory(&info).unwrap();
         assert_eq!(
             dir.to_str().unwrap(),
-            "测试动画 (2024) tmdb-99999/Season 02"
+            "测试动画 (2024) {tmdb-99999}/Season 02"
         );
     }
 
@@ -159,7 +159,7 @@ mod tests {
         let path = formatter.format(&info).unwrap();
         assert_eq!(
             path.to_str().unwrap(),
-            "Title Subtitle (2024) tmdb-123/Season 01/Title Subtitle - s01e01"
+            "Title Subtitle (2024) {tmdb-123}/Season 01/Title Subtitle - s01e01"
         );
     }
 }

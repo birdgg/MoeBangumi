@@ -33,6 +33,10 @@ pub struct DownloaderSettings {
     /// Default save path for downloads
     #[serde(default = "DownloaderSettings::default_save_path")]
     pub save_path: String,
+    /// Webhook URL for torrent completion callback (e.g., http://192.168.1.100:3000)
+    /// Used to configure qBittorrent's autorun to call back when downloads complete
+    #[serde(default)]
+    pub webhook_url: String,
 }
 
 impl Default for DownloaderSettings {
@@ -43,6 +47,7 @@ impl Default for DownloaderSettings {
             username: String::new(),
             password: String::new(),
             save_path: Self::default_save_path(),
+            webhook_url: String::new(),
         }
     }
 }
@@ -121,6 +126,12 @@ impl Settings {
                     .map(|d| d.save_path.clone())
                     .unwrap_or(Clearable::Unchanged)
                     .resolve_or_empty(self.downloader.save_path.clone()),
+                webhook_url: update
+                    .downloader
+                    .as_ref()
+                    .map(|d| d.webhook_url.clone())
+                    .unwrap_or(Clearable::Unchanged)
+                    .resolve_or_empty(self.downloader.webhook_url.clone()),
             },
             filter: FilterSettings {
                 global_rss_filters: update
@@ -166,6 +177,10 @@ pub struct UpdateDownloaderSettings {
     #[serde(default)]
     #[schema(value_type = Option<String>)]
     pub save_path: Clearable<String>,
+    /// Webhook URL for torrent completion callback (send null to clear)
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub webhook_url: Clearable<String>,
 }
 
 /// Request body for updating filter settings

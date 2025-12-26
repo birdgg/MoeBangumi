@@ -10,5 +10,6 @@ reqwest.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+url = "2"
 utoipa.workspace = true
 qbittorrent = { path = "../qbittorrent" }

@@ -66,14 +66,27 @@ impl AppState {
             db.clone(),
             Arc::clone(&rss_arc),
             Arc::clone(&downloader_arc),
+            Arc::clone(&settings),
         ));
 
         // Create and start scheduler service
         let scheduler = SchedulerService::new()
             .with_arc_job(Arc::clone(&rss_fetch_job))
-            .with_job(FileRenameJob::new())
+            .with_job(FileRenameJob::new(db.clone(), Arc::clone(&downloader_arc)))
             .with_job(LogCleanupJob::new(Arc::clone(&logs)));
         scheduler.start();
+
+        // Configure webhook on startup if webhook_url is set
+        let startup_settings = settings.get();
+        if !startup_settings.downloader.webhook_url.is_empty() {
+            let downloader_for_webhook = Arc::clone(&downloader_arc);
+            let webhook_url = startup_settings.downloader.webhook_url.clone();
+            tokio::spawn(async move {
+                if let Err(e) = downloader_for_webhook.configure_autorun(&webhook_url).await {
+                    tracing::warn!("Failed to configure downloader webhook on startup: {}", e);
+                }
+            });
+        }
 
         Self {
             db,

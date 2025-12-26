@@ -273,13 +273,18 @@ export const DownloaderSettingsSchema = {
       type: "string",
       description: "Username (qBittorrent)",
     },
+    webhook_url: {
+      type: "string",
+      description:
+        "Webhook URL for torrent completion callback (e.g., http://192.168.1.100:3000)\nUsed to configure qBittorrent's autorun to call back when downloads complete",
+    },
   },
 } as const;
 
 export const DownloaderTypeSchema = {
   type: "string",
   description: "Downloader type",
-  enum: ["qbittorrent"],
+  enum: ["qBittorrent"],
 } as const;
 
 export const EpisodeSchema = {
@@ -326,40 +331,6 @@ export const EpisodeTypeSchema = {
   enum: ["Main", "Special", "Opening", "Ending"],
 } as const;
 
-export const EventSchema = {
-  type: "object",
-  description: "System event entity",
-  required: ["id", "created_at", "level", "message"],
-  properties: {
-    created_at: {
-      type: "string",
-      format: "date-time",
-    },
-    details: {
-      type: ["string", "null"],
-      description: "详细信息，如错误堆栈或额外上下文",
-    },
-    id: {
-      type: "integer",
-      format: "int64",
-    },
-    level: {
-      $ref: "#/components/schemas/EventLevel",
-      description: "事件级别: info, warning, error",
-    },
-    message: {
-      type: "string",
-      description: "事件消息，简短描述发生了什么",
-    },
-  },
-} as const;
-
-export const EventLevelSchema = {
-  type: "string",
-  description: "Event severity level",
-  enum: ["info", "warning", "error"],
-} as const;
-
 export const FilterSettingsSchema = {
   type: "object",
   description: "Filter configuration",
@@ -370,6 +341,56 @@ export const FilterSettingsSchema = {
         type: "string",
       },
       description: "Global RSS filters (regex patterns to exclude)",
+    },
+  },
+} as const;
+
+export const LogSchema = {
+  type: "object",
+  description: "System log entity",
+  required: ["id", "created_at", "level", "message"],
+  properties: {
+    created_at: {
+      type: "string",
+      format: "date-time",
+    },
+    id: {
+      type: "integer",
+      format: "int64",
+    },
+    level: {
+      $ref: "#/components/schemas/LogLevel",
+      description: "日志级别: info, warning, error",
+    },
+    message: {
+      type: "string",
+      description: "日志消息",
+    },
+  },
+} as const;
+
+export const LogLevelSchema = {
+  type: "string",
+  description: "Log severity level",
+  enum: ["info", "warning", "error"],
+} as const;
+
+export const NetworkInterfaceSchema = {
+  type: "object",
+  description: "Network interface information",
+  required: ["name", "ip", "is_loopback"],
+  properties: {
+    ip: {
+      type: "string",
+      description: "IP address",
+    },
+    is_loopback: {
+      type: "boolean",
+      description: "Whether this is a loopback interface",
+    },
+    name: {
+      type: "string",
+      description: 'Interface name (e.g., "en0", "eth0")',
     },
   },
 } as const;
@@ -486,6 +507,34 @@ export const SearchSubjectsResponseSchema = {
     total: {
       type: "integer",
       format: "int64",
+    },
+  },
+} as const;
+
+export const ServerInfoSchema = {
+  type: "object",
+  description: "Server info including network interfaces",
+  required: ["port", "interfaces", "suggested_urls"],
+  properties: {
+    interfaces: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/NetworkInterface",
+      },
+      description: "Available network interfaces with their IPs",
+    },
+    port: {
+      type: "integer",
+      format: "int32",
+      description: "Server port",
+      minimum: 0,
+    },
+    suggested_urls: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "Suggested webhook URLs (non-loopback interfaces)",
     },
   },
 } as const;
@@ -748,6 +797,11 @@ export const UpdateDownloaderSettingsSchema = {
     username: {
       type: ["string", "null"],
       description: "Username (send null to clear)",
+    },
+    webhook_url: {
+      type: ["string", "null"],
+      description:
+        "Webhook URL for torrent completion callback (send null to clear)",
     },
   },
 } as const;

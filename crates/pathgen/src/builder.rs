@@ -94,7 +94,7 @@ mod tests {
 
         assert_eq!(
             path.to_str().unwrap(),
-            "/Media/Bangumi/测试动画 (2024) tmdb-12345/Season 01/测试动画 - s01e05"
+            "/Media/Bangumi/测试动画 (2024) {tmdb-12345}/Season 01/测试动画 - s01e05"
         );
     }
 
@@ -106,7 +106,7 @@ mod tests {
 
         assert_eq!(
             path.to_str().unwrap(),
-            "测试动画 (2024) tmdb-12345/Season 01/测试动画 - s01e05"
+            "测试动画 (2024) {tmdb-12345}/Season 01/测试动画 - s01e05"
         );
     }
 
@@ -121,7 +121,7 @@ mod tests {
 
         assert_eq!(
             dir.to_str().unwrap(),
-            "/Media/Bangumi/测试动画 (2024) tmdb-12345/Season 02"
+            "/Media/Bangumi/测试动画 (2024) {tmdb-12345}/Season 02"
         );
     }
 
@@ -138,7 +138,7 @@ mod tests {
 
         assert_eq!(
             path.to_str().unwrap(),
-            "/Media/Movies/测试电影 (2024) tmdb-99999/测试电影"
+            "/Media/Movies/测试电影 (2024) {tmdb-99999}/测试电影"
         );
     }
 

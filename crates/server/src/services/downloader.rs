@@ -7,7 +7,7 @@ use crate::services::SettingsService;
 // Re-export types from downloader crate
 pub use downloader::{
     AddTorrentOptions, Downloader, DownloaderClient, DownloaderConfig, DownloaderError,
-    DownloaderType,
+    DownloaderType, TorrentFile, TorrentInfo,
 };
 
 /// Cached client with the settings it was created from
@@ -210,6 +210,164 @@ impl DownloaderService {
                     .map(|c| &c.client)
                     .ok_or(DownloaderError::NotConfigured)?;
                 client.health_check().await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Get torrent information by hash
+    pub async fn get_torrent_info(
+        &self,
+        hash: &str,
+    ) -> downloader::Result<Option<TorrentInfo>> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.get_torrent_info(hash).await
+        };
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.get_torrent_info(hash).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Get files for a specific torrent
+    pub async fn get_torrent_files(&self, hash: &str) -> downloader::Result<Vec<TorrentFile>> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.get_torrent_files(hash).await
+        };
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.get_torrent_files(hash).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Rename a file within a torrent
+    pub async fn rename_file(
+        &self,
+        hash: &str,
+        old_path: &str,
+        new_path: &str,
+    ) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.rename_file(hash, old_path, new_path).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.rename_file(hash, old_path, new_path).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Configure autorun to call webhook when torrents complete
+    pub async fn configure_autorun(&self, webhook_url: &str) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.configure_autorun(webhook_url).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.configure_autorun(webhook_url).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Disable autorun callback
+    pub async fn disable_autorun(&self) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.disable_autorun().await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.disable_autorun().await
             }
             Err(e) => Err(e),
         }

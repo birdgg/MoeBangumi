@@ -7,8 +7,9 @@ use std::time::Duration;
 
 use super::traits::{JobResult, SchedulerJob};
 use crate::models::{CreateDownloadTask, CreateTorrent};
-use crate::repositories::{DownloadTaskRepository, RssRepository, TorrentRepository};
-use crate::services::DownloaderService;
+use crate::models::Settings;
+use crate::repositories::{BangumiRepository, DownloadTaskRepository, RssRepository, TorrentRepository};
+use crate::services::{DownloaderService, SettingsService};
 use downloader::AddTorrentOptions;
 use parser::Parser;
 
@@ -19,6 +20,7 @@ pub struct RssFetchJob {
     db: SqlitePool,
     rss_client: Arc<RssClient>,
     downloader: Arc<DownloaderService>,
+    settings: Arc<SettingsService>,
     parser: Parser,
 }
 
@@ -28,11 +30,13 @@ impl RssFetchJob {
         db: SqlitePool,
         rss_client: Arc<RssClient>,
         downloader: Arc<DownloaderService>,
+        settings: Arc<SettingsService>,
     ) -> Self {
         Self {
             db,
             rss_client,
             downloader,
+            settings,
             parser: Parser::new(),
         }
     }
@@ -61,30 +65,17 @@ impl SchedulerJob for RssFetchJob {
 
         tracing::info!("Found {} enabled RSS subscriptions", rss_list.len());
 
-        let mut total_new = 0;
-        let mut total_skipped = 0;
-        let mut total_filtered = 0;
+        // Get settings once
+        let settings = self.settings.get();
+        let global_filters = compile_filters(&settings.filter.global_rss_filters);
 
         for rss in rss_list {
-            match self.process_rss(&rss).await {
-                Ok((new, skipped, filtered)) => {
-                    total_new += new;
-                    total_skipped += skipped;
-                    total_filtered += filtered;
-                }
-                Err(e) => {
-                    tracing::error!("RSS 订阅处理失败: {} (id={}) - {}", rss.url, rss.id, e);
-                    // Continue processing other RSS feeds
-                }
+            if let Err(e) = self.process_rss(&rss, &global_filters, &settings).await {
+                tracing::error!("RSS 订阅处理失败: {} (id={}) - {}", rss.url, rss.id, e);
             }
         }
 
-        tracing::info!(
-            "RSS fetch completed: {} new torrents, {} skipped (duplicate), {} filtered",
-            total_new,
-            total_skipped,
-            total_filtered
-        );
+        tracing::info!("RSS fetch completed");
 
         Ok(())
     }
@@ -95,8 +86,15 @@ impl RssFetchJob {
     async fn process_rss(
         &self,
         rss: &crate::models::Rss,
-    ) -> Result<(usize, usize, usize), Box<dyn std::error::Error + Send + Sync>> {
+        global_filters: &[Regex],
+        settings: &Settings,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tracing::debug!("Processing RSS: {} (id={})", rss.url, rss.id);
+
+        // Get bangumi info for path generation
+        let bangumi = BangumiRepository::get_by_id(&self.db, rss.bangumi_id)
+            .await?
+            .ok_or_else(|| format!("Bangumi not found: {}", rss.bangumi_id))?;
 
         // Parse URL to determine source type
         let source = parse_rss_source(&rss.url);
@@ -105,22 +103,18 @@ impl RssFetchJob {
         let items = self.rss_client.fetch(&source).await?;
         tracing::debug!("Fetched {} items from RSS {}", items.len(), rss.id);
 
-        // Compile exclude filters
-        let filters = compile_filters(&rss.exclude_filters);
-
-        let mut new_count = 0;
-        let mut skipped_count = 0;
-        let mut filtered_count = 0;
+        // Compile RSS-specific exclude filters
+        let rss_filters = compile_filters(&rss.exclude_filters);
 
         for item in items {
             let title = item.title();
             let info_hash = item.info_hash();
             let torrent_url = item.torrent_url();
 
-            // Check exclude filters
-            if matches_any_filter(title, &filters) {
+            // Check exclude filters (global + RSS-specific)
+            if matches_any_filter(title, global_filters) || matches_any_filter(title, &rss_filters)
+            {
                 tracing::debug!("Filtered out by exclude filter: {}", title);
-                filtered_count += 1;
                 continue;
             }
 
@@ -136,36 +130,23 @@ impl RssFetchJob {
             // Skip if episode number cannot be parsed
             let Some(episode) = episode_number else {
                 tracing::warn!("Skipping RSS item without episode number: {}", title);
-                filtered_count += 1;
                 continue;
             };
 
             // For non-primary RSS, filter by episode number
             if !rss.is_primary {
                 // Check if this episode already exists for this bangumi
-                let existing = TorrentRepository::get_by_bangumi_episode(
-                    &self.db,
-                    rss.bangumi_id,
-                    episode,
-                )
-                .await?;
+                let existing =
+                    TorrentRepository::get_by_bangumi_episode(&self.db, rss.bangumi_id, episode)
+                        .await?;
 
                 if !existing.is_empty() {
-                    tracing::debug!(
-                        "Filtered out: episode {} already exists for bangumi {} (title: {})",
-                        episode,
-                        rss.bangumi_id,
-                        title
-                    );
-                    filtered_count += 1;
                     continue;
                 }
             }
 
             // Check if torrent already exists by info_hash
             if TorrentRepository::exists_by_info_hash(&self.db, info_hash).await? {
-                tracing::debug!("Skipping duplicate info_hash: {}", title);
-                skipped_count += 1;
                 continue;
             }
 
@@ -181,13 +162,6 @@ impl RssFetchJob {
             )
             .await?;
 
-            tracing::info!(
-                "New torrent: {} (id={}, episode={})",
-                title,
-                torrent.id,
-                torrent.episode_number
-            );
-
             // Create download task
             let task = DownloadTaskRepository::create(
                 &self.db,
@@ -197,8 +171,30 @@ impl RssFetchJob {
             )
             .await?;
 
+            // Generate save path and filename using pathgen
+            let base_path = bangumi
+                .save_path
+                .as_ref()
+                .unwrap_or(&settings.downloader.save_path);
+            let save_path = pathgen::generate_directory(
+                base_path,
+                &bangumi.title_chinese,
+                bangumi.year,
+                bangumi.season,
+                bangumi.tmdb_id,
+                bangumi.kind.as_deref(),
+            )?;
+            let filename = pathgen::generate_filename(
+                &bangumi.title_chinese,
+                bangumi.season,
+                episode,
+                bangumi.kind.as_deref(),
+            );
+
             // Add to downloader
-            let options = AddTorrentOptions::new(torrent_url);
+            let options = AddTorrentOptions::new(torrent_url)
+                .save_path(&save_path)
+                .rename(&filename);
 
             match self.downloader.add_torrent(options).await {
                 Ok(_) => {
@@ -210,7 +206,6 @@ impl RssFetchJob {
                         crate::models::DownloadTaskStatus::Downloading,
                     )
                     .await?;
-                    new_count += 1;
                 }
                 Err(e) => {
                     tracing::error!("下载任务添加失败: {} - {}", title, e);
@@ -220,7 +215,7 @@ impl RssFetchJob {
             }
         }
 
-        Ok((new_count, skipped_count, filtered_count))
+        Ok(())
     }
 }
 

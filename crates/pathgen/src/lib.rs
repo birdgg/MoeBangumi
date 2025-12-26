@@ -27,7 +27,7 @@
 //!
 //! assert_eq!(
 //!     path.to_str().unwrap(),
-//!     "/Media/Bangumi/迷宫饭 (2024) tmdb-119121/Season 01/迷宫饭 - s01e12"
+//!     "/Media/Bangumi/迷宫饭 (2024) {tmdb-119121}/Season 01/迷宫饭 - s01e12"
 //! );
 //! ```
 //!
@@ -80,11 +80,11 @@ pub use sanitizer::PathSanitizer;
 ///
 /// // TV show
 /// let path = generate_path("/Media/Bangumi", "测试动画", 2024, 1, 5, Some(12345), Some("TV")).unwrap();
-/// assert_eq!(path, "/Media/Bangumi/测试动画 (2024) tmdb-12345/Season 01/测试动画 - s01e05");
+/// assert_eq!(path, "/Media/Bangumi/测试动画 (2024) {tmdb-12345}/Season 01/测试动画 - s01e05");
 ///
 /// // Movie
 /// let path = generate_path("/Media/Movies", "测试电影", 2024, 1, 1, Some(99999), Some("Movie")).unwrap();
-/// assert_eq!(path, "/Media/Movies/测试电影 (2024) tmdb-99999/测试电影");
+/// assert_eq!(path, "/Media/Movies/测试电影 (2024) {tmdb-99999}/测试电影");
 /// ```
 pub fn generate_path(
     base_path: &str,
@@ -138,6 +138,21 @@ pub fn generate_directory(
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Convenience function for generating only the filename (without extension)
+///
+/// Useful when you need to rename a torrent's content.
+pub fn generate_filename(title: &str, season: i32, episode: i32, kind: Option<&str>) -> String {
+    let mut info = PathInfo::new(title, 2000, season, episode); // year is not used for filename
+
+    if let Some(k) = kind {
+        info = info.with_kind(k);
+    }
+
+    PathBuilder::new()
+        .build_filename(&info)
+        .unwrap_or_else(|_| format!("{} - s{:02}e{:02}", title, season, episode))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,7 +164,7 @@ mod tests {
                 .unwrap();
         assert_eq!(
             path,
-            "/Media/Bangumi/测试动画 (2024) tmdb-12345/Season 01/测试动画 - s01e05"
+            "/Media/Bangumi/测试动画 (2024) {tmdb-12345}/Season 01/测试动画 - s01e05"
         );
     }
 
@@ -165,7 +180,7 @@ mod tests {
             Some("Movie"),
         )
         .unwrap();
-        assert_eq!(path, "/Media/Movies/测试电影 (2024) tmdb-99999/测试电影");
+        assert_eq!(path, "/Media/Movies/测试电影 (2024) {tmdb-99999}/测试电影");
     }
 
     #[test]
@@ -173,7 +188,7 @@ mod tests {
         let dir =
             generate_directory("/Media/Bangumi", "测试动画", 2024, 2, Some(12345), Some("TV"))
                 .unwrap();
-        assert_eq!(dir, "/Media/Bangumi/测试动画 (2024) tmdb-12345/Season 02");
+        assert_eq!(dir, "/Media/Bangumi/测试动画 (2024) {tmdb-12345}/Season 02");
     }
 
     #[test]

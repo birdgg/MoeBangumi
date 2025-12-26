@@ -209,12 +209,17 @@ export type DownloaderSettings = {
    * Username (qBittorrent)
    */
   username?: string;
+  /**
+   * Webhook URL for torrent completion callback (e.g., http://192.168.1.100:3000)
+   * Used to configure qBittorrent's autorun to call back when downloads complete
+   */
+  webhook_url?: string;
 };
 
 /**
  * Downloader type
  */
-export type DownloaderType = "qbittorrent";
+export type DownloaderType = "qBittorrent";
 
 /**
  * Episode item
@@ -253,31 +258,6 @@ export type Episode = {
 export type EpisodeType = "Main" | "Special" | "Opening" | "Ending";
 
 /**
- * System event entity
- */
-export type Event = {
-  created_at: string;
-  /**
-   * 详细信息，如错误堆栈或额外上下文
-   */
-  details?: string | null;
-  id: number;
-  /**
-   * 事件级别: info, warning, error
-   */
-  level: EventLevel;
-  /**
-   * 事件消息，简短描述发生了什么
-   */
-  message: string;
-};
-
-/**
- * Event severity level
- */
-export type EventLevel = "info" | "warning" | "error";
-
-/**
  * Filter configuration
  */
 export type FilterSettings = {
@@ -285,6 +265,45 @@ export type FilterSettings = {
    * Global RSS filters (regex patterns to exclude)
    */
   global_rss_filters?: Array<string>;
+};
+
+/**
+ * System log entity
+ */
+export type Log = {
+  created_at: string;
+  id: number;
+  /**
+   * 日志级别: info, warning, error
+   */
+  level: LogLevel;
+  /**
+   * 日志消息
+   */
+  message: string;
+};
+
+/**
+ * Log severity level
+ */
+export type LogLevel = "info" | "warning" | "error";
+
+/**
+ * Network interface information
+ */
+export type NetworkInterface = {
+  /**
+   * IP address
+   */
+  ip: string;
+  /**
+   * Whether this is a loopback interface
+   */
+  is_loopback: boolean;
+  /**
+   * Interface name (e.g., "en0", "eth0")
+   */
+  name: string;
 };
 
 /**
@@ -348,6 +367,24 @@ export type SearchSubjectsResponse = {
   limit: number;
   offset: number;
   total: number;
+};
+
+/**
+ * Server info including network interfaces
+ */
+export type ServerInfo = {
+  /**
+   * Available network interfaces with their IPs
+   */
+  interfaces: Array<NetworkInterface>;
+  /**
+   * Server port
+   */
+  port: number;
+  /**
+   * Suggested webhook URLs (non-loopback interfaces)
+   */
+  suggested_urls: Array<string>;
 };
 
 /**
@@ -482,6 +519,10 @@ export type UpdateDownloaderSettings = {
    * Username (send null to clear)
    */
   username?: string | null;
+  /**
+   * Webhook URL for torrent completion callback (send null to clear)
+   */
+  webhook_url?: string | null;
 };
 
 /**
@@ -670,76 +711,76 @@ export type GetEpisodesResponses = {
 export type GetEpisodesResponse =
   GetEpisodesResponses[keyof GetEpisodesResponses];
 
-export type CleanupEventsData = {
+export type CleanupLogsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/api/events";
+  url: "/api/logs";
 };
 
-export type CleanupEventsErrors = {
+export type CleanupLogsErrors = {
   /**
    * Internal server error
    */
   500: unknown;
 };
 
-export type CleanupEventsResponses = {
+export type CleanupLogsResponses = {
   /**
-   * Old events deleted
+   * Old logs deleted
    */
   200: number;
 };
 
-export type CleanupEventsResponse =
-  CleanupEventsResponses[keyof CleanupEventsResponses];
+export type CleanupLogsResponse =
+  CleanupLogsResponses[keyof CleanupLogsResponses];
 
-export type GetEventsData = {
+export type GetLogsData = {
   body?: never;
   path?: never;
   query?: {
     /**
-     * Filter by event level
+     * Filter by log level
      */
     level?: string | null;
     /**
-     * Maximum number of events to return (default: 50, max: 500)
+     * Maximum number of logs to return (default: 50, max: 500)
      */
     limit?: number | null;
     /**
-     * Number of events to skip (for pagination)
+     * Number of logs to skip (for pagination)
      */
     offset?: number | null;
   };
-  url: "/api/events";
+  url: "/api/logs";
 };
 
-export type GetEventsErrors = {
+export type GetLogsErrors = {
   /**
    * Internal server error
    */
   500: unknown;
 };
 
-export type GetEventsResponses = {
+export type GetLogsResponses = {
   /**
-   * Events retrieved successfully
+   * Logs retrieved successfully
    */
-  200: Array<Event>;
+  200: Array<Log>;
 };
 
-export type GetEventsResponse = GetEventsResponses[keyof GetEventsResponses];
+export type GetLogsResponse = GetLogsResponses[keyof GetLogsResponses];
 
-export type StreamEventsData = {
+export type StreamLogsData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/api/events/stream";
+  url: "/api/logs/stream";
 };
 
-export type StreamEventsResponses = {
+export type StreamLogsResponses = {
   /**
-   * SSE event stream
+   * SSE log stream
    */
   200: unknown;
 };
@@ -951,3 +992,50 @@ export type ResetSettingsResponses = {
 
 export type ResetSettingsResponse =
   ResetSettingsResponses[keyof ResetSettingsResponses];
+
+export type GetServerInfoData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/settings/server-info";
+};
+
+export type GetServerInfoResponses = {
+  /**
+   * Server info with network interfaces
+   */
+  200: ServerInfo;
+};
+
+export type GetServerInfoResponse =
+  GetServerInfoResponses[keyof GetServerInfoResponses];
+
+export type TorrentCompletedData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Torrent info hash from qBittorrent
+     */
+    hash: string;
+  };
+  url: "/api/webhook/torrent-completed";
+};
+
+export type TorrentCompletedErrors = {
+  /**
+   * Torrent not found
+   */
+  404: unknown;
+  /**
+   * Failed to process torrent
+   */
+  500: unknown;
+};
+
+export type TorrentCompletedResponses = {
+  /**
+   * File renamed successfully
+   */
+  200: unknown;
+};
