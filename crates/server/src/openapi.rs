@@ -3,7 +3,8 @@ use utoipa::OpenApi;
 use crate::api::handlers::{ControlTorrentsRequest, DeleteTorrentsRequest};
 use crate::models::{
     BangumiWithRss, DownloaderSettings, FilterSettings, Log, LogLevel, Rss, Settings,
-    UpdateBangumiRequest, UpdateDownloaderSettings, UpdateFilterSettings, UpdateSettings,
+    TorrentSearchResult, TorrentSource, UpdateBangumiRequest, UpdateDownloaderSettings,
+    UpdateFilterSettings, UpdateSettings,
 };
 use crate::services::{ServerState, SyncMainData, SyncTorrentInfo, TorrentInfo};
 
@@ -39,7 +40,9 @@ use crate::services::{ServerState, SyncMainData, SyncTorrentInfo, TorrentInfo};
         DeleteTorrentsRequest,
         SyncMainData,
         SyncTorrentInfo,
-        ServerState
+        ServerState,
+        TorrentSearchResult,
+        TorrentSource
     ))
 )]
 pub struct ApiDoc;

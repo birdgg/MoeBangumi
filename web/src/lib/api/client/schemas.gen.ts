@@ -919,6 +919,30 @@ export const TorrentInfoSchema = {
   },
 } as const;
 
+export const TorrentSearchResultSchema = {
+  type: "object",
+  required: ["title", "torrent_url", "info_hash", "source"],
+  properties: {
+    info_hash: {
+      type: "string",
+    },
+    source: {
+      $ref: "#/components/schemas/TorrentSource",
+    },
+    title: {
+      type: "string",
+    },
+    torrent_url: {
+      type: "string",
+    },
+  },
+} as const;
+
+export const TorrentSourceSchema = {
+  type: "string",
+  enum: ["mikan", "nyaa"],
+} as const;
+
 export const TvShowSchema = {
   type: "object",
   required: [

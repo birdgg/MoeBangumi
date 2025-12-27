@@ -7,6 +7,7 @@ mod log;
 mod poster;
 mod scheduler;
 mod settings;
+mod torrent_search;
 mod tracing_layer;
 
 pub use bangumi::{BangumiError, BangumiService};
@@ -23,4 +24,5 @@ pub use scheduler::{
     FileRenameJob, JobResult, LogCleanupJob, RssFetchJob, SchedulerJob, SchedulerService,
 };
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};
+pub use torrent_search::{TorrentSearchError, TorrentSearchService};
 pub use tracing_layer::{create_log_channel, start_log_writer, DatabaseLayer, LogReceiver};

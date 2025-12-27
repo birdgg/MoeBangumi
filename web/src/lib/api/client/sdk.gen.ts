@@ -51,6 +51,9 @@ import type {
   SearchTmdbData,
   SearchTmdbErrors,
   SearchTmdbResponses,
+  SearchTorrentsData,
+  SearchTorrentsErrors,
+  SearchTorrentsResponses,
   StreamLogsData,
   StreamLogsResponses,
   SyncMaindataData,
@@ -412,6 +415,18 @@ export const resumeTorrents = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Search for torrents from a specific source (Nyaa or Mikan)
+ */
+export const searchTorrents = <ThrowOnError extends boolean = false>(
+  options: Options<SearchTorrentsData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    SearchTorrentsResponses,
+    SearchTorrentsErrors,
+    ThrowOnError
+  >({ url: "/api/torrents/search", ...options });
 
 /**
  * Sync maindata for incremental torrent updates

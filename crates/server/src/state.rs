@@ -9,6 +9,7 @@ use crate::config::Config;
 use crate::services::{
     BangumiService, CacheService, DownloaderService, FileRenameJob, HttpClientService,
     LogCleanupJob, LogService, PosterService, RssFetchJob, SchedulerService, SettingsService,
+    TorrentSearchService,
 };
 
 #[derive(Clone)]
@@ -28,6 +29,7 @@ pub struct AppState {
     pub logs: Arc<LogService>,
     pub bangumi: Arc<BangumiService>,
     pub cache: Arc<CacheService>,
+    pub torrent_search: Arc<TorrentSearchService>,
 }
 
 /// Create a client provider closure from HttpClientService
@@ -90,6 +92,9 @@ impl AppState {
         let rss_arc = Arc::new(rss);
         let downloader_arc = Arc::new(downloader);
 
+        // Create torrent search service
+        let torrent_search = Arc::new(TorrentSearchService::new(Arc::clone(&rss_arc)));
+
         // Create RSS fetch job (stored separately for manual triggering)
         let rss_fetch_job = Arc::new(RssFetchJob::new(
             db.clone(),
@@ -133,6 +138,7 @@ impl AppState {
             logs,
             bangumi,
             cache,
+            torrent_search,
         }
     }
 }

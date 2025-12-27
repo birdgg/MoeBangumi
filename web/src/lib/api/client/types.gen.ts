@@ -651,6 +651,15 @@ export type TorrentInfo = {
   state: string;
 };
 
+export type TorrentSearchResult = {
+  info_hash: string;
+  source: TorrentSource;
+  title: string;
+  torrent_url: string;
+};
+
+export type TorrentSource = "mikan" | "nyaa";
+
 export type TvShow = {
   backdrop_path?: string | null;
   first_air_date?: string | null;
@@ -1330,6 +1339,39 @@ export type ResumeTorrentsResponses = {
    */
   200: unknown;
 };
+
+export type SearchTorrentsData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Keyword to search
+     */
+    keyword: string;
+    /**
+     * Source to search from (nyaa or mikan)
+     */
+    source: TorrentSource;
+  };
+  url: "/api/torrents/search";
+};
+
+export type SearchTorrentsErrors = {
+  /**
+   * Internal server error
+   */
+  500: unknown;
+};
+
+export type SearchTorrentsResponses = {
+  /**
+   * Search results from the specified source
+   */
+  200: Array<TorrentSearchResult>;
+};
+
+export type SearchTorrentsResponse =
+  SearchTorrentsResponses[keyof SearchTorrentsResponses];
 
 export type SyncMaindataData = {
   body?: never;

@@ -183,3 +183,9 @@ impl From<tmdb::TmdbError> for AppError {
         AppError::ExternalApi(e.to_string())
     }
 }
+
+impl From<crate::services::TorrentSearchError> for AppError {
+    fn from(e: crate::services::TorrentSearchError) -> Self {
+        AppError::ExternalApi(e.to_string())
+    }
+}
