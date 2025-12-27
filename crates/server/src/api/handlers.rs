@@ -38,7 +38,7 @@ pub use logs::{cleanup_logs, get_logs, stream_logs};
 pub use mikan::get_mikan_rss;
 pub use scheduler::trigger_rss_fetch;
 pub use search::{search_bgmtv, search_mikan, search_tmdb};
-pub use settings::{get_settings, reset_settings, update_settings};
+pub use settings::{get_settings, reset_settings, test_proxy, update_settings, TestProxyRequest};
 pub use webhook::torrent_completed;
 pub use torrents::{
     delete_torrents, list_torrents, pause_torrents, resume_torrents, sync_maindata,
@@ -61,7 +61,7 @@ pub use search::{__path_search_bgmtv, __path_search_mikan, __path_search_tmdb};
 #[doc(hidden)]
 pub use scheduler::__path_trigger_rss_fetch;
 #[doc(hidden)]
-pub use settings::{__path_get_settings, __path_reset_settings, __path_update_settings};
+pub use settings::{__path_get_settings, __path_reset_settings, __path_test_proxy, __path_update_settings};
 #[doc(hidden)]
 pub use webhook::__path_torrent_completed;
 #[doc(hidden)]

@@ -30,7 +30,6 @@ const sidebarItems: SettingsSidebarItem[] = [
     id: "proxy",
     label: "代理",
     icon: <IconWorld className="size-4" />,
-    disabled: true,
   },
   {
     id: "notification",

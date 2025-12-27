@@ -11,6 +11,7 @@ import {
 import {
   DownloaderSection,
   FilterSection,
+  ProxySection,
   SettingsSidebar,
   type SettingsSection,
 } from "./components";
@@ -51,15 +52,7 @@ export function SettingsPage() {
       case "filter":
         return <FilterSection form={form} />;
       case "proxy":
-        return (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="size-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-              <IconSettings className="size-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">代理设置</h3>
-            <p className="text-sm text-muted-foreground">即将推出</p>
-          </div>
-        );
+        return <ProxySection form={form} />;
       case "notification":
         return (
           <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -111,7 +104,7 @@ export function SettingsPage() {
                 </div>
 
                 {/* Save Button - only show for implemented sections */}
-                {(activeSection === "downloader" || activeSection === "filter") && (
+                {(activeSection === "downloader" || activeSection === "filter" || activeSection === "proxy") && (
                   <div className="flex justify-end">
                     <form.Subscribe selector={(state) => state.canSubmit}>
                       {(canSubmit) => (

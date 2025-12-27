@@ -22,7 +22,8 @@ impl TmdbClient {
         if let Some(query) = &params.with_text_query {
             url.push_str(&format!("&with_text_query={}", urlencoding::encode(query)));
         }
-        let response = self.client().get(&url).send().await?;
+        let client = self.client().await?;
+        let response = client.get(&url).send().await?;
         self.handle_response(response).await
     }
 }

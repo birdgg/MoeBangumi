@@ -3,7 +3,7 @@ mod discover;
 mod error;
 pub mod models;
 
-pub use client::TmdbClient;
+pub use client::{ClientProvider, TmdbClient};
 pub use discover::DiscoverBangumiParams;
 pub use error::TmdbError;
 

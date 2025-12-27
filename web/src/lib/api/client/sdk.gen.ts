@@ -59,6 +59,9 @@ import type {
   TestDownloaderConnectionData,
   TestDownloaderConnectionErrors,
   TestDownloaderConnectionResponses,
+  TestProxyData,
+  TestProxyErrors,
+  TestProxyResponses,
   TorrentCompletedData,
   TorrentCompletedErrors,
   TorrentCompletedResponses,
@@ -230,6 +233,25 @@ export const getMikanRss = <ThrowOnError extends boolean = false>(
     GetMikanRssErrors,
     ThrowOnError
   >({ url: "/api/mikan/rss", ...options });
+
+/**
+ * Test proxy connection by making a request to mikanani.me
+ */
+export const testProxy = <ThrowOnError extends boolean = false>(
+  options: Options<TestProxyData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    TestProxyResponses,
+    TestProxyErrors,
+    ThrowOnError
+  >({
+    url: "/api/proxy/test",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 
 /**
  * Manually trigger RSS fetch job

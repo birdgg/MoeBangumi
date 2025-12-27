@@ -4,7 +4,7 @@ mod error;
 pub mod models;
 mod search;
 
-pub use client::BgmtvClient;
+pub use client::{BgmtvClient, ClientProvider};
 pub use error::BgmtvError;
 pub use models::{
     Episode, EpisodeType, EpisodesResponse, SearchFilter, SearchSubjectsRequest,

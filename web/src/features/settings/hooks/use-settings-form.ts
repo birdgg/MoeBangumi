@@ -19,6 +19,11 @@ export function settingsToFormData(settings?: Settings): SettingsFormData {
     filter: {
       global_rss_filters: settings?.filter?.global_rss_filters ?? [],
     },
+    proxy: {
+      url: settings?.proxy?.url ?? "",
+      username: settings?.proxy?.username ?? "",
+      password: settings?.proxy?.password ?? "",
+    },
   };
 }
 
@@ -38,6 +43,11 @@ export function formDataToUpdateSettings(data: SettingsFormData): UpdateSettings
     },
     filter: {
       global_rss_filters: data.filter.global_rss_filters,
+    },
+    proxy: {
+      url: data.proxy.url?.trim() || null,
+      username: data.proxy.username?.trim() || null,
+      password: data.proxy.password?.trim() || null,
     },
   };
 }
@@ -64,6 +74,9 @@ export function useSettingsForm(initialSettings?: Settings) {
       form.setFieldValue("downloader.save_path", formData.downloader.save_path);
       form.setFieldValue("downloader.webhook_url", formData.downloader.webhook_url);
       form.setFieldValue("filter.global_rss_filters", formData.filter.global_rss_filters);
+      form.setFieldValue("proxy.url", formData.proxy.url);
+      form.setFieldValue("proxy.username", formData.proxy.username);
+      form.setFieldValue("proxy.password", formData.proxy.password);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSettings]);

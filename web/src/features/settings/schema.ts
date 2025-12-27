@@ -23,11 +23,21 @@ export const filterSchema = z.object({
 });
 
 /**
+ * Proxy configuration schema
+ */
+export const proxySchema = z.object({
+  url: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+});
+
+/**
  * Complete settings form schema
  */
 export const settingsFormSchema = z.object({
   downloader: downloaderSchema,
   filter: filterSchema,
+  proxy: proxySchema,
 });
 
 /**
@@ -35,4 +45,5 @@ export const settingsFormSchema = z.object({
  */
 export type DownloaderFormData = z.infer<typeof downloaderSchema>;
 export type FilterFormData = z.infer<typeof filterSchema>;
+export type ProxyFormData = z.infer<typeof proxySchema>;
 export type SettingsFormData = z.infer<typeof settingsFormSchema>;

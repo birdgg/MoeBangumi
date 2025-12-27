@@ -1,6 +1,5 @@
 use bgmtv::BgmtvClient;
 use mikan::MikanClient;
-use reqwest::Client;
 use rss::RssClient;
 use sqlx::SqlitePool;
 use std::sync::Arc;
@@ -8,15 +7,15 @@ use tmdb::TmdbClient;
 
 use crate::config::Config;
 use crate::services::{
-    BangumiService, CacheService, DownloaderService, FileRenameJob, LogCleanupJob, LogService,
-    PosterService, RssFetchJob, SchedulerService, SettingsService,
+    BangumiService, CacheService, DownloaderService, FileRenameJob, HttpClientService,
+    LogCleanupJob, LogService, PosterService, RssFetchJob, SchedulerService, SettingsService,
 };
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
     pub config: Arc<Config>,
-    pub http_client: Client,
+    pub http_client_service: Arc<HttpClientService>,
     pub tmdb: Arc<TmdbClient>,
     pub bgmtv: Arc<BgmtvClient>,
     pub mikan: Arc<MikanClient>,
@@ -31,16 +30,43 @@ pub struct AppState {
     pub cache: Arc<CacheService>,
 }
 
+/// Create a client provider closure from HttpClientService
+fn create_client_provider(
+    http_service: Arc<HttpClientService>,
+) -> Arc<
+    dyn Fn() -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = Result<reqwest::Client, Box<dyn std::error::Error + Send + Sync>>,
+                    > + Send,
+            >,
+        > + Send
+        + Sync,
+> {
+    Arc::new(move || {
+        // get_client() is now sync, wrap in async for compatibility with ClientProvider type
+        let client = http_service.get_client();
+        Box::pin(async move { Ok(client) })
+    })
+}
+
 impl AppState {
     pub fn new(db: SqlitePool, config: Config, settings: SettingsService) -> Self {
-        let http_client = Client::new();
-        let tmdb = TmdbClient::with_client(http_client.clone(), &config.tmdb_api_key);
-        let bgmtv = BgmtvClient::with_client(http_client.clone());
-        let mikan = MikanClient::new(http_client.clone());
-        let rss = RssClient::with_client(http_client.clone());
-
-        // Wrap settings in Arc first (needed by DownloaderService)
+        // Wrap settings in Arc first (needed by HttpClientService and DownloaderService)
         let settings = Arc::new(settings);
+
+        // Create HTTP client service with dynamic proxy support
+        let http_client_service = Arc::new(
+            HttpClientService::new(Arc::clone(&settings))
+                .expect("Failed to create HTTP client service"),
+        );
+        let client_provider = create_client_provider(Arc::clone(&http_client_service));
+
+        // Create API clients with dynamic client provider
+        let tmdb = TmdbClient::with_client_provider(Arc::clone(&client_provider), &config.tmdb_api_key);
+        let bgmtv = BgmtvClient::with_client_provider(Arc::clone(&client_provider));
+        let mikan = MikanClient::with_client_provider(Arc::clone(&client_provider));
+        let rss = RssClient::with_client_provider(Arc::clone(&client_provider));
 
         // Create log service for logging and notifications
         let logs = Arc::new(LogService::new(db.clone()));
@@ -48,8 +74,11 @@ impl AppState {
         // Create downloader service with settings reference
         let downloader = DownloaderService::new(Arc::clone(&settings));
 
-        // Create poster service
-        let poster = Arc::new(PosterService::new(http_client.clone(), config.posters_path()));
+        // Create poster service with dynamic client provider
+        let poster = Arc::new(PosterService::with_client_provider(
+            Arc::clone(&client_provider),
+            config.posters_path(),
+        ));
 
         // Create bangumi service
         let bangumi = Arc::new(BangumiService::new(db.clone(), Arc::clone(&poster)));
@@ -91,7 +120,7 @@ impl AppState {
         Self {
             db,
             config: Arc::new(config),
-            http_client,
+            http_client_service,
             tmdb: Arc::new(tmdb),
             bgmtv: Arc::new(bgmtv),
             mikan: Arc::new(mikan),

@@ -16,6 +16,8 @@ interface BangumiInfoCardProps {
   seasonNumber?: number | null;
   platform?: string | null;
   isFinished?: boolean;
+  /** BGM.tv ID for linking to https://bgm.tv/subject/{id} */
+  bgmtvId?: number | null;
   className?: string;
 }
 
@@ -29,15 +31,29 @@ export function BangumiInfoCard({
   seasonNumber,
   platform,
   isFinished,
+  bgmtvId,
   className,
 }: BangumiInfoCardProps) {
   const hasTags = (year && broadcastSeason) || totalEpisodes || seasonNumber || platform || isFinished !== undefined;
 
+  const Wrapper = bgmtvId ? "a" : "div";
+  const wrapperProps = bgmtvId
+    ? {
+        href: `https://bgm.tv/subject/${bgmtvId}`,
+        target: "_blank",
+        rel: "noopener noreferrer",
+      }
+    : {};
+
   return (
-    <div
+    <Wrapper
+      {...wrapperProps}
       className={cn(
-        "relative overflow-hidden rounded-xl border border-chart-3/20 dark:border-chart-1/20",
-        "bg-linear-to-br from-chart-3/5 via-transparent to-chart-1/5 dark:from-chart-3/10 dark:to-chart-1/10",
+        "relative overflow-hidden rounded-xl",
+        "border border-white/20 dark:border-white/10",
+        "bg-white/60 dark:bg-white/5 backdrop-blur-xl",
+        "shadow-sm shadow-chart-1/5",
+        bgmtvId && "block cursor-pointer transition-all hover:border-chart-1/30 hover:bg-white/70 dark:hover:bg-white/10 hover:shadow-md hover:shadow-chart-1/10",
         className
       )}
     >
@@ -103,6 +119,6 @@ export function BangumiInfoCard({
           )}
         </div>
       </div>
-    </div>
+    </Wrapper>
   );
 }

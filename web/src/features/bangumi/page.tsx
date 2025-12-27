@@ -3,12 +3,38 @@ import {
   BangumiCard,
   BangumiGrid,
   BangumiCardSkeleton,
-  EditBangumiModal,
+  BangumiModal,
+  type BangumiModalData,
 } from "@/features/bangumi/components";
 import { useGetAllBangumi } from "@/features/bangumi/hooks/use-bangumi";
 import { IconSparkles, IconAlertCircle } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import type { Bangumi } from "@/lib/api";
+
+// Convert Bangumi to BangumiModalData
+function bangumiToModalData(bangumi: Bangumi): BangumiModalData {
+  return {
+    id: bangumi.id,
+    bgmtvId: bangumi.bgmtv_id ?? 0,
+    tmdbId: bangumi.tmdb_id,
+    titleChinese: bangumi.title_chinese,
+    titleJapanese: bangumi.title_original_japanese,
+    titleOriginalChinese: bangumi.title_original_chinese,
+    titleOriginalJapanese: bangumi.title_original_japanese,
+    posterUrl: bangumi.poster_url,
+    year: bangumi.year,
+    season: bangumi.season,
+    totalEpisodes: bangumi.total_episodes,
+    platform: bangumi.kind,
+    airDate: bangumi.air_date,
+    airWeek: bangumi.air_week,
+    finished: bangumi.finished,
+    sourceType: bangumi.source_type,
+    episodeOffset: bangumi.episode_offset,
+    autoDownload: bangumi.auto_download,
+    savePath: bangumi.save_path,
+  };
+}
 
 export function BangumiPage() {
   const { data: bangumiList, isLoading, error } = useGetAllBangumi();
@@ -103,10 +129,11 @@ export function BangumiPage() {
 
         {/* Edit Bangumi Modal */}
         {editingBangumi && (
-          <EditBangumiModal
+          <BangumiModal
             open={!!editingBangumi}
             onOpenChange={(open) => !open && setEditingBangumi(null)}
-            bangumi={editingBangumi}
+            mode="edit"
+            data={bangumiToModalData(editingBangumi)}
           />
         )}
       </div>

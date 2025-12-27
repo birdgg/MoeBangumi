@@ -409,6 +409,26 @@ export const LogLevelSchema = {
   enum: ["info", "warning", "error"],
 } as const;
 
+export const ProxySettingsSchema = {
+  type: "object",
+  description: "Proxy configuration for HTTP client",
+  properties: {
+    password: {
+      type: "string",
+      description: "Proxy password (optional)",
+    },
+    url: {
+      type: "string",
+      description:
+        "Proxy server URL (e.g., http://127.0.0.1:7890 or socks5://127.0.0.1:1080)",
+    },
+    username: {
+      type: "string",
+      description: "Proxy username (optional)",
+    },
+  },
+} as const;
+
 export const RssSchema = {
   type: "object",
   description: "RSS subscription entity",
@@ -563,6 +583,10 @@ export const SettingsSchema = {
     filter: {
       $ref: "#/components/schemas/FilterSettings",
       description: "Filter configuration",
+    },
+    proxy: {
+      $ref: "#/components/schemas/ProxySettings",
+      description: "Proxy configuration for HTTP client",
     },
   },
 } as const;
@@ -821,6 +845,26 @@ export const TestDownloaderRequestSchema = {
   },
 } as const;
 
+export const TestProxyRequestSchema = {
+  type: "object",
+  description: "Request body for testing proxy connection",
+  required: ["url"],
+  properties: {
+    password: {
+      type: ["string", "null"],
+      description: "Proxy password (optional)",
+    },
+    url: {
+      type: "string",
+      description: "Proxy server URL (e.g., http://127.0.0.1:7890)",
+    },
+    username: {
+      type: ["string", "null"],
+      description: "Proxy username (optional)",
+    },
+  },
+} as const;
+
 export const TorrentInfoSchema = {
   type: "object",
   description: "Torrent information from qBittorrent",
@@ -1023,6 +1067,25 @@ export const UpdateFilterSettingsSchema = {
   },
 } as const;
 
+export const UpdateProxySettingsSchema = {
+  type: "object",
+  description: "Request body for updating proxy settings",
+  properties: {
+    password: {
+      type: ["string", "null"],
+      description: "Password (send null to clear)",
+    },
+    url: {
+      type: ["string", "null"],
+      description: "Proxy server URL (send null to clear)",
+    },
+    username: {
+      type: ["string", "null"],
+      description: "Username (send null to clear)",
+    },
+  },
+} as const;
+
 export const UpdateSettingsSchema = {
   type: "object",
   description:
@@ -1047,6 +1110,17 @@ export const UpdateSettingsSchema = {
         {
           $ref: "#/components/schemas/UpdateFilterSettings",
           description: "Filter configuration updates",
+        },
+      ],
+    },
+    proxy: {
+      oneOf: [
+        {
+          type: "null",
+        },
+        {
+          $ref: "#/components/schemas/UpdateProxySettings",
+          description: "Proxy configuration updates",
         },
       ],
     },

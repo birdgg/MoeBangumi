@@ -2,6 +2,7 @@ mod bangumi;
 mod cache;
 mod downloader;
 mod file_rename;
+mod http_client;
 mod log;
 mod poster;
 mod scheduler;
@@ -15,6 +16,7 @@ pub use downloader::{
     DownloaderService, DownloaderType, ServerState, SyncMainData, SyncTorrentInfo, TorrentInfo,
 };
 pub use file_rename::{FileRenameError, FileRenameService, RenameResult};
+pub use http_client::{HttpClientError, HttpClientService};
 pub use log::{LogError, LogService};
 pub use poster::{PosterError, PosterService};
 pub use scheduler::{

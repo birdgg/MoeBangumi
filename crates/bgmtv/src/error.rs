@@ -10,4 +10,7 @@ pub enum BgmtvError {
 
     #[error("API error: {status_code} - {message}")]
     Api { status_code: u16, message: String },
+
+    #[error("HTTP client error: {0}")]
+    HttpClient(String),
 }

@@ -13,6 +13,9 @@ pub struct Settings {
     /// Filter configuration
     #[serde(default)]
     pub filter: FilterSettings,
+    /// Proxy configuration for HTTP client
+    #[serde(default)]
+    pub proxy: ProxySettings,
 }
 
 /// Downloader configuration (supports qBittorrent)
@@ -92,6 +95,30 @@ impl FilterSettings {
     }
 }
 
+/// Proxy configuration for HTTP client
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ProxySettings {
+    /// Proxy server URL (e.g., http://127.0.0.1:7890 or socks5://127.0.0.1:1080)
+    #[serde(default)]
+    pub url: String,
+    /// Proxy username (optional)
+    #[serde(default)]
+    pub username: String,
+    /// Proxy password (optional)
+    #[serde(default)]
+    pub password: String,
+}
+
+impl Default for ProxySettings {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            username: String::new(),
+            password: String::new(),
+        }
+    }
+}
+
 impl Settings {
     /// Merge update data into current settings
     pub fn merge(&self, update: UpdateSettings) -> Self {
@@ -139,6 +166,26 @@ impl Settings {
                     .and_then(|f| f.global_rss_filters)
                     .unwrap_or_else(|| self.filter.global_rss_filters.clone()),
             },
+            proxy: ProxySettings {
+                url: update
+                    .proxy
+                    .as_ref()
+                    .map(|p| p.url.clone())
+                    .unwrap_or(Clearable::Unchanged)
+                    .resolve_or_empty(self.proxy.url.clone()),
+                username: update
+                    .proxy
+                    .as_ref()
+                    .map(|p| p.username.clone())
+                    .unwrap_or(Clearable::Unchanged)
+                    .resolve_or_empty(self.proxy.username.clone()),
+                password: update
+                    .proxy
+                    .as_ref()
+                    .map(|p| p.password.clone())
+                    .unwrap_or(Clearable::Unchanged)
+                    .resolve_or_empty(self.proxy.password.clone()),
+            },
         }
     }
 }
@@ -153,6 +200,9 @@ pub struct UpdateSettings {
     /// Filter configuration updates
     #[serde(default)]
     pub filter: Option<UpdateFilterSettings>,
+    /// Proxy configuration updates
+    #[serde(default)]
+    pub proxy: Option<UpdateProxySettings>,
 }
 
 /// Request body for updating downloader settings
@@ -189,4 +239,21 @@ pub struct UpdateFilterSettings {
     /// Global RSS filters (replaces entire array if provided)
     #[serde(default)]
     pub global_rss_filters: Option<Vec<String>>,
+}
+
+/// Request body for updating proxy settings
+#[derive(Debug, Clone, Default, Deserialize, ToSchema)]
+pub struct UpdateProxySettings {
+    /// Proxy server URL (send null to clear)
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub url: Clearable<String>,
+    /// Username (send null to clear)
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub username: Clearable<String>,
+    /// Password (send null to clear)
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub password: Clearable<String>,
 }

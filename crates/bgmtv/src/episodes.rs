@@ -6,8 +6,8 @@ impl BgmtvClient {
     /// GET /v0/episodes?subject_id={subject_id}
     pub async fn get_episodes(&self, subject_id: i64) -> crate::Result<EpisodesResponse> {
         let url = self.url(&format!("/v0/episodes?subject_id={}", subject_id));
-        let response = self
-            .client()
+        let client = self.client().await?;
+        let response = client
             .get(&url)
             .header("User-Agent", USER_AGENT)
             .send()
@@ -30,8 +30,8 @@ impl BgmtvClient {
         if let Some(offset) = offset {
             url.push_str(&format!("&offset={}", offset));
         }
-        let response = self
-            .client()
+        let client = self.client().await?;
+        let response = client
             .get(&self.url(&url))
             .header("User-Agent", USER_AGENT)
             .send()

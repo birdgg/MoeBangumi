@@ -29,6 +29,7 @@ import {
   searchTmdb,
   syncMaindata,
   testDownloaderConnection,
+  testProxy,
   torrentCompleted,
   triggerRssFetch,
   updateBangumi,
@@ -67,6 +68,7 @@ import type {
   SyncMaindataData,
   SyncMaindataResponse,
   TestDownloaderConnectionData,
+  TestProxyData,
   TorrentCompletedData,
   TriggerRssFetchData,
   UpdateBangumiData,
@@ -429,6 +431,29 @@ export const getMikanRssOptions = (options: Options<GetMikanRssData>) =>
     },
     queryKey: getMikanRssQueryKey(options),
   });
+
+/**
+ * Test proxy connection by making a request to mikanani.me
+ */
+export const testProxyMutation = (
+  options?: Partial<Options<TestProxyData>>,
+): UseMutationOptions<unknown, DefaultError, Options<TestProxyData>> => {
+  const mutationOptions: UseMutationOptions<
+    unknown,
+    DefaultError,
+    Options<TestProxyData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await testProxy({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 /**
  * Manually trigger RSS fetch job

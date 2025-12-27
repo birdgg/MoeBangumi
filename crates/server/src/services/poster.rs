@@ -1,6 +1,18 @@
-use reqwest::Client;
+use std::future::Future;
 use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::Arc;
+
+use reqwest::Client;
 use thiserror::Error;
+
+/// A function that asynchronously provides an HTTP client.
+/// Used for dynamic proxy configuration support.
+pub type ClientProvider = Arc<
+    dyn Fn() -> Pin<Box<dyn Future<Output = Result<Client, Box<dyn std::error::Error + Send + Sync>>> + Send>>
+        + Send
+        + Sync,
+>;
 
 /// Errors that can occur when downloading or managing posters.
 #[derive(Debug, Error)]
@@ -16,6 +28,9 @@ pub enum PosterError {
 
     #[error("HTTP error: {0}")]
     HttpStatus(u16),
+
+    #[error("HTTP client error: {0}")]
+    HttpClient(String),
 }
 
 /// Service for downloading and managing poster images from BGM.tv.
@@ -23,20 +38,50 @@ pub enum PosterError {
 /// Handles poster downloads with path validation, atomic file writes,
 /// and automatic deduplication via local file caching.
 pub struct PosterService {
-    http_client: Client,
+    client_provider: Option<ClientProvider>,
+    static_client: Option<Client>,
     posters_dir: PathBuf,
 }
 
 impl PosterService {
-    /// Create a new PosterService.
+    /// Create a new PosterService with a static HTTP client.
     ///
     /// # Arguments
     /// * `http_client` - Shared reqwest client for HTTP requests
     /// * `posters_dir` - Directory to store downloaded posters
     pub fn new(http_client: Client, posters_dir: PathBuf) -> Self {
         Self {
-            http_client,
+            client_provider: None,
+            static_client: Some(http_client),
             posters_dir,
+        }
+    }
+
+    /// Create a new PosterService with a dynamic client provider.
+    ///
+    /// # Arguments
+    /// * `provider` - A function that provides an HTTP client asynchronously
+    /// * `posters_dir` - Directory to store downloaded posters
+    pub fn with_client_provider(provider: ClientProvider, posters_dir: PathBuf) -> Self {
+        Self {
+            client_provider: Some(provider),
+            static_client: None,
+            posters_dir,
+        }
+    }
+
+    /// Get the HTTP client for making requests.
+    async fn client(&self) -> Result<Client, PosterError> {
+        if let Some(provider) = &self.client_provider {
+            provider()
+                .await
+                .map_err(|e| PosterError::HttpClient(e.to_string()))
+        } else if let Some(client) = &self.static_client {
+            Ok(client.clone())
+        } else {
+            Err(PosterError::HttpClient(
+                "No HTTP client configured".to_string(),
+            ))
         }
     }
 
@@ -95,7 +140,8 @@ impl PosterService {
 
         tracing::info!("Downloading poster: {}", url);
 
-        let response = self.http_client.get(url).send().await?;
+        let client = self.client().await?;
+        let response = client.get(url).send().await?;
 
         if !response.status().is_success() {
             return Err(PosterError::HttpStatus(response.status().as_u16()));

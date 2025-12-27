@@ -3,7 +3,7 @@ mod error;
 pub mod models;
 mod parsers;
 
-pub use client::RssClient;
+pub use client::{ClientProvider, RssClient};
 pub use error::RssError;
 pub use models::{MikanItem, NyaaItem, RssItem, RssSource};
 

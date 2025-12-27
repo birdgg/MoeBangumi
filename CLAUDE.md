@@ -33,6 +33,9 @@ bun install
 # Development server
 bun run dev
 
+# Generate api
+bun run gen:api
+
 # Production build
 bun run build
 

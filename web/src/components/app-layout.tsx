@@ -2,12 +2,35 @@ import * as React from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { IconPlus, IconRefresh } from "@tabler/icons-react";
-import { SearchBangumiModal, AddBangumiModal } from "@/features/bangumi/components";
+import { SearchBangumiModal, BangumiModal, type BangumiModalData } from "@/features/bangumi/components";
 import { type Subject, triggerRssFetchMutation } from "@/lib/api";
 import { ThemeColorSelector } from "@/components/theme-color-selector";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useMutation } from "@tanstack/react-query";
+import { parseBgmtvName } from "@/lib/parser";
+
+// Convert Subject to BangumiModalData
+function subjectToModalData(subject: Subject): BangumiModalData {
+  const parsedChinese = parseBgmtvName(subject.name_cn || subject.name || "");
+  const parsedJapanese = parseBgmtvName(subject.name || "");
+  const season = parsedChinese.season ?? parsedJapanese.season ?? 1;
+
+  return {
+    bgmtvId: subject.id,
+    titleChinese: parsedChinese.name,
+    titleJapanese: subject.name_cn ? parsedJapanese.name : null,
+    titleOriginalChinese: subject.name_cn,
+    titleOriginalJapanese: subject.name,
+    posterUrl: subject.image,
+    year: subject.date ? parseInt(subject.date.split("-")[0]) : null,
+    season,
+    totalEpisodes: subject.eps,
+    platform: subject.platform,
+    airDate: subject.date,
+    airWeek: subject.date ? new Date(subject.date).getDay() : null,
+  };
+}
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -86,10 +109,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         />
 
         {selectedSubject && (
-          <AddBangumiModal
+          <BangumiModal
             open={addModalOpen}
             onOpenChange={setAddModalOpen}
-            subject={selectedSubject}
+            mode="add"
+            data={subjectToModalData(selectedSubject)}
             onSuccess={handleAddSuccess}
           />
         )}

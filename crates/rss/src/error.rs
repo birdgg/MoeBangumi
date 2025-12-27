@@ -7,4 +7,7 @@ pub enum RssError {
 
     #[error("Failed to parse RSS feed: {0}")]
     Parse(String),
+
+    #[error("HTTP client error: {0}")]
+    HttpClient(String),
 }

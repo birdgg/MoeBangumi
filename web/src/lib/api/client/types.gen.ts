@@ -313,6 +313,24 @@ export type Log = {
 export type LogLevel = "info" | "warning" | "error";
 
 /**
+ * Proxy configuration for HTTP client
+ */
+export type ProxySettings = {
+  /**
+   * Proxy password (optional)
+   */
+  password?: string;
+  /**
+   * Proxy server URL (e.g., http://127.0.0.1:7890 or socks5://127.0.0.1:1080)
+   */
+  url?: string;
+  /**
+   * Proxy username (optional)
+   */
+  username?: string;
+};
+
+/**
  * RSS subscription entity
  */
 export type Rss = {
@@ -409,6 +427,10 @@ export type Settings = {
    * Filter configuration
    */
   filter?: FilterSettings;
+  /**
+   * Proxy configuration for HTTP client
+   */
+  proxy?: ProxySettings;
 };
 
 /**
@@ -574,6 +596,24 @@ export type TestDownloaderRequest = {
 };
 
 /**
+ * Request body for testing proxy connection
+ */
+export type TestProxyRequest = {
+  /**
+   * Proxy password (optional)
+   */
+  password?: string | null;
+  /**
+   * Proxy server URL (e.g., http://127.0.0.1:7890)
+   */
+  url: string;
+  /**
+   * Proxy username (optional)
+   */
+  username?: string | null;
+};
+
+/**
  * Torrent information from qBittorrent
  */
 export type TorrentInfo = {
@@ -687,12 +727,31 @@ export type UpdateFilterSettings = {
 };
 
 /**
+ * Request body for updating proxy settings
+ */
+export type UpdateProxySettings = {
+  /**
+   * Password (send null to clear)
+   */
+  password?: string | null;
+  /**
+   * Proxy server URL (send null to clear)
+   */
+  url?: string | null;
+  /**
+   * Username (send null to clear)
+   */
+  username?: string | null;
+};
+
+/**
  * Request body for updating settings.
  * All fields are optional - only provided fields will be updated.
  */
 export type UpdateSettings = {
   downloader?: null | UpdateDownloaderSettings;
   filter?: null | UpdateFilterSettings;
+  proxy?: null | UpdateProxySettings;
 };
 
 export type GetBangumiData = {
@@ -964,6 +1023,31 @@ export type GetMikanRssResponses = {
 
 export type GetMikanRssResponse =
   GetMikanRssResponses[keyof GetMikanRssResponses];
+
+export type TestProxyData = {
+  body: TestProxyRequest;
+  path?: never;
+  query?: never;
+  url: "/api/proxy/test";
+};
+
+export type TestProxyErrors = {
+  /**
+   * Invalid proxy configuration
+   */
+  400: unknown;
+  /**
+   * Proxy connection failed
+   */
+  500: unknown;
+};
+
+export type TestProxyResponses = {
+  /**
+   * Proxy connection successful
+   */
+  200: unknown;
+};
 
 export type TriggerRssFetchData = {
   body?: never;
