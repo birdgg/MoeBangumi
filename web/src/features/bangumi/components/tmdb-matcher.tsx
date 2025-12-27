@@ -2,49 +2,41 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useSearchTmdb } from "../hooks/use-bangumi";
 import { type TvShow } from "@/lib/api";
-import { IconLoader2, IconMovie, IconCheck, IconChevronDown, IconExternalLink } from "@tabler/icons-react";
+import { IconLoader2, IconCheck, IconChevronDown, IconExternalLink } from "@tabler/icons-react";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface TmdbMatcherProps {
-  value: TvShow | null;
   onChange: (show: TvShow | null) => void;
   /** Search keyword (controlled from outside, e.g., from title_chinese input) */
   keyword: string;
   className?: string;
   /** Pre-filled TMDB ID (disables initial auto-search until dropdown is opened) */
   initialTmdbId?: number;
-  /** Pre-filled TMDB title to display when initialTmdbId is provided */
-  initialTmdbTitle?: string;
 }
 
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w92";
-
 export function TmdbMatcher({
-  value,
   onChange,
   keyword,
   className,
   initialTmdbId,
-  initialTmdbTitle,
 }: TmdbMatcherProps) {
   const [open, setOpen] = React.useState(false);
+  const [selected, setSelected] = React.useState<TvShow | null>(null);
+  const [hasOpened, setHasOpened] = React.useState(false);
   const [debouncedKeyword] = useDebouncedValue(keyword, { wait: 400 });
   const hasSearchedRef = React.useRef(false);
-  const triggerRef = React.useRef<HTMLButtonElement>(null);
-  // Track if user has ever opened the dropdown (to enable search when initialTmdbId is provided)
-  const hasOpenedRef = React.useRef(false);
 
   // Disable search until user opens dropdown when initialTmdbId is provided
-  const shouldSearch = !initialTmdbId || hasOpenedRef.current;
+  const shouldSearch = !initialTmdbId || hasOpened;
   const searchKeyword = shouldSearch ? debouncedKeyword : "";
 
   const { data, isLoading, isFetching } = useSearchTmdb(searchKeyword);
   const results = data ?? [];
   const isSearching = shouldSearch && (isLoading || isFetching);
 
-  // Compute display value: use value if set, otherwise fallback to initial props
-  const displayValue = value ?? (initialTmdbId ? { id: initialTmdbId, name: initialTmdbTitle ?? `TMDB #${initialTmdbId}` } as TvShow : null);
+  // Compute display value: use selected if set, otherwise fallback to initial props
+  const displayValue = selected ?? (initialTmdbId ? { id: initialTmdbId, name: keyword || "TMDB" } as TvShow : null);
 
   // Auto-select first result when search completes (only once per search term)
   // Skip auto-select when initialTmdbId is provided and user hasn't opened dropdown yet
@@ -57,6 +49,7 @@ export function TmdbMatcher({
       !hasSearchedRef.current
     ) {
       hasSearchedRef.current = true;
+      setSelected(results[0]);
       onChange(results[0]);
     }
   }, [shouldSearch, isSearching, results, debouncedKeyword, onChange]);
@@ -67,13 +60,14 @@ export function TmdbMatcher({
   }, [debouncedKeyword]);
 
   const handleSelect = (show: TvShow) => {
+    setSelected(show);
     onChange(show);
     setOpen(false);
   };
 
   const handleToggleOpen = () => {
     if (!open) {
-      hasOpenedRef.current = true;
+      setHasOpened(true);
     }
     setOpen(!open);
   };
@@ -83,7 +77,6 @@ export function TmdbMatcher({
       {/* Trigger area */}
       <div className="flex items-center gap-1.5">
         <button
-          ref={triggerRef}
           type="button"
           onClick={handleToggleOpen}
           className={cn(
@@ -169,50 +162,16 @@ export function TmdbMatcher({
                     type="button"
                     onClick={() => handleSelect(show)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left",
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
                       "hover:bg-accent hover:text-accent-foreground",
-                      value?.id === show.id && "bg-accent"
+                      selected?.id === show.id && "bg-accent"
                     )}
                   >
-                    {/* Poster thumbnail */}
-                    <div className="relative size-10 shrink-0 overflow-hidden rounded-md bg-muted">
-                      {show.poster_path ? (
-                        <img
-                          src={`${TMDB_IMAGE_BASE}${show.poster_path}`}
-                          alt={show.name}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex size-full items-center justify-center">
-                          <IconMovie className="size-5 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Show info */}
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-medium">{show.name}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-mono text-chart-3 dark:text-chart-1">
-                          #{show.id}
-                        </span>
-                        {show.first_air_date && (
-                          <>
-                            <span className="text-border">|</span>
-                            <span>{show.first_air_date.split("-")[0]}</span>
-                          </>
-                        )}
-                        {show.original_name !== show.name && (
-                          <>
-                            <span className="text-border">|</span>
-                            <span className="truncate">{show.original_name}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Check icon for selected */}
-                    {value?.id === show.id && (
+                    <span className="truncate flex-1">{show.name}</span>
+                    <span className="font-mono text-xs text-chart-3 dark:text-chart-1 shrink-0">
+                      #{show.id}
+                    </span>
+                    {selected?.id === show.id && (
                       <IconCheck className="size-4 shrink-0 text-chart-3 dark:text-chart-1" />
                     )}
                   </button>

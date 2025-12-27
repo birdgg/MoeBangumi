@@ -2,7 +2,7 @@ import * as React from "react";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { type TvShow, type RssEntry as ApiRssEntry, type Rss, type Platform } from "@/lib/api";
+import { type RssEntry as ApiRssEntry, type Rss, type Platform } from "@/lib/api";
 import {
   useCreateBangumi,
   useUpdateBangumi,
@@ -149,7 +149,7 @@ export function BangumiModal({
     return episodes.length >= data.totalEpisodes;
   }, [isEdit, episodes, data.totalEpisodes, data.finished]);
 
-  const [selectedTmdb, setSelectedTmdb] = React.useState<TvShow | null>(null);
+  const [selectedTmdbId, setSelectedTmdbId] = React.useState<number | null>(null);
   const [mikanModalOpen, setMikanModalOpen] = React.useState(false);
   const [torrentSearchModalOpen, setTorrentSearchModalOpen] =
     React.useState(false);
@@ -198,7 +198,7 @@ export function BangumiModal({
               title_original_japanese: data.titleOriginalJapanese || data.titleJapanese || null,
               year: data.year || new Date().getFullYear(),
               bgmtv_id: data.bgmtvId,
-              tmdb_id: selectedTmdb?.id ?? null,
+              tmdb_id: selectedTmdbId ?? data.tmdbId ?? null,
               poster_url: data.posterUrl || null,
               air_date: data.airDate,
               air_week: data.airWeek,
@@ -230,7 +230,7 @@ export function BangumiModal({
 
   const resetForm = React.useCallback(() => {
     form.reset();
-    setSelectedTmdb(null);
+    setSelectedTmdbId(null);
     setMikanModalOpen(false);
     setTorrentSearchModalOpen(false);
   }, [form]);
@@ -260,11 +260,6 @@ export function BangumiModal({
           "rss_entries",
           bangumiWithRss.rss_entries.map(rssToFormEntry)
         );
-        // Set existing TMDB if available
-        if (data.tmdbId && !selectedTmdb) {
-          // Note: We don't have full TvShow data, just the ID
-          // The TmdbMatcher will need to handle this
-        }
       }
     } else {
       // Add mode: use data directly
@@ -427,9 +422,9 @@ export function BangumiModal({
                         TMDB 匹配
                       </FieldLabel>
                       <TmdbMatcher
-                        value={selectedTmdb}
-                        onChange={setSelectedTmdb}
+                        onChange={(show) => setSelectedTmdbId(show?.id ?? null)}
                         keyword={titleChinese}
+                        initialTmdbId={data.tmdbId ?? undefined}
                       />
                     </Field>
                   )}
@@ -461,243 +456,244 @@ export function BangumiModal({
                 <form.Field name="rss_entries">
                   {(field) => (
                     <Field>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel>
-                            <IconRss className="size-4 text-chart-3 dark:text-chart-1" />
-                            RSS 订阅地址
-                          </FieldLabel>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setMikanModalOpen(true)}
-                            className="h-7 gap-1.5 border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
+                      <div className="flex items-center justify-between">
+                        <FieldLabel>
+                          <IconRss className="size-4 text-chart-3 dark:text-chart-1" />
+                          RSS 订阅地址
+                        </FieldLabel>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMikanModalOpen(true)}
+                          className="h-7 gap-1.5 border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
+                        >
+                          <IconSearch className="size-3.5" />
+                          Mikan 搜索
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        {(Array.isArray(field.state.value) ? field.state.value : []).map((entry, index) => (
+                          <div
+                            key={index}
+                            className={cn(
+                              "space-y-2 p-3 rounded-lg border bg-chart-3/5 dark:bg-chart-1/5",
+                              entry.is_primary
+                                ? "border-chart-1/50 dark:border-chart-1/50 ring-1 ring-chart-1/20"
+                                : "border-chart-3/20 dark:border-chart-1/20"
+                            )}
                           >
-                            <IconSearch className="size-3.5" />
-                            Mikan 搜索
-                          </Button>
-                        </div>
-                        <div className="space-y-3">
-                          {field.state.value.map((entry, index) => (
-                            <div
-                              key={index}
-                              className={cn(
-                                "space-y-2 p-3 rounded-lg border bg-chart-3/5 dark:bg-chart-1/5",
-                                entry.is_primary
-                                  ? "border-chart-1/50 dark:border-chart-1/50 ring-1 ring-chart-1/20"
-                                  : "border-chart-3/20 dark:border-chart-1/20"
+                            {/* Header: Badges */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Primary Badge */}
+                              {entry.is_primary && (
+                                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-1/20 text-chart-1 font-medium">
+                                  <IconStarFilled className="size-3" />
+                                  主RSS
+                                </span>
                               )}
-                            >
-                              {/* Header: Badges */}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {/* Primary Badge */}
-                                {entry.is_primary && (
-                                  <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-1/20 text-chart-1 font-medium">
-                                    <IconStarFilled className="size-3" />
-                                    主RSS
-                                  </span>
-                                )}
-                                {/* Group Badge with remove button or Input */}
-                                {entry.group ? (
-                                  <span className="shrink-0 inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-md text-xs bg-chart-3/20 dark:bg-chart-1/20 text-chart-3 dark:text-chart-1 font-medium">
-                                    <IconUsers className="size-3" />
-                                    {entry.group}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newEntries = [...field.state.value];
-                                        newEntries[index] = {
-                                          ...entry,
-                                          group: null,
-                                        };
-                                        field.handleChange(newEntries);
-                                      }}
-                                      className="flex items-center justify-center size-4 rounded-full hover:bg-chart-3/30 dark:hover:bg-chart-1/30 transition-colors"
-                                    >
-                                      <IconX className="size-3" />
-                                    </button>
-                                  </span>
-                                ) : (
-                                  <Input
-                                    value={entry.group || ""}
-                                    onChange={(e) => {
+                              {/* Group Badge with remove button or Input */}
+                              {entry.group ? (
+                                <span className="shrink-0 inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-md text-xs bg-chart-3/20 dark:bg-chart-1/20 text-chart-3 dark:text-chart-1 font-medium">
+                                  <IconUsers className="size-3" />
+                                  {entry.group}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
                                       const newEntries = [...field.state.value];
                                       newEntries[index] = {
                                         ...entry,
-                                        group: e.target.value.trim() || null,
+                                        group: null,
                                       };
                                       field.handleChange(newEntries);
                                     }}
-                                    placeholder="字幕组名称（可选）"
-                                    className="h-6 w-36 text-xs px-2"
-                                  />
-                                )}
-                              </div>
-                              {/* URL and Actions */}
-                              <div className="flex gap-2 items-center">
+                                    className="flex items-center justify-center size-4 rounded-full hover:bg-chart-3/30 dark:hover:bg-chart-1/30 transition-colors"
+                                  >
+                                    <IconX className="size-3" />
+                                  </button>
+                                </span>
+                              ) : (
                                 <Input
-                                  value={entry.url}
+                                  value={entry.group || ""}
                                   onChange={(e) => {
                                     const newEntries = [...field.state.value];
                                     newEntries[index] = {
                                       ...entry,
-                                      url: e.target.value,
+                                      group: e.target.value.trim() || null,
                                     };
                                     field.handleChange(newEntries);
                                   }}
-                                  placeholder="RSS 订阅地址"
-                                  className="flex-1"
+                                  placeholder="字幕组名称（可选）"
+                                  className="h-6 w-36 text-xs px-2"
                                 />
-                                {/* Toggle Primary Button */}
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    if (entry.is_primary) return;
-                                    const newEntries = field.state.value.map(
-                                      (e, i) => ({
-                                        ...e,
-                                        is_primary: i === index,
-                                      })
-                                    );
-                                    field.handleChange(newEntries);
-                                  }}
-                                  className={cn(
-                                    "shrink-0",
-                                    entry.is_primary
-                                      ? "border-chart-1/50 bg-chart-1/10 text-chart-1 cursor-default"
-                                      : "border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
-                                  )}
-                                  title={
-                                    entry.is_primary
-                                      ? "当前为主RSS"
-                                      : "设为主RSS"
-                                  }
-                                >
-                                  {entry.is_primary ? (
-                                    <IconStarFilled className="size-4" />
-                                  ) : (
-                                    <IconStar className="size-4" />
-                                  )}
-                                </Button>
-                                {/* Delete Button */}
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    const newEntries = field.state.value.filter(
-                                      (_, i) => i !== index
-                                    );
-                                    field.handleChange(newEntries);
-                                  }}
-                                  className="shrink-0 border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                                >
-                                  <IconTrash className="size-4" />
-                                </Button>
-                              </div>
-                              {/* Filter Tags */}
-                              <div className="flex flex-wrap gap-1.5 items-center">
-                                {entry.filters.map((filter, filterIndex) => (
-                                  <span
-                                    key={filterIndex}
-                                    className="inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 dark:bg-red-500/30 text-red-600 dark:text-red-400 border border-red-500/40 dark:border-red-500/50"
-                                  >
-                                    <code>{filter}</code>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newEntries = [
-                                          ...field.state.value,
-                                        ];
-                                        newEntries[index] = {
-                                          ...entry,
-                                          filters: entry.filters.filter(
-                                            (_, fi) => fi !== filterIndex
-                                          ),
-                                        };
-                                        field.handleChange(newEntries);
-                                      }}
-                                      className="flex items-center justify-center size-4 rounded-full hover:bg-red-500/30 transition-colors"
-                                    >
-                                      <IconX className="size-3" />
-                                    </button>
-                                  </span>
-                                ))}
-                                <Input
-                                  placeholder="输入正则过滤..."
-                                  className="h-6 w-32 text-xs px-2"
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      e.preventDefault();
-                                      const input = e.currentTarget;
-                                      const value = input.value.trim();
-                                      if (
-                                        value &&
-                                        !entry.filters.includes(value)
-                                      ) {
-                                        const newEntries = [
-                                          ...field.state.value,
-                                        ];
-                                        newEntries[index] = {
-                                          ...entry,
-                                          filters: [...entry.filters, value],
-                                        };
-                                        field.handleChange(newEntries);
-                                        input.value = "";
-                                      }
-                                    }
-                                  }}
-                                />
-                              </div>
+                              )}
                             </div>
-                          ))}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() =>
-                              field.handleChange([
-                                ...field.state.value,
-                                { url: "", filters: [], is_primary: false, group: null },
-                              ])
-                            }
-                            className="w-full gap-2 border-dashed border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
-                          >
-                            <IconPlus className="size-4" />
-                            添加 RSS 地址
-                          </Button>
-                        </div>
-                        <MikanRssModal
-                          open={mikanModalOpen}
-                          onOpenChange={setMikanModalOpen}
-                          onSelect={(entries) => {
-                            const existingUrls = new Set(
-                              field.state.value.map((e) => e.url)
-                            );
-                            const hasPrimary = field.state.value.some(
-                              (e) => e.is_primary
-                            );
-                            const newEntries = entries
-                              .filter((entry) => !existingUrls.has(entry.url))
-                              .map((entry, idx) => ({
-                                url: entry.url,
-                                group: entry.group,
-                                filters: entry.filters,
-                                is_primary: !hasPrimary && idx === 0,
-                              }));
-                            if (newEntries.length > 0) {
-                              field.handleChange([
-                                ...field.state.value,
-                                ...newEntries,
-                              ]);
-                            }
-                          }}
-                          initialKeyword={searchKeyword}
-                        />
-                      </Field>
-                    )}
-                  </form.Field>
+                            {/* URL and Actions */}
+                            <div className="flex gap-2 items-center">
+                              <Input
+                                value={entry.url}
+                                onChange={(e) => {
+                                  const newEntries = [...field.state.value];
+                                  newEntries[index] = {
+                                    ...entry,
+                                    url: e.target.value,
+                                  };
+                                  field.handleChange(newEntries);
+                                }}
+                                placeholder="RSS 订阅地址"
+                                className="flex-1"
+                              />
+                              {/* Toggle Primary Button */}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  if (entry.is_primary) return;
+                                  const newEntries = field.state.value.map(
+                                    (e, i) => ({
+                                      ...e,
+                                      is_primary: i === index,
+                                    })
+                                  );
+                                  field.handleChange(newEntries);
+                                }}
+                                className={cn(
+                                  "shrink-0",
+                                  entry.is_primary
+                                    ? "border-chart-1/50 bg-chart-1/10 text-chart-1 cursor-default"
+                                    : "border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
+                                )}
+                                title={
+                                  entry.is_primary
+                                    ? "当前为主RSS"
+                                    : "设为主RSS"
+                                }
+                              >
+                                {entry.is_primary ? (
+                                  <IconStarFilled className="size-4" />
+                                ) : (
+                                  <IconStar className="size-4" />
+                                )}
+                              </Button>
+                              {/* Delete Button */}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  const newEntries = field.state.value.filter(
+                                    (_, i) => i !== index
+                                  );
+                                  field.handleChange(newEntries);
+                                }}
+                                className="shrink-0 border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <IconTrash className="size-4" />
+                              </Button>
+                            </div>
+                            {/* Filter Tags */}
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              {entry.filters.map((filter, filterIndex) => (
+                                <span
+                                  key={filterIndex}
+                                  className="inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 dark:bg-red-500/30 text-red-600 dark:text-red-400 border border-red-500/40 dark:border-red-500/50"
+                                >
+                                  <code>{filter}</code>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newEntries = [
+                                        ...field.state.value,
+                                      ];
+                                      newEntries[index] = {
+                                        ...entry,
+                                        filters: entry.filters.filter(
+                                          (_, fi) => fi !== filterIndex
+                                        ),
+                                      };
+                                      field.handleChange(newEntries);
+                                    }}
+                                    className="flex items-center justify-center size-4 rounded-full hover:bg-red-500/30 transition-colors"
+                                  >
+                                    <IconX className="size-3" />
+                                  </button>
+                                </span>
+                              ))}
+                              <Input
+                                placeholder="输入正则过滤..."
+                                className="h-6 w-32 text-xs px-2"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    const input = e.currentTarget;
+                                    const value = input.value.trim();
+                                    if (
+                                      value &&
+                                      !entry.filters.includes(value)
+                                    ) {
+                                      const newEntries = [
+                                        ...field.state.value,
+                                      ];
+                                      newEntries[index] = {
+                                        ...entry,
+                                        filters: [...entry.filters, value],
+                                      };
+                                      field.handleChange(newEntries);
+                                      input.value = "";
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            field.handleChange([
+                              ...field.state.value,
+                              { url: "", filters: [], is_primary: false, group: null },
+                            ])
+                          }
+                          className="w-full gap-2 border-dashed border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
+                        >
+                          <IconPlus className="size-4" />
+                          添加 RSS 地址
+                        </Button>
+                      </div>
+                      <MikanRssModal
+                        open={mikanModalOpen}
+                        onOpenChange={setMikanModalOpen}
+                        onSelect={() => {
+                          const entries = Array.isArray(field.state.value) ? field.state.value : [];
+                          const existingUrls = new Set(
+                            entries.map((e) => e.url)
+                          );
+                          const hasPrimary = entries.some(
+                            (e) => e.is_primary
+                          );
+                          const newEntries = entries
+                            .filter((entry) => !existingUrls.has(entry.url))
+                            .map((entry, idx) => ({
+                              url: entry.url,
+                              group: entry.group,
+                              filters: entry.filters,
+                              is_primary: !hasPrimary && idx === 0,
+                            }));
+                          if (newEntries.length > 0) {
+                            field.handleChange([
+                              ...entries,
+                              ...newEntries,
+                            ]);
+                          }
+                        }}
+                        initialKeyword={searchKeyword}
+                      />
+                    </Field>
+                  )}
+                </form.Field>
 
                 {/* Torrent Input */}
                 <form.Field name="torrent">
