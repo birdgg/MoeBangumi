@@ -2,6 +2,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use parser::Parser;
 
 use crate::error::AppResult;
 use crate::state::AppState;
@@ -27,12 +28,23 @@ pub async fn get_mikan_rss(
     let mikan = state.mikan.clone();
     let id = query.id.clone();
 
-    let detail = state
+    let mut detail = state
         .cache
         .get_or_fetch(&cache_key, MIKAN_DETAIL_CACHE_TTL, || async move {
             mikan.get_bangumi_detail(&id).await
         })
         .await?;
+
+    // Parse episode metadata
+    let parser = Parser::new();
+    for subgroup in &mut detail.subgroups {
+        for episode in &mut subgroup.episodes {
+            if let Ok(parsed) = parser.parse(&episode.name) {
+                episode.sub_type = parsed.sub_type;
+                episode.resolution = parsed.resolution;
+            }
+        }
+    }
 
     Ok(Json(detail))
 }

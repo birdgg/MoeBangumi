@@ -213,7 +213,7 @@ impl Parser {
     }
 
     /// 从其他信息中提取字幕类型和分辨率
-    fn find_tags(other: &str) -> (Vec<String>, Option<String>) {
+    fn find_tags(other: &str) -> (Option<String>, Option<String>) {
         let replaced = BRACKET_PATTERN.replace_all(other, " ").into_owned();
         let elements: Vec<&str> = replaced.split_whitespace().collect();
 
@@ -222,25 +222,26 @@ impl Parser {
 
         for &element in &elements {
             if SUB_CHS_PATTERN.is_match(element) {
-                subs.push("CHS".to_string());
+                subs.push("CHS");
             }
             if SUB_CHT_PATTERN.is_match(element) {
-                subs.push("CHT".to_string());
+                subs.push("CHT");
             }
             if SUB_JPN_PATTERN.is_match(element) {
-                subs.push("JPN".to_string());
+                subs.push("JPN");
             }
             if SUB_ENG_PATTERN.is_match(element) {
-                subs.push("ENG".to_string());
+                subs.push("ENG");
             }
-            if RESOLUTION_1080_PATTERN.is_match(element) {
-                resolution = Some("1080P".to_string());
-            }
-            if RESOLUTION_720_PATTERN.is_match(element) {
-                resolution = Some("720P".to_string());
-            }
-            if RESOLUTION_2160_PATTERN.is_match(element) {
-                resolution = Some("2160P".to_string());
+            // 分辨率检测：优先匹配最高分辨率，已设置则跳过
+            if resolution.is_none() {
+                if RESOLUTION_2160_PATTERN.is_match(element) {
+                    resolution = Some("2160P".to_string());
+                } else if RESOLUTION_1080_PATTERN.is_match(element) {
+                    resolution = Some("1080P".to_string());
+                } else if RESOLUTION_720_PATTERN.is_match(element) {
+                    resolution = Some("720P".to_string());
+                }
             }
         }
 
@@ -248,14 +249,14 @@ impl Parser {
         subs.sort();
         subs.dedup();
 
-        (subs, resolution)
-    }
+        // 连接为字符串，空则返回 None
+        let sub_type = if subs.is_empty() {
+            None
+        } else {
+            Some(subs.join("+"))
+        };
 
-    /// 清理字幕类型信息，移除无关后缀
-    fn clean_sub(subs: Vec<String>) -> Vec<String> {
-        subs.into_iter()
-            .map(|s| s.replace("_MP4", "").replace("_MKV", ""))
-            .collect()
+        (sub_type, resolution)
     }
 
     #[allow(dead_code)]
@@ -304,8 +305,7 @@ impl Parser {
             .and_then(|m| m.as_str().parse().ok());
 
         // 处理其他标签
-        let (sub, resolution) = Self::find_tags(other);
-        let sub = Self::clean_sub(sub);
+        let (sub_type, resolution) = Self::find_tags(other);
 
         // 返回解析结果
         Ok(ParseResult {
@@ -316,7 +316,7 @@ impl Parser {
             season,
             subtitle_group: group,
             resolution,
-            sub_type: sub,
+            sub_type,
         })
     }
 }
