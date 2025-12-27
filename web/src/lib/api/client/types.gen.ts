@@ -354,6 +354,10 @@ export type Rss = {
   group?: string | null;
   id: number;
   /**
+   * Regex patterns to include (AND logic - title must match ALL patterns if not empty)
+   */
+  include_filters: Array<string>;
+  /**
    * Whether this is the primary RSS source (only one per bangumi)
    * Episodes from primary RSS can override those from backup RSS
    */
@@ -377,6 +381,10 @@ export type RssEntry = {
    * Optional subtitle group name
    */
   group?: string | null;
+  /**
+   * Regex patterns to include (AND logic)
+   */
+  include_filters?: Array<string>;
   /**
    * Whether this is the primary RSS source (default: false)
    */

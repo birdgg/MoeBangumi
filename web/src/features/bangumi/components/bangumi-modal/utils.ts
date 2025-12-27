@@ -15,6 +15,7 @@ export function rssToFormEntry(rss: Rss): RssFormEntry {
   return {
     url: rss.url,
     filters: rss.exclude_filters,
+    include_filters: rss.include_filters,
     is_primary: rss.is_primary,
     group: rss.group,
   };
@@ -25,6 +26,7 @@ export function formEntryToApiEntry(entry: RssFormEntry): ApiRssEntry {
   return {
     url: entry.url,
     filters: entry.filters,
+    include_filters: entry.include_filters,
     is_primary: entry.is_primary,
     group: entry.group,
   };

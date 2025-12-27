@@ -452,6 +452,7 @@ export const RssSchema = {
     "url",
     "enabled",
     "exclude_filters",
+    "include_filters",
     "is_primary",
   ],
   properties: {
@@ -482,6 +483,14 @@ export const RssSchema = {
     id: {
       type: "integer",
       format: "int64",
+    },
+    include_filters: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description:
+        "Regex patterns to include (AND logic - title must match ALL patterns if not empty)",
     },
     is_primary: {
       type: "boolean",
@@ -514,6 +523,13 @@ export const RssEntrySchema = {
     group: {
       type: ["string", "null"],
       description: "Optional subtitle group name",
+    },
+    include_filters: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "Regex patterns to include (AND logic)",
     },
     is_primary: {
       type: "boolean",

@@ -106,16 +106,26 @@ impl RssProcessingService {
         stats.items_fetched = items.len();
         tracing::debug!("Fetched {} items from RSS {}", items.len(), rss.id);
 
-        // Compile RSS-specific exclude filters
-        let rss_filters = compile_filters(&rss.exclude_filters);
+        // Compile RSS-specific filters
+        let rss_exclude_filters = compile_filters(&rss.exclude_filters);
+        let rss_include_filters = compile_filters(&rss.include_filters);
 
         for item in items {
             let title = item.title();
             let info_hash = item.info_hash();
             let torrent_url = item.torrent_url();
 
-            // Check exclude filters (global + RSS-specific)
-            if matches_any_filter(title, global_filters) || matches_any_filter(title, &rss_filters)
+            // Step 1: Check include filters (must match ALL if not empty)
+            if !rss_include_filters.is_empty() && !matches_all_filters(title, &rss_include_filters)
+            {
+                tracing::debug!("Filtered out by include filter: {}", title);
+                stats.items_filtered += 1;
+                continue;
+            }
+
+            // Step 2: Check exclude filters (global + RSS-specific)
+            if matches_any_filter(title, global_filters)
+                || matches_any_filter(title, &rss_exclude_filters)
             {
                 tracing::debug!("Filtered out by exclude filter: {}", title);
                 stats.items_filtered += 1;
@@ -341,7 +351,12 @@ fn compile_filters(filters: &[String]) -> Vec<Regex> {
         .collect()
 }
 
-/// Check if title matches any of the exclude filters
+/// Check if title matches any of the exclude filters (OR logic)
 fn matches_any_filter(title: &str, filters: &[Regex]) -> bool {
     filters.iter().any(|re| re.is_match(title))
+}
+
+/// Check if title matches all of the include filters (AND logic)
+fn matches_all_filters(title: &str, filters: &[Regex]) -> bool {
+    filters.iter().all(|re| re.is_match(title))
 }

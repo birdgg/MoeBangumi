@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS rss (
     url TEXT NOT NULL,                              -- RSS feed URL
     enabled INTEGER NOT NULL DEFAULT 1,             -- Whether subscription is enabled (boolean)
     exclude_filters TEXT NOT NULL DEFAULT '[]',     -- JSON array of regex patterns to exclude
+    include_filters TEXT NOT NULL DEFAULT '[]',     -- JSON array of regex patterns to include (AND logic)
     is_primary INTEGER NOT NULL DEFAULT 0,          -- Primary RSS flag (only one per bangumi)
     "group" TEXT                                    -- Optional subtitle group name
 );
