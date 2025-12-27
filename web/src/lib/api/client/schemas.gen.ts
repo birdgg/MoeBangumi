@@ -182,7 +182,6 @@ export const CreateBangumiSchema = {
     "year",
     "air_date",
     "air_week",
-    "save_path",
   ],
   properties: {
     air_date: {
@@ -227,10 +226,6 @@ export const CreateBangumiSchema = {
         $ref: "#/components/schemas/RssEntry",
       },
       description: "RSS subscriptions to create with this bangumi",
-    },
-    save_path: {
-      type: "string",
-      description: "Save path (required)",
     },
     season: {
       type: "integer",
@@ -480,6 +475,10 @@ export const RssSchema = {
       },
       description: "Regex patterns to exclude from matching",
     },
+    group: {
+      type: ["string", "null"],
+      description: "Optional subtitle group name",
+    },
     id: {
       type: "integer",
       format: "int64",
@@ -511,6 +510,10 @@ export const RssEntrySchema = {
         type: "string",
       },
       description: "Regex patterns to exclude from matching",
+    },
+    group: {
+      type: ["string", "null"],
+      description: "Optional subtitle group name",
     },
     is_primary: {
       type: "boolean",
@@ -1057,10 +1060,6 @@ export const UpdateBangumiRequestSchema = {
         $ref: "#/components/schemas/RssEntry",
       },
       description: "RSS entries to sync (replaces all existing entries)",
-    },
-    save_path: {
-      type: ["string", "null"],
-      description: "Save path (None = unchanged, Some = new value)",
     },
   },
 } as const;

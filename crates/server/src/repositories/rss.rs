@@ -7,7 +7,7 @@ use crate::models::{CreateRss, Rss, UpdateRss};
 const SELECT_RSS: &str = r#"
     SELECT
         id, created_at, updated_at,
-        bangumi_id, url, enabled, exclude_filters, is_primary
+        bangumi_id, url, enabled, exclude_filters, is_primary, "group"
     FROM rss
 "#;
 
@@ -26,8 +26,8 @@ impl RssRepository {
 
         let result = sqlx::query(
             r#"
-            INSERT INTO rss (bangumi_id, url, enabled, exclude_filters, is_primary)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO rss (bangumi_id, url, enabled, exclude_filters, is_primary, "group")
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
             "#,
         )
@@ -36,6 +36,7 @@ impl RssRepository {
         .bind(data.enabled)
         .bind(&exclude_filters_json)
         .bind(data.is_primary)
+        .bind(&data.group)
         .fetch_one(pool)
         .await?;
 
@@ -111,6 +112,7 @@ impl RssRepository {
         let exclude_filters_json = serde_json::to_string(&exclude_filters)
             .unwrap_or_else(|_| "[]".to_string());
         let is_primary = data.is_primary.unwrap_or(existing.is_primary);
+        let group = data.group.or(existing.group);
 
         // If promoting to primary, demote any existing primary for this bangumi
         if is_primary && !existing.is_primary {
@@ -123,14 +125,16 @@ impl RssRepository {
                 url = $1,
                 enabled = $2,
                 exclude_filters = $3,
-                is_primary = $4
-            WHERE id = $5
+                is_primary = $4,
+                "group" = $5
+            WHERE id = $6
             "#,
         )
         .bind(&url)
         .bind(enabled)
         .bind(&exclude_filters_json)
         .bind(is_primary)
+        .bind(&group)
         .bind(id)
         .execute(pool)
         .await?;
@@ -195,6 +199,7 @@ struct RssRow {
     enabled: bool,
     exclude_filters: String,
     is_primary: bool,
+    group: Option<String>,
 }
 
 impl From<RssRow> for Rss {
@@ -211,6 +216,7 @@ impl From<RssRow> for Rss {
             enabled: row.enabled,
             exclude_filters,
             is_primary: row.is_primary,
+            group: row.group,
         }
     }
 }

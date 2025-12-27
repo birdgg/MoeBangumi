@@ -1,9 +1,8 @@
 import * as React from "react";
 import { useForm } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { cn, generateSavePath } from "@/lib/utils";
-import { type TvShow, type RssEntry as ApiRssEntry, type Rss, type Platform, getSettingsOptions } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { type TvShow, type RssEntry as ApiRssEntry, type Rss, type Platform } from "@/lib/api";
 import {
   useCreateBangumi,
   useUpdateBangumi,
@@ -24,7 +23,6 @@ import {
   IconEdit,
   IconLoader2,
   IconDownload,
-  IconFolder,
   IconHash,
   IconMovie,
   IconRss,
@@ -35,6 +33,7 @@ import {
   IconStarFilled,
   IconMagnet,
   IconUpload,
+  IconUsers,
 } from "@tabler/icons-react";
 import { TmdbMatcher } from "./tmdb-matcher";
 import { MikanRssModal } from "./mikan-rss-modal";
@@ -68,7 +67,6 @@ export interface BangumiModalData {
   // Form data (for edit mode prefill)
   episodeOffset?: number;
   autoDownload?: boolean;
-  savePath?: string | null;
   rssEntries?: Rss[];
 }
 
@@ -76,6 +74,7 @@ interface RssFormEntry {
   url: string;
   filters: string[];
   is_primary: boolean;
+  group?: string | null;
 }
 
 interface BangumiModalProps {
@@ -102,6 +101,7 @@ function rssToFormEntry(rss: Rss): RssFormEntry {
     url: rss.url,
     filters: rss.exclude_filters,
     is_primary: rss.is_primary,
+    group: rss.group,
   };
 }
 
@@ -111,6 +111,7 @@ function formEntryToApiEntry(entry: RssFormEntry): ApiRssEntry {
     url: entry.url,
     filters: entry.filters,
     is_primary: entry.is_primary,
+    group: entry.group,
   };
 }
 
@@ -153,11 +154,6 @@ export function BangumiModal({
   const [torrentSearchModalOpen, setTorrentSearchModalOpen] =
     React.useState(false);
   const torrentFileInputRef = React.useRef<HTMLInputElement>(null);
-  // Track if save_path has been auto-generated to avoid overwriting user edits
-  const savePathInitializedRef = React.useRef(false);
-
-  // Fetch settings for default save_path
-  const { data: settings } = useQuery(getSettingsOptions());
 
   const form = useForm({
     defaultValues: {
@@ -165,7 +161,6 @@ export function BangumiModal({
       title_japanese: "",
       episode_offset: 0,
       auto_download: true,
-      save_path: "",
       rss_entries: [] as RssFormEntry[],
       torrent: "",
       torrent_file: null as File | null,
@@ -173,17 +168,11 @@ export function BangumiModal({
     onSubmit: async ({ value }) => {
       try {
         if (isEdit && data.id) {
-          // Validate save_path in edit mode - it's a required field
-          if (!value.save_path) {
-            toast.error("保存失败", { description: "保存路径是必填项" });
-            return;
-          }
           await updateBangumi.mutateAsync({
             path: { id: data.id },
             body: {
               episode_offset: value.episode_offset,
               auto_download: value.auto_download,
-              save_path: value.save_path,
               rss_entries: value.rss_entries.map(formEntryToApiEntry),
             },
           });
@@ -198,10 +187,6 @@ export function BangumiModal({
           }
           if (data.airWeek === null || data.airWeek === undefined) {
             toast.error("创建失败", { description: "播出星期是必填项" });
-            return;
-          }
-          if (!value.save_path) {
-            toast.error("创建失败", { description: "保存路径是必填项" });
             return;
           }
 
@@ -220,7 +205,6 @@ export function BangumiModal({
               total_episodes: data.totalEpisodes || 0,
               episode_offset: value.episode_offset,
               auto_download: value.auto_download,
-              save_path: value.save_path,
               finished: calculatedIsFinished,
               platform: normalizePlatform(data.platform),
               season: data.season ?? 1,
@@ -249,7 +233,6 @@ export function BangumiModal({
     setSelectedTmdb(null);
     setMikanModalOpen(false);
     setTorrentSearchModalOpen(false);
-    savePathInitializedRef.current = false;
   }, [form]);
 
   const handleOpenChange = React.useCallback(
@@ -273,7 +256,6 @@ export function BangumiModal({
         form.setFieldValue("title_japanese", data.titleJapanese || "");
         form.setFieldValue("episode_offset", bangumiWithRss.episode_offset);
         form.setFieldValue("auto_download", bangumiWithRss.auto_download);
-        form.setFieldValue("save_path", bangumiWithRss.save_path || "");
         form.setFieldValue(
           "rss_entries",
           bangumiWithRss.rss_entries.map(rssToFormEntry)
@@ -291,29 +273,12 @@ export function BangumiModal({
       form.setFieldValue("episode_offset", calculatedEpisodeOffset);
       form.setFieldValue("auto_download", data.autoDownload ?? true);
 
-      // Auto-generate save_path only once when settings become available
-      // This prevents overwriting user edits when TMDB selection changes
-      if (!savePathInitializedRef.current && settings?.downloader?.save_path && data.titleChinese && data.year) {
-        const autoPath = generateSavePath({
-          basePath: settings.downloader.save_path,
-          title: data.titleChinese,
-          year: data.year,
-          season: data.season ?? 1,
-          tmdbId: data.tmdbId,
-          platform: data.platform,
-        });
-        form.setFieldValue("save_path", autoPath);
-        savePathInitializedRef.current = true;
-      } else if (!savePathInitializedRef.current) {
-        form.setFieldValue("save_path", data.savePath || "");
-      }
-
       if (data.rssEntries) {
         form.setFieldValue("rss_entries", data.rssEntries.map(rssToFormEntry));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isEdit, data, bangumiWithRss, calculatedEpisodeOffset, settings]);
+  }, [open, isEdit, data, bangumiWithRss, calculatedEpisodeOffset]);
 
   const searchKeyword = data.titleChinese || data.titleJapanese || "";
 
@@ -492,149 +457,10 @@ export function BangumiModal({
                   )}
                 </form.Field>
 
-                {/* Save Path */}
-                <form.Field name="save_path">
+                {/* RSS Entries */}
+                <form.Field name="rss_entries">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>
-                        <IconFolder className="size-4 text-chart-3 dark:text-chart-1" />
-                        保存路径
-                      </FieldLabel>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        placeholder="留空使用默认路径"
-                      />
-                    </Field>
-                  )}
-                </form.Field>
-
-                {/* Conditional: RSS Entries for ongoing, Torrent Input for finished */}
-                {calculatedIsFinished ? (
-                  /* Torrent Input for finished bangumi */
-                  <form.Field name="torrent">
-                    {(field) => (
-                      <Field>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel>
-                            <IconMagnet className="size-4 text-chart-3 dark:text-chart-1" />
-                            种子下载
-                          </FieldLabel>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setTorrentSearchModalOpen(true)}
-                            className="h-7 gap-1.5 border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
-                          >
-                            <IconSearch className="size-3.5" />
-                            搜索种子
-                          </Button>
-                        </div>
-                        <div className="space-y-3">
-                          {/* Magnet/Torrent URL Input */}
-                          <div className="space-y-2 p-3 rounded-lg border border-chart-3/20 dark:border-chart-1/20 bg-chart-3/5 dark:bg-chart-1/5">
-                            <div className="flex gap-2 items-center">
-                              <div className="relative flex-1">
-                                <IconMagnet className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                                <Input
-                                  id={field.name}
-                                  name={field.name}
-                                  value={field.state.value}
-                                  onBlur={field.handleBlur}
-                                  onChange={(e) =>
-                                    field.handleChange(e.target.value)
-                                  }
-                                  placeholder="粘贴磁力链接或种子URL..."
-                                  className="pl-9"
-                                />
-                              </div>
-                              {/* File Upload Button */}
-                              <input
-                                ref={torrentFileInputRef}
-                                type="file"
-                                accept=".torrent"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    form.setFieldValue("torrent_file", file);
-                                    field.handleChange(file.name);
-                                  }
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                onClick={() =>
-                                  torrentFileInputRef.current?.click()
-                                }
-                                className="shrink-0 border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
-                                title="上传种子文件"
-                              >
-                                <IconUpload className="size-4" />
-                              </Button>
-                              {/* Clear Button */}
-                              {field.state.value && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    field.handleChange("");
-                                    form.setFieldValue("torrent_file", null);
-                                    if (torrentFileInputRef.current) {
-                                      torrentFileInputRef.current.value = "";
-                                    }
-                                  }}
-                                  className="shrink-0 border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                                  title="清除"
-                                >
-                                  <IconTrash className="size-4" />
-                                </Button>
-                              )}
-                            </div>
-                            {/* File name indicator */}
-                            <form.Subscribe
-                              selector={(state) => state.values.torrent_file}
-                            >
-                              {(torrentFile) =>
-                                torrentFile && (
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <IconUpload className="size-3" />
-                                    <span>已选择文件: {torrentFile.name}</span>
-                                  </div>
-                                )
-                              }
-                            </form.Subscribe>
-                          </div>
-                          {/* Helper text */}
-                          <p className="text-xs text-muted-foreground">
-                            已完结番剧支持直接下载种子，粘贴磁力链接或上传
-                            .torrent 文件
-                          </p>
-                        </div>
-                        <TorrentSearchModal
-                          open={torrentSearchModalOpen}
-                          onOpenChange={setTorrentSearchModalOpen}
-                          onSelect={(magnetUrl) => {
-                            field.handleChange(magnetUrl);
-                            setTorrentSearchModalOpen(false);
-                          }}
-                          initialKeyword={searchKeyword}
-                        />
-                      </Field>
-                    )}
-                  </form.Field>
-                ) : (
-                  /* RSS Entries for ongoing bangumi */
-                  <form.Field name="rss_entries">
-                    {(field) => (
-                      <Field>
                         <div className="flex items-center justify-between">
                           <FieldLabel>
                             <IconRss className="size-4 text-chart-3 dark:text-chart-1" />
@@ -662,7 +488,8 @@ export function BangumiModal({
                                   : "border-chart-3/20 dark:border-chart-1/20"
                               )}
                             >
-                              <div className="flex gap-2 items-center">
+                              {/* Header: Badges */}
+                              <div className="flex items-center gap-2 flex-wrap">
                                 {/* Primary Badge */}
                                 {entry.is_primary && (
                                   <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-1/20 text-chart-1 font-medium">
@@ -670,6 +497,44 @@ export function BangumiModal({
                                     主RSS
                                   </span>
                                 )}
+                                {/* Group Badge with remove button or Input */}
+                                {entry.group ? (
+                                  <span className="shrink-0 inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-md text-xs bg-chart-3/20 dark:bg-chart-1/20 text-chart-3 dark:text-chart-1 font-medium">
+                                    <IconUsers className="size-3" />
+                                    {entry.group}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newEntries = [...field.state.value];
+                                        newEntries[index] = {
+                                          ...entry,
+                                          group: null,
+                                        };
+                                        field.handleChange(newEntries);
+                                      }}
+                                      className="flex items-center justify-center size-4 rounded-full hover:bg-chart-3/30 dark:hover:bg-chart-1/30 transition-colors"
+                                    >
+                                      <IconX className="size-3" />
+                                    </button>
+                                  </span>
+                                ) : (
+                                  <Input
+                                    value={entry.group || ""}
+                                    onChange={(e) => {
+                                      const newEntries = [...field.state.value];
+                                      newEntries[index] = {
+                                        ...entry,
+                                        group: e.target.value.trim() || null,
+                                      };
+                                      field.handleChange(newEntries);
+                                    }}
+                                    placeholder="字幕组名称（可选）"
+                                    className="h-6 w-36 text-xs px-2"
+                                  />
+                                )}
+                              </div>
+                              {/* URL and Actions */}
+                              <div className="flex gap-2 items-center">
                                 <Input
                                   value={entry.url}
                                   onChange={(e) => {
@@ -737,7 +602,7 @@ export function BangumiModal({
                                 {entry.filters.map((filter, filterIndex) => (
                                   <span
                                     key={filterIndex}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-1/20 dark:bg-chart-3/20 text-chart-1 dark:text-chart-3"
+                                    className="inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-full text-xs font-medium bg-red-500/20 dark:bg-red-500/30 text-red-600 dark:text-red-400 border border-red-500/40 dark:border-red-500/50"
                                   >
                                     <code>{filter}</code>
                                     <button
@@ -754,7 +619,7 @@ export function BangumiModal({
                                         };
                                         field.handleChange(newEntries);
                                       }}
-                                      className="hover:text-destructive"
+                                      className="flex items-center justify-center size-4 rounded-full hover:bg-red-500/30 transition-colors"
                                     >
                                       <IconX className="size-3" />
                                     </button>
@@ -794,7 +659,7 @@ export function BangumiModal({
                             onClick={() =>
                               field.handleChange([
                                 ...field.state.value,
-                                { url: "", filters: [], is_primary: false },
+                                { url: "", filters: [], is_primary: false, group: null },
                               ])
                             }
                             className="w-full gap-2 border-dashed border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
@@ -806,18 +671,19 @@ export function BangumiModal({
                         <MikanRssModal
                           open={mikanModalOpen}
                           onOpenChange={setMikanModalOpen}
-                          onSelect={({ rssUrls, excludeFilters }) => {
+                          onSelect={(entries) => {
                             const existingUrls = new Set(
                               field.state.value.map((e) => e.url)
                             );
                             const hasPrimary = field.state.value.some(
                               (e) => e.is_primary
                             );
-                            const newEntries = rssUrls
-                              .filter((url) => !existingUrls.has(url))
-                              .map((url, idx) => ({
-                                url,
-                                filters: excludeFilters,
+                            const newEntries = entries
+                              .filter((entry) => !existingUrls.has(entry.url))
+                              .map((entry, idx) => ({
+                                url: entry.url,
+                                group: entry.group,
+                                filters: entry.filters,
                                 is_primary: !hasPrimary && idx === 0,
                               }));
                             if (newEntries.length > 0) {
@@ -832,7 +698,122 @@ export function BangumiModal({
                       </Field>
                     )}
                   </form.Field>
-                )}
+
+                {/* Torrent Input */}
+                <form.Field name="torrent">
+                  {(field) => (
+                    <Field>
+                      <div className="flex items-center justify-between">
+                        <FieldLabel>
+                          <IconMagnet className="size-4 text-chart-3 dark:text-chart-1" />
+                          种子下载
+                        </FieldLabel>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setTorrentSearchModalOpen(true)}
+                          className="h-7 gap-1.5 border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
+                        >
+                          <IconSearch className="size-3.5" />
+                          搜索种子
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        {/* Magnet/Torrent URL Input */}
+                        <div className="space-y-2 p-3 rounded-lg border border-chart-3/20 dark:border-chart-1/20 bg-chart-3/5 dark:bg-chart-1/5">
+                          <div className="flex gap-2 items-center">
+                            <div className="relative flex-1">
+                              <IconMagnet className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                              <Input
+                                id={field.name}
+                                name={field.name}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) =>
+                                  field.handleChange(e.target.value)
+                                }
+                                placeholder="粘贴磁力链接或种子URL..."
+                                className="pl-9"
+                              />
+                            </div>
+                            {/* File Upload Button */}
+                            <input
+                              ref={torrentFileInputRef}
+                              type="file"
+                              accept=".torrent"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  form.setFieldValue("torrent_file", file);
+                                  field.handleChange(file.name);
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() =>
+                                torrentFileInputRef.current?.click()
+                              }
+                              className="shrink-0 border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
+                              title="上传种子文件"
+                            >
+                              <IconUpload className="size-4" />
+                            </Button>
+                            {/* Clear Button */}
+                            {field.state.value && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  field.handleChange("");
+                                  form.setFieldValue("torrent_file", null);
+                                  if (torrentFileInputRef.current) {
+                                    torrentFileInputRef.current.value = "";
+                                  }
+                                }}
+                                className="shrink-0 border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                                title="清除"
+                              >
+                                <IconTrash className="size-4" />
+                              </Button>
+                            )}
+                          </div>
+                          {/* File name indicator */}
+                          <form.Subscribe
+                            selector={(state) => state.values.torrent_file}
+                          >
+                            {(torrentFile) =>
+                              torrentFile && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <IconUpload className="size-3" />
+                                  <span>已选择文件: {torrentFile.name}</span>
+                                </div>
+                              )
+                            }
+                          </form.Subscribe>
+                        </div>
+                        {/* Helper text */}
+                        <p className="text-xs text-muted-foreground">
+                          粘贴磁力链接或上传 .torrent 文件直接下载
+                        </p>
+                      </div>
+                      <TorrentSearchModal
+                        open={torrentSearchModalOpen}
+                        onOpenChange={setTorrentSearchModalOpen}
+                        onSelect={(magnetUrl) => {
+                          field.handleChange(magnetUrl);
+                          setTorrentSearchModalOpen(false);
+                        }}
+                        initialKeyword={searchKeyword}
+                      />
+                    </Field>
+                  )}
+                </form.Field>
 
                 {/* Auto Download Toggle */}
                 <form.Field name="auto_download">

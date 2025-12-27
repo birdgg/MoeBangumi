@@ -154,10 +154,6 @@ export type CreateBangumi = {
    */
   rss_entries?: Array<RssEntry>;
   /**
-   * Save path (required)
-   */
-  save_path: string;
-  /**
    * Season number (default: 1)
    */
   season?: number;
@@ -352,6 +348,10 @@ export type Rss = {
    * Regex patterns to exclude from matching
    */
   exclude_filters: Array<string>;
+  /**
+   * Optional subtitle group name
+   */
+  group?: string | null;
   id: number;
   /**
    * Whether this is the primary RSS source (only one per bangumi)
@@ -373,6 +373,10 @@ export type RssEntry = {
    * Regex patterns to exclude from matching
    */
   filters?: Array<string>;
+  /**
+   * Optional subtitle group name
+   */
+  group?: string | null;
   /**
    * Whether this is the primary RSS source (default: false)
    */
@@ -705,10 +709,6 @@ export type UpdateBangumiRequest = {
    * RSS entries to sync (replaces all existing entries)
    */
   rss_entries?: Array<RssEntry> | null;
-  /**
-   * Save path (None = unchanged, Some = new value)
-   */
-  save_path?: string | null;
 };
 
 /**

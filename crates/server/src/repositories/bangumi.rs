@@ -136,7 +136,8 @@ impl BangumiRepository {
         let episode_offset = data.episode_offset.unwrap_or(existing.episode_offset);
         let current_episode = data.current_episode.unwrap_or(existing.current_episode);
         let auto_download = data.auto_download.unwrap_or(existing.auto_download);
-        let save_path = data.save_path.unwrap_or(existing.save_path);
+        // save_path is auto-generated at creation time and cannot be modified
+        let save_path = existing.save_path;
         let source_type = data.source_type.unwrap_or(existing.source_type);
         let finished = data.finished.unwrap_or(existing.finished);
         let platform = data.platform.unwrap_or(existing.platform);

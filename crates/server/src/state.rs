@@ -8,8 +8,8 @@ use tmdb::TmdbClient;
 use crate::config::Config;
 use crate::services::{
     BangumiService, CacheService, DownloaderService, FileRenameJob, HttpClientService,
-    LogCleanupJob, LogService, PosterService, RssFetchJob, SchedulerService, SettingsService,
-    TorrentSearchService,
+    LogCleanupJob, LogService, PosterService, RssFetchJob, RssProcessingService,
+    SchedulerService, SettingsService, TorrentSearchService,
 };
 
 #[derive(Clone)]
@@ -82,9 +82,6 @@ impl AppState {
             config.posters_path(),
         ));
 
-        // Create bangumi service
-        let bangumi = Arc::new(BangumiService::new(db.clone(), Arc::clone(&poster)));
-
         // Create cache service
         let cache = Arc::new(CacheService::new(db.clone()));
 
@@ -95,12 +92,26 @@ impl AppState {
         // Create torrent search service
         let torrent_search = Arc::new(TorrentSearchService::new(Arc::clone(&rss_arc)));
 
-        // Create RSS fetch job (stored separately for manual triggering)
-        let rss_fetch_job = Arc::new(RssFetchJob::new(
+        // Create RSS processing service (shared by BangumiService and RssFetchJob)
+        let rss_processing = Arc::new(RssProcessingService::new(
             db.clone(),
             Arc::clone(&rss_arc),
             Arc::clone(&downloader_arc),
             Arc::clone(&settings),
+        ));
+
+        // Create bangumi service (with RSS processing for immediate fetch)
+        let bangumi = Arc::new(BangumiService::new(
+            db.clone(),
+            Arc::clone(&poster),
+            Arc::clone(&rss_processing),
+            Arc::clone(&settings),
+        ));
+
+        // Create RSS fetch job (stored separately for manual triggering)
+        let rss_fetch_job = Arc::new(RssFetchJob::new(
+            db.clone(),
+            Arc::clone(&rss_processing),
         ));
 
         // Create and start scheduler service

@@ -5,6 +5,7 @@ mod file_rename;
 mod http_client;
 mod log;
 mod poster;
+mod rss_processing;
 mod scheduler;
 mod settings;
 mod torrent_search;
@@ -20,6 +21,7 @@ pub use file_rename::{FileRenameError, FileRenameService, RenameResult};
 pub use http_client::{HttpClientError, HttpClientService};
 pub use log::{LogError, LogService};
 pub use poster::{PosterError, PosterService};
+pub use rss_processing::{BatchStats, ProcessingStats, RssProcessingError, RssProcessingService};
 pub use scheduler::{
     FileRenameJob, JobResult, LogCleanupJob, RssFetchJob, SchedulerJob, SchedulerService,
 };

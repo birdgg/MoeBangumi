@@ -14,14 +14,19 @@ import {
   IconChevronDown,
   IconUsers,
   IconCheck,
-  IconFilter,
 } from "@tabler/icons-react";
 import { useDebouncedValue } from "@tanstack/react-pacer";
+
+interface RssSelectionEntry {
+  url: string;
+  group: string | null;
+  filters: string[];
+}
 
 interface MikanRssModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (result: { rssUrls: string[]; excludeFilters: string[] }) => void;
+  onSelect: (entries: RssSelectionEntry[]) => void;
   initialKeyword?: string;
 }
 
@@ -47,50 +52,22 @@ function ParsedTagButton({
         "transition-all duration-200 hover:scale-105",
         selected
           ? [
-              "bg-red-500/20 dark:bg-red-500/30",
-              "border border-red-500/50 dark:border-red-500/60",
-              "text-red-600 dark:text-red-400",
-            ]
+            "bg-red-500/20 dark:bg-red-500/30",
+            "border border-red-500/50 dark:border-red-500/60",
+            "text-red-600 dark:text-red-400",
+          ]
           : [
-              "bg-chart-1/10 dark:bg-chart-3/20",
-              "border border-dashed border-chart-1/30 dark:border-chart-3/30",
-              "text-chart-1 dark:text-chart-3",
-              "hover:bg-chart-1/20 dark:hover:bg-chart-3/30",
-              "hover:border-chart-1/50 dark:hover:border-chart-3/50",
-            ]
+            "bg-chart-1/10 dark:bg-chart-3/20",
+            "border border-dashed border-chart-1/30 dark:border-chart-3/30",
+            "text-chart-1 dark:text-chart-3",
+            "hover:bg-chart-1/20 dark:hover:bg-chart-3/30",
+            "hover:border-chart-1/50 dark:hover:border-chart-3/50",
+          ]
       )}
     >
       {label}
       {selected && <IconX className="size-3" />}
     </button>
-  );
-}
-
-// Exclude filter chip component
-function ExcludeFilterChip({
-  label,
-  onRemove,
-}: {
-  label: string;
-  onRemove: () => void;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 pl-2 pr-1.5 py-0.5 rounded-full text-xs font-medium",
-        "bg-red-500/20 dark:bg-red-500/30 text-red-600 dark:text-red-400",
-        "border border-red-500/40 dark:border-red-500/50"
-      )}
-    >
-      {label}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="flex items-center justify-center size-4 rounded-full hover:bg-red-500/30 transition-colors"
-      >
-        <IconX className="size-3" />
-      </button>
-    </span>
   );
 }
 
@@ -105,7 +82,8 @@ export function MikanRssModal({
   const [selectedBangumi, setSelectedBangumi] = React.useState<SearchResult | null>(null);
   const [expandedSubgroup, setExpandedSubgroup] = React.useState<string | null>(null);
   const [selectedSubgroups, setSelectedSubgroups] = React.useState<Set<string>>(new Set());
-  const [excludeFilters, setExcludeFilters] = React.useState<Set<string>>(new Set());
+  // Map of subgroup id -> Set of exclude filters for that subgroup
+  const [subgroupFilters, setSubgroupFilters] = React.useState<Map<string, Set<string>>>(new Map());
   const hasAutoSelected = React.useRef(false);
 
   const { data: searchResults, isLoading: isSearching, isFetching: isSearchFetching } = useSearchMikan(debouncedKeyword);
@@ -136,7 +114,7 @@ export function MikanRssModal({
       setSelectedBangumi(null);
       setExpandedSubgroup(null);
       setSelectedSubgroups(new Set());
-      setExcludeFilters(new Set());
+      setSubgroupFilters(new Map());
       hasAutoSelected.current = false;
     }
   }, [open, initialKeyword]);
@@ -153,34 +131,37 @@ export function MikanRssModal({
     });
   };
 
-  const toggleExcludeFilter = (filter: string) => {
-    setExcludeFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(filter)) {
-        next.delete(filter);
+  const toggleExcludeFilter = (subgroupId: string, filter: string) => {
+    setSubgroupFilters((prev) => {
+      const next = new Map(prev);
+      const subgroupSet = new Set(prev.get(subgroupId) || []);
+      if (subgroupSet.has(filter)) {
+        subgroupSet.delete(filter);
       } else {
-        next.add(filter);
+        subgroupSet.add(filter);
       }
+      next.set(subgroupId, subgroupSet);
       return next;
     });
   };
 
   const handleConfirm = () => {
     if (!bangumiDetail) return;
-    const selectedRssUrls = bangumiDetail.subgroups
+    const selectedEntries = bangumiDetail.subgroups
       .filter((sg) => selectedSubgroups.has(sg.id))
-      .map((sg) => sg.rss_url);
-    onSelect({
-      rssUrls: selectedRssUrls,
-      excludeFilters: Array.from(excludeFilters),
-    });
+      .map((sg) => ({
+        url: sg.rss_url,
+        group: sg.name || null,
+        filters: Array.from(subgroupFilters.get(sg.id) || []),
+      }));
+    onSelect(selectedEntries);
     onOpenChange(false);
   };
 
   const handleBack = () => {
     setSelectedBangumi(null);
     setSelectedSubgroups(new Set());
-    setExcludeFilters(new Set());
+    setSubgroupFilters(new Map());
   };
 
   return (
@@ -342,6 +323,13 @@ export function MikanRssModal({
                   ) : bangumiDetail && bangumiDetail.subgroups.length > 0 ? (
                     bangumiDetail.subgroups.map((subgroup) => {
                       const isExpanded = expandedSubgroup === subgroup.id;
+                      // Collect unique tags from all episodes
+                      const allTags = new Set<string>();
+                      for (const episode of subgroup.episodes) {
+                        if ("sub_type" in episode && episode.sub_type) allTags.add(episode.sub_type as string);
+                        if ("resolution" in episode && episode.resolution) allTags.add(episode.resolution as string);
+                      }
+                      const uniqueTags = Array.from(allTags);
                       return (
                         <div
                           key={subgroup.id}
@@ -395,41 +383,39 @@ export function MikanRssModal({
                             </button>
                           </div>
 
-                          {/* Episodes List with Parsed Tags */}
-                          {isExpanded && subgroup.episodes.length > 0 && (
-                            <div className="border-t border-chart-1/20 dark:border-chart-3/20 px-4 py-2 space-y-2 max-h-64 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                              {subgroup.episodes.map((episode, index) => {
-                                const tags: string[] = [];
-                                if ("sub_type" in episode && episode.sub_type) tags.push(episode.sub_type as string);
-                                if ("resolution" in episode && episode.resolution) tags.push(episode.resolution as string);
+                          {/* Available Tags for filtering */}
+                          {uniqueTags.length > 0 && (
+                            <div className="border-t border-chart-1/20 dark:border-chart-3/20 px-4 py-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-muted-foreground">选择过滤标签:</span>
+                                {uniqueTags.map((tag) => (
+                                  <ParsedTagButton
+                                    key={tag}
+                                    label={tag}
+                                    selected={subgroupFilters.get(subgroup.id)?.has(tag) ?? false}
+                                    onClick={() => toggleExcludeFilter(subgroup.id, tag)}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                                return (
-                                  <div
-                                    key={index}
-                                    className={cn(
-                                      "p-2 rounded-lg text-sm",
-                                      "bg-white/50 dark:bg-zinc-800/50",
-                                      "border border-chart-1/10 dark:border-chart-3/10"
-                                    )}
-                                  >
-                                    <div className="text-muted-foreground line-clamp-2 text-xs">
-                                      {episode.name}
-                                    </div>
-                                    {tags.length > 0 && (
-                                      <div className="flex flex-wrap gap-1.5 mt-2">
-                                        {tags.map((tag) => (
-                                          <ParsedTagButton
-                                            key={tag}
-                                            label={tag}
-                                            selected={excludeFilters.has(tag)}
-                                            onClick={() => toggleExcludeFilter(tag)}
-                                          />
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                          {/* Episodes List */}
+                          {isExpanded && subgroup.episodes.length > 0 && (
+                            <div className="border-t border-chart-1/20 dark:border-chart-3/20 px-4 py-2 space-y-1.5 max-h-64 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                              {subgroup.episodes.map((episode, index) => (
+                                <div
+                                  key={index}
+                                  className={cn(
+                                    "px-2 py-1.5 rounded-lg text-xs",
+                                    "bg-white/50 dark:bg-zinc-800/50",
+                                    "border border-chart-1/10 dark:border-chart-3/10",
+                                    "text-muted-foreground line-clamp-1"
+                                  )}
+                                >
+                                  {episode.name}
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -442,28 +428,6 @@ export function MikanRssModal({
                   )}
                 </div>
 
-                {/* Exclude Filters Display */}
-                {excludeFilters.size > 0 && (
-                  <div className="border-t border-red-500/30 dark:border-red-500/20 p-3 bg-linear-to-br from-red-50/50 to-pink-50/50 dark:from-red-950/20 dark:to-pink-950/20">
-                    <div className="flex items-start gap-2">
-                      <IconFilter className="size-4 text-red-500 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1.5">
-                          排除过滤器 ({excludeFilters.size})
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {Array.from(excludeFilters).map((filter) => (
-                            <ExcludeFilterChip
-                              key={filter}
-                              label={filter}
-                              onRemove={() => toggleExcludeFilter(filter)}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Footer with confirm button */}
                 {selectedSubgroups.size > 0 && (
@@ -477,8 +441,7 @@ export function MikanRssModal({
                       )}
                     >
                       <IconCheck className="size-4" />
-                      确认选择 ({selectedSubgroups.size} 个字幕组
-                      {excludeFilters.size > 0 && ` · ${excludeFilters.size} 个过滤器`})
+                      确认选择 ({selectedSubgroups.size} 个字幕组)
                     </Button>
                   </div>
                 )}

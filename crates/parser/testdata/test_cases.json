@@ -25,7 +25,7 @@
         "season": null,
         "subtitle_group": "动漫国字幕组&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封字幕"
       }
     },
     {
@@ -39,7 +39,7 @@
         "season": null,
         "subtitle_group": "喵萌奶茶屋&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT+JPN"
+        "sub_type": "简繁日内封字幕"
       }
     },
     {
@@ -53,7 +53,7 @@
         "season": null,
         "subtitle_group": "桜都字幕组",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封"
       }
     },
     {
@@ -81,7 +81,7 @@
         "season": 2,
         "subtitle_group": "喵萌Production&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封字幕"
       }
     },
     {
@@ -95,7 +95,7 @@
         "season": null,
         "subtitle_group": "Sakurato",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封"
       }
     },
     {
@@ -123,7 +123,7 @@
         "season": null,
         "subtitle_group": "动漫国字幕组&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封字幕"
       }
     },
     {
@@ -137,7 +137,7 @@
         "season": null,
         "subtitle_group": "动漫国字幕组&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封字幕"
       }
     },
     {
@@ -151,7 +151,7 @@
         "season": null,
         "subtitle_group": "动漫国字幕组&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封字幕"
       }
     },
     {
@@ -165,7 +165,7 @@
         "season": null,
         "subtitle_group": "动漫国字幕组&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封字幕"
       }
     },
     {
@@ -179,7 +179,7 @@
         "season": null,
         "subtitle_group": "动漫国字幕组&LoliHouse",
         "resolution": "1080P",
-        "sub_type": "CHS+CHT"
+        "sub_type": "简繁内封字幕"
       }
     },
     {
@@ -193,7 +193,21 @@
         "season": null,
         "subtitle_group": "DHR动研字幕组&KNA字幕组&动漫国字幕组",
         "resolution": "720P",
-        "sub_type": "CHT"
+        "sub_type": "繁体"
+      }
+    },
+    {
+      "description": "中日双语字幕测试",
+      "input": "[桜都字幕组] 葬送のフリーレン / Sousou no Frieren [01][1080p][中日双语].mp4",
+      "expected": {
+        "name_en": "Sousou no Frieren",
+        "name_zh": null,
+        "name_jp": "葬送のフリーレン",
+        "episode": 1,
+        "season": null,
+        "subtitle_group": "桜都字幕组",
+        "resolution": "1080P",
+        "sub_type": "中日双语"
       }
     }
   ]

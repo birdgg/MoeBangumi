@@ -23,18 +23,15 @@ static RESOLUTION_720_PATTERN: LazyLock<Regex> =
 static RESOLUTION_2160_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"2160|4096x2160|4K|4k").unwrap());
 
-// 匹配简体中文字幕的正则表达式
-static SUB_CHS_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[简中]|CHS|SC|GB|GBK|GB2312").unwrap());
+// 匹配字幕语言的正则表达式
+static SUB_LANG_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(简体?中?文?|繁体?中?文?|中文|CHS|CHT|SC|TC|GB|GBK|GB2312|BIG5|日语?|JP|JPSC|ENG|英语?|英文)").unwrap()
+});
 
-// 匹配繁体中文字幕的正则表达式
-static SUB_CHT_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"繁|CHT|BIG5").unwrap());
-
-// 匹配日语字幕的正则表达式
-static SUB_JPN_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[日]|JP|JPSC").unwrap());
-
-// 匹配英语字幕的正则表达式
-static SUB_ENG_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"ENG|英语|英文").unwrap());
+// 匹配完整字幕短语的正则表达式（如 "中日双语"、"简繁内封字幕" 等）
+static SUB_PHRASE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(中日双语|简日双语|简繁日内封字幕|简繁内封字幕|简繁内封|简繁日内封|简日内封|简体内封|繁体内封|内封字幕|外挂字幕|内嵌字幕|简体中文|繁体中文|简繁|简日|繁日|CHS|CHT|SC|TC)").unwrap()
+});
 
 // 匹配非法前缀字符的正则表达式
 static PREFIX_PATTERN: LazyLock<Regex> =
@@ -217,21 +214,15 @@ impl Parser {
         let replaced = BRACKET_PATTERN.replace_all(other, " ").into_owned();
         let elements: Vec<&str> = replaced.split_whitespace().collect();
 
-        let mut subs = Vec::new();
+        let mut sub_type = None;
         let mut resolution = None;
 
+        // 优先匹配完整的字幕短语
         for &element in &elements {
-            if SUB_CHS_PATTERN.is_match(element) {
-                subs.push("CHS");
-            }
-            if SUB_CHT_PATTERN.is_match(element) {
-                subs.push("CHT");
-            }
-            if SUB_JPN_PATTERN.is_match(element) {
-                subs.push("JPN");
-            }
-            if SUB_ENG_PATTERN.is_match(element) {
-                subs.push("ENG");
+            if sub_type.is_none() {
+                if let Some(m) = SUB_PHRASE_PATTERN.find(element) {
+                    sub_type = Some(m.as_str().to_string());
+                }
             }
             // 分辨率检测：优先匹配最高分辨率，已设置则跳过
             if resolution.is_none() {
@@ -245,16 +236,22 @@ impl Parser {
             }
         }
 
-        // 去重
-        subs.sort();
-        subs.dedup();
+        // 如果没找到完整短语，回退到单独语言代码匹配
+        if sub_type.is_none() {
+            let mut subs = Vec::new();
+            for &element in &elements {
+                for m in SUB_LANG_PATTERN.find_iter(element) {
+                    subs.push(m.as_str());
+                }
+            }
+            // 去重
+            subs.sort();
+            subs.dedup();
 
-        // 连接为字符串，空则返回 None
-        let sub_type = if subs.is_empty() {
-            None
-        } else {
-            Some(subs.join("+"))
-        };
+            if !subs.is_empty() {
+                sub_type = Some(subs.join("+"));
+            }
+        }
 
         (sub_type, resolution)
     }

@@ -19,6 +19,8 @@ pub struct Rss {
     /// Whether this is the primary RSS source (only one per bangumi)
     /// Episodes from primary RSS can override those from backup RSS
     pub is_primary: bool,
+    /// Optional subtitle group name
+    pub group: Option<String>,
 }
 
 /// Request body for creating a new RSS subscription
@@ -37,6 +39,9 @@ pub struct CreateRss {
     /// Whether this is the primary RSS source (default: false)
     #[serde(default)]
     pub is_primary: bool,
+    /// Optional subtitle group name
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 fn default_enabled() -> bool {
@@ -55,4 +60,7 @@ pub struct UpdateRss {
     /// Whether this is the primary RSS source
     #[serde(default)]
     pub is_primary: Option<bool>,
+    /// Optional subtitle group name
+    #[serde(default)]
+    pub group: Option<String>,
 }
