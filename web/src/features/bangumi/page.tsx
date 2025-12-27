@@ -130,6 +130,7 @@ export function BangumiPage() {
         {/* Edit Bangumi Modal */}
         {editingBangumi && (
           <BangumiModal
+            key={editingBangumi.id}
             open={!!editingBangumi}
             onOpenChange={(open) => !open && setEditingBangumi(null)}
             mode="edit"

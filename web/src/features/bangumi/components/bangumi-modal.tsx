@@ -1,8 +1,9 @@
 import * as React from "react";
 import { useForm } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { type TvShow, type RssEntry as ApiRssEntry, type Rss } from "@/lib/api";
+import { cn, generateSavePath } from "@/lib/utils";
+import { type TvShow, type RssEntry as ApiRssEntry, type Rss, getSettingsOptions } from "@/lib/api";
 import {
   useCreateBangumi,
   useUpdateBangumi,
@@ -142,6 +143,11 @@ export function BangumiModal({
   const [torrentSearchModalOpen, setTorrentSearchModalOpen] =
     React.useState(false);
   const torrentFileInputRef = React.useRef<HTMLInputElement>(null);
+  // Track if save_path has been auto-generated to avoid overwriting user edits
+  const savePathInitializedRef = React.useRef(false);
+
+  // Fetch settings for default save_path
+  const { data: settings } = useQuery(getSettingsOptions());
 
   const form = useForm({
     defaultValues: {
@@ -214,6 +220,7 @@ export function BangumiModal({
     setSelectedTmdb(null);
     setMikanModalOpen(false);
     setTorrentSearchModalOpen(false);
+    savePathInitializedRef.current = false;
   }, [form]);
 
   const handleOpenChange = React.useCallback(
@@ -254,15 +261,32 @@ export function BangumiModal({
       form.setFieldValue("title_japanese", data.titleJapanese || "");
       form.setFieldValue("episode_offset", calculatedEpisodeOffset);
       form.setFieldValue("auto_download", data.autoDownload ?? true);
-      form.setFieldValue("save_path", data.savePath || "");
+
+      // Auto-generate save_path only once when settings become available
+      // This prevents overwriting user edits when TMDB selection changes
+      if (!savePathInitializedRef.current && settings?.downloader?.save_path && data.titleChinese && data.year) {
+        const autoPath = generateSavePath({
+          basePath: settings.downloader.save_path,
+          title: data.titleChinese,
+          year: data.year,
+          season: data.season ?? 1,
+          tmdbId: data.tmdbId,
+          kind: data.platform,
+        });
+        form.setFieldValue("save_path", autoPath);
+        savePathInitializedRef.current = true;
+      } else if (!savePathInitializedRef.current) {
+        form.setFieldValue("save_path", data.savePath || "");
+      }
+
       if (data.rssEntries) {
         form.setFieldValue("rss_entries", data.rssEntries.map(rssToFormEntry));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isEdit, data, bangumiWithRss, calculatedEpisodeOffset]);
+  }, [open, isEdit, data, bangumiWithRss, calculatedEpisodeOffset, settings]);
 
-  const searchKeyword = data.titleJapanese || data.titleChinese;
+  const searchKeyword = data.titleChinese || data.titleJapanese || "";
 
   return (
     <AnimatedModal

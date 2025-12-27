@@ -49,6 +49,13 @@ export function MikanRssModal({
     }
   }, [bangumiDetail, expandedSubgroup]);
 
+  // Auto-select when there's only one search result
+  React.useEffect(() => {
+    if (searchResults && searchResults.length === 1 && !selectedBangumi) {
+      setSelectedBangumi(searchResults[0]);
+    }
+  }, [searchResults, selectedBangumi]);
+
   // Reset state when modal opens
   React.useEffect(() => {
     if (open) {

@@ -12,6 +12,10 @@ interface TmdbMatcherProps {
   /** Search keyword (controlled from outside, e.g., from title_chinese input) */
   keyword: string;
   className?: string;
+  /** Pre-filled TMDB ID (disables initial auto-search until dropdown is opened) */
+  initialTmdbId?: number;
+  /** Pre-filled TMDB title to display when initialTmdbId is provided */
+  initialTmdbTitle?: string;
 }
 
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w92";
@@ -21,19 +25,32 @@ export function TmdbMatcher({
   onChange,
   keyword,
   className,
+  initialTmdbId,
+  initialTmdbTitle,
 }: TmdbMatcherProps) {
   const [open, setOpen] = React.useState(false);
   const [debouncedKeyword] = useDebouncedValue(keyword, { wait: 400 });
   const hasSearchedRef = React.useRef(false);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
+  // Track if user has ever opened the dropdown (to enable search when initialTmdbId is provided)
+  const hasOpenedRef = React.useRef(false);
 
-  const { data, isLoading, isFetching } = useSearchTmdb(debouncedKeyword);
+  // Disable search until user opens dropdown when initialTmdbId is provided
+  const shouldSearch = !initialTmdbId || hasOpenedRef.current;
+  const searchKeyword = shouldSearch ? debouncedKeyword : "";
+
+  const { data, isLoading, isFetching } = useSearchTmdb(searchKeyword);
   const results = data ?? [];
-  const isSearching = isLoading || isFetching;
+  const isSearching = shouldSearch && (isLoading || isFetching);
+
+  // Compute display value: use value if set, otherwise fallback to initial props
+  const displayValue = value ?? (initialTmdbId ? { id: initialTmdbId, name: initialTmdbTitle ?? `TMDB #${initialTmdbId}` } as TvShow : null);
 
   // Auto-select first result when search completes (only once per search term)
+  // Skip auto-select when initialTmdbId is provided and user hasn't opened dropdown yet
   React.useEffect(() => {
     if (
+      shouldSearch &&
       !isSearching &&
       results.length > 0 &&
       debouncedKeyword &&
@@ -42,7 +59,7 @@ export function TmdbMatcher({
       hasSearchedRef.current = true;
       onChange(results[0]);
     }
-  }, [isSearching, results, debouncedKeyword, onChange]);
+  }, [shouldSearch, isSearching, results, debouncedKeyword, onChange]);
 
   // Reset search flag when keyword changes
   React.useEffect(() => {
@@ -54,6 +71,13 @@ export function TmdbMatcher({
     setOpen(false);
   };
 
+  const handleToggleOpen = () => {
+    if (!open) {
+      hasOpenedRef.current = true;
+    }
+    setOpen(!open);
+  };
+
   return (
     <div className={cn("space-y-2", className)}>
       {/* Trigger area */}
@@ -61,7 +85,7 @@ export function TmdbMatcher({
         <button
           ref={triggerRef}
           type="button"
-          onClick={() => setOpen(!open)}
+          onClick={handleToggleOpen}
           className={cn(
             "flex flex-1 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm",
             "border-input bg-transparent",
@@ -70,11 +94,11 @@ export function TmdbMatcher({
             "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >
-          <span className={cn("truncate flex items-center gap-2", !value && "text-muted-foreground")}>
-            {value ? (
+          <span className={cn("truncate flex items-center gap-2", !displayValue && "text-muted-foreground")}>
+            {displayValue ? (
               <>
-                <span className="truncate">{value.name}</span>
-                <span className="font-mono text-xs text-chart-3 dark:text-chart-1 shrink-0">#{value.id}</span>
+                <span className="truncate">{displayValue.name}</span>
+                <span className="font-mono text-xs text-chart-3 dark:text-chart-1 shrink-0">#{displayValue.id}</span>
               </>
             ) : (
               "选择 TMDB 匹配..."
@@ -89,12 +113,12 @@ export function TmdbMatcher({
         </button>
 
         {/* External link to TMDB */}
-        {value && (
+        {displayValue && (
           <Tooltip>
             <TooltipTrigger
               render={
                 <a
-                  href={`https://www.themoviedb.org/tv/${value.id}`}
+                  href={`https://www.themoviedb.org/tv/${displayValue.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cn(
