@@ -27,6 +27,13 @@ pub struct SearchQuery {
     pub keyword: String,
 }
 
+/// Query parameters for TMDB search with filters
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct TmdbSearchQuery {
+    /// Keyword to search
+    pub keyword: String,
+}
+
 /// Query parameters for torrent search
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct TorrentSearchQuery {
@@ -54,15 +61,17 @@ pub use scheduler::trigger_rss_fetch;
 pub use search::{search_bgmtv, search_mikan, search_tmdb};
 pub use settings::{get_settings, reset_settings, test_proxy, update_settings, TestProxyRequest};
 pub use torrent_search::search_torrents;
-pub use webhook::torrent_completed;
 pub use torrents::{
     delete_torrents, list_torrents, pause_torrents, resume_torrents, sync_maindata,
     ControlTorrentsRequest, DeleteTorrentsRequest, SyncMainDataQuery,
 };
+pub use webhook::torrent_completed;
 
 // Re-export utoipa path structs for OpenAPI routing
 #[doc(hidden)]
-pub use bangumi::{__path_create_bangumi, __path_get_bangumi, __path_get_bangumi_by_id, __path_update_bangumi};
+pub use bangumi::{
+    __path_create_bangumi, __path_get_bangumi, __path_get_bangumi_by_id, __path_update_bangumi,
+};
 #[doc(hidden)]
 pub use downloader::__path_test_downloader_connection;
 #[doc(hidden)]
@@ -72,17 +81,19 @@ pub use logs::{__path_cleanup_logs, __path_get_logs, __path_stream_logs};
 #[doc(hidden)]
 pub use mikan::__path_get_mikan_rss;
 #[doc(hidden)]
+pub use scheduler::__path_trigger_rss_fetch;
+#[doc(hidden)]
 pub use search::{__path_search_bgmtv, __path_search_mikan, __path_search_tmdb};
 #[doc(hidden)]
-pub use scheduler::__path_trigger_rss_fetch;
+pub use settings::{
+    __path_get_settings, __path_reset_settings, __path_test_proxy, __path_update_settings,
+};
 #[doc(hidden)]
 pub use torrent_search::__path_search_torrents;
 #[doc(hidden)]
-pub use settings::{__path_get_settings, __path_reset_settings, __path_test_proxy, __path_update_settings};
+pub use torrents::{
+    __path_delete_torrents, __path_list_torrents, __path_pause_torrents, __path_resume_torrents,
+    __path_sync_maindata,
+};
 #[doc(hidden)]
 pub use webhook::__path_torrent_completed;
-#[doc(hidden)]
-pub use torrents::{
-    __path_delete_torrents, __path_list_torrents, __path_pause_torrents,
-    __path_resume_torrents, __path_sync_maindata,
-};

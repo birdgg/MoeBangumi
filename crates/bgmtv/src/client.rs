@@ -63,13 +63,17 @@ impl BgmtvClient {
         response: reqwest::Response,
     ) -> crate::Result<T> {
         let status = response.status();
+        let body = response.text().await?;
         if !status.is_success() {
-            let message = response.text().await.unwrap_or_default();
             return Err(BgmtvError::Api {
                 status_code: status.as_u16(),
-                message,
+                message: body,
             });
         }
-        Ok(response.json().await?)
+        let deserializer = &mut serde_json::Deserializer::from_str(&body);
+        serde_path_to_error::deserialize(deserializer).map_err(|e| BgmtvError::Json {
+            path: e.path().to_string(),
+            source: e.into_inner(),
+        })
     }
 }

@@ -7,7 +7,7 @@ use crate::error::AppResult;
 use crate::state::AppState;
 use tmdb::DiscoverBangumiParams;
 
-use super::{SearchQuery, MIKAN_SEARCH_CACHE_TTL};
+use super::{SearchQuery, TmdbSearchQuery, MIKAN_SEARCH_CACHE_TTL};
 
 /// Search for bangumi (Japanese anime) on BGM.tv
 #[utoipa::path(
@@ -33,7 +33,7 @@ pub async fn search_bgmtv(
     get,
     path = "/api/search/tmdb",
     tag = "search",
-    params(SearchQuery),
+    params(TmdbSearchQuery),
     responses(
         (status = 200, description = "Search results from TMDB", body = Vec<tmdb::models::TvShow>),
         (status = 500, description = "Internal server error")
@@ -41,7 +41,7 @@ pub async fn search_bgmtv(
 )]
 pub async fn search_tmdb(
     State(state): State<AppState>,
-    Query(query): Query<SearchQuery>,
+    Query(query): Query<TmdbSearchQuery>,
 ) -> AppResult<Json<Vec<tmdb::models::TvShow>>> {
     let params = DiscoverBangumiParams {
         with_text_query: Some(query.keyword),

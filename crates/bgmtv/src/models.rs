@@ -31,6 +31,9 @@ pub struct SearchFilter {
     /// Meta tags filter (e.g., "日本")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta_tags: Option<Vec<String>>,
+    /// Air date filters (e.g., [">=2020-07-01", "<2020-10-01"])
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub air_date: Option<Vec<String>>,
 }
 
 /// Search response from POST /v0/search/subjects

@@ -1349,9 +1349,9 @@ export type SearchTorrentsData = {
      */
     keyword: string;
     /**
-     * Source to search from (nyaa or mikan)
+     * Source to search from: "nyaa" (default) or "mikan"
      */
-    source: TorrentSource;
+    source?: TorrentSource;
   };
   url: "/api/torrents/search";
 };

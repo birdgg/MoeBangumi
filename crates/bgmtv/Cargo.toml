@@ -12,3 +12,5 @@ thiserror.workspace = true
 tracing.workspace = true
 serde_repr.workspace = true
 utoipa.workspace = true
+serde_path_to_error.workspace = true
+chrono.workspace = true
