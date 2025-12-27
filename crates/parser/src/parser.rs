@@ -1,5 +1,5 @@
-use crate::models::{CHINESE_NUMBER_MAP, ParseResult};
-use anyhow::{Result, anyhow};
+use crate::models::{ParseResult, CHINESE_NUMBER_MAP};
+use anyhow::{anyhow, Result};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -29,8 +29,9 @@ static SUB_LANG_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 // 匹配完整字幕短语的正则表达式（如 "中日双语"、"简繁内封字幕" 等）
+// 注意：较长的模式必须放在较短的模式前面，否则会被短模式先匹配
 static SUB_PHRASE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(中日双语|简日双语|简繁日内封字幕|简繁内封字幕|简繁内封|简繁日内封|简日内封|简体内封|繁体内封|内封字幕|外挂字幕|内嵌字幕|简体中文|繁体中文|简繁|简日|繁日|CHS|CHT|SC|TC)").unwrap()
+    Regex::new(r"(?i)(中日双语|简日双语|简繁日内封字幕|简繁内封字幕|简繁内封|简繁日内封|简日内嵌|简日内封|繁日内嵌|繁日内封|简体内嵌|简体内封|繁体内嵌|繁体内封|内封字幕|外挂字幕|内嵌字幕|简体中文|繁体中文|简繁|简日|繁日|CHS|CHT|SC|TC)").unwrap()
 });
 
 // 匹配非法前缀字符的正则表达式
@@ -63,8 +64,7 @@ static PUNCTUATION_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[^\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]").unwrap());
 
 // 匹配连续的空格
-static MULTIPLE_SPACES_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\s{2,}").unwrap());
+static MULTIPLE_SPACES_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s{2,}").unwrap());
 
 /// 动画文件名解析器
 #[derive(Debug, Clone, Default)]
@@ -209,6 +209,25 @@ impl Parser {
         result.trim().to_string()
     }
 
+    /// 标准化字幕类型，移除描述性词语，保留语言代码
+    fn normalize_sub_type(sub: &str) -> Option<String> {
+        // 只移除描述词，保留语言代码
+        let result = sub
+            .replace("双语", "")
+            .replace("内封字幕", "")
+            .replace("外挂字幕", "")
+            .replace("内嵌字幕", "")
+            .replace("内封", "")
+            .replace("内嵌", "");
+
+        let result = result.trim();
+        if result.is_empty() {
+            None
+        } else {
+            Some(result.to_string())
+        }
+    }
+
     /// 从其他信息中提取字幕类型和分辨率
     fn find_tags(other: &str) -> (Option<String>, Option<String>) {
         let replaced = BRACKET_PATTERN.replace_all(other, " ").into_owned();
@@ -221,7 +240,7 @@ impl Parser {
         for &element in &elements {
             if sub_type.is_none() {
                 if let Some(m) = SUB_PHRASE_PATTERN.find(element) {
-                    sub_type = Some(m.as_str().to_string());
+                    sub_type = Self::normalize_sub_type(m.as_str());
                 }
             }
             // 分辨率检测：优先匹配最高分辨率，已设置则跳过
@@ -241,7 +260,9 @@ impl Parser {
             let mut subs = Vec::new();
             for &element in &elements {
                 for m in SUB_LANG_PATTERN.find_iter(element) {
-                    subs.push(m.as_str());
+                    if let Some(normalized) = Self::normalize_sub_type(m.as_str()) {
+                        subs.push(normalized);
+                    }
                 }
             }
             // 去重

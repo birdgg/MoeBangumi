@@ -1,10 +1,19 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useSearchTmdb } from "../hooks/use-bangumi";
+import { useSearchTmdb } from "../../hooks/use-bangumi";
 import { type TvShow } from "@/lib/api";
-import { IconLoader2, IconCheck, IconChevronDown, IconExternalLink } from "@tabler/icons-react";
+import {
+  IconLoader2,
+  IconCheck,
+  IconChevronDown,
+  IconExternalLink,
+} from "@tabler/icons-react";
 import { useDebouncedValue } from "@tanstack/react-pacer";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 interface TmdbMatcherProps {
   onChange: (show: TvShow | null) => void;
@@ -32,11 +41,15 @@ export function TmdbMatcher({
   const searchKeyword = shouldSearch ? debouncedKeyword : "";
 
   const { data, isLoading, isFetching } = useSearchTmdb(searchKeyword);
-  const results = data ?? [];
+  const results = React.useMemo(() => data ?? [], [data]);
   const isSearching = shouldSearch && (isLoading || isFetching);
 
   // Compute display value: use selected if set, otherwise fallback to initial props
-  const displayValue = selected ?? (initialTmdbId ? { id: initialTmdbId, name: keyword || "TMDB" } as TvShow : null);
+  const displayValue =
+    selected ??
+    (initialTmdbId
+      ? ({ id: initialTmdbId, name: keyword || "TMDB" } as TvShow)
+      : null);
 
   // Auto-select first result when search completes (only once per search term)
   // Skip auto-select when initialTmdbId is provided and user hasn't opened dropdown yet
@@ -87,11 +100,18 @@ export function TmdbMatcher({
             "disabled:cursor-not-allowed disabled:opacity-50"
           )}
         >
-          <span className={cn("truncate flex items-center gap-2", !displayValue && "text-muted-foreground")}>
+          <span
+            className={cn(
+              "truncate flex items-center gap-2",
+              !displayValue && "text-muted-foreground"
+            )}
+          >
             {displayValue ? (
               <>
                 <span className="truncate">{displayValue.name}</span>
-                <span className="font-mono text-xs text-chart-3 dark:text-chart-1 shrink-0">#{displayValue.id}</span>
+                <span className="font-mono text-xs text-chart-3 dark:text-chart-1 shrink-0">
+                  #{displayValue.id}
+                </span>
               </>
             ) : (
               "选择 TMDB 匹配..."
@@ -135,10 +155,7 @@ export function TmdbMatcher({
       {open && (
         <>
           {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           {/* Dropdown content */}
           <div className="relative z-50">
             <div className="absolute top-0 left-0 right-0 max-h-64 overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
@@ -181,7 +198,6 @@ export function TmdbMatcher({
           </div>
         </>
       )}
-
     </div>
   );
 }

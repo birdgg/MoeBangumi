@@ -28,9 +28,9 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 
-import { TmdbMatcher } from "../tmdb-matcher";
+import { TmdbMatcher } from "./tmdb-matcher";
 import { MikanRssModal } from "../mikan-rss-modal";
-import { BangumiInfoCard } from "../bangumi-info-card";
+import { BangumiInfoCard } from "./bangumi-info-card";
 
 import type { BangumiModalProps, RssFormEntry } from "./types";
 import { normalizePlatform, rssToFormEntry, formEntryToApiEntry } from "./utils";
@@ -437,15 +437,15 @@ export function BangumiModal({
                       <MikanRssModal
                         open={mikanModalOpen}
                         onOpenChange={setMikanModalOpen}
-                        onSelect={() => {
-                          const entries = Array.isArray(field.state.value) ? field.state.value : [];
+                        onSelect={(selectedEntries) => {
+                          const existingEntries = Array.isArray(field.state.value) ? field.state.value : [];
                           const existingUrls = new Set(
-                            entries.map((e) => e.url)
+                            existingEntries.map((e) => e.url)
                           );
-                          const hasPrimary = entries.some(
+                          const hasPrimary = existingEntries.some(
                             (e) => e.is_primary
                           );
-                          const newEntries = entries
+                          const newEntries = selectedEntries
                             .filter((entry) => !existingUrls.has(entry.url))
                             .map((entry, idx) => ({
                               url: entry.url,
@@ -456,7 +456,7 @@ export function BangumiModal({
                             }));
                           if (newEntries.length > 0) {
                             field.handleChange([
-                              ...entries,
+                              ...existingEntries,
                               ...newEntries,
                             ]);
                           }

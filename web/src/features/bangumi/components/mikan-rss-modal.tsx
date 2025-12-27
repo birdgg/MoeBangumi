@@ -21,6 +21,7 @@ interface RssSelectionEntry {
   url: string;
   group: string | null;
   filters: string[];
+  include_filters: string[];
 }
 
 interface MikanRssModalProps {
@@ -28,47 +29,6 @@ interface MikanRssModalProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (entries: RssSelectionEntry[]) => void;
   initialKeyword?: string;
-}
-
-// Parsed tag button component
-function ParsedTagButton({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-        "transition-all duration-200 hover:scale-105",
-        selected
-          ? [
-            "bg-red-500/20 dark:bg-red-500/30",
-            "border border-red-500/50 dark:border-red-500/60",
-            "text-red-600 dark:text-red-400",
-          ]
-          : [
-            "bg-chart-1/10 dark:bg-chart-3/20",
-            "border border-dashed border-chart-1/30 dark:border-chart-3/30",
-            "text-chart-1 dark:text-chart-3",
-            "hover:bg-chart-1/20 dark:hover:bg-chart-3/30",
-            "hover:border-chart-1/50 dark:hover:border-chart-3/50",
-          ]
-      )}
-    >
-      {label}
-      {selected && <IconX className="size-3" />}
-    </button>
-  );
 }
 
 export function MikanRssModal({
@@ -82,8 +42,8 @@ export function MikanRssModal({
   const [selectedBangumi, setSelectedBangumi] = React.useState<SearchResult | null>(null);
   const [expandedSubgroup, setExpandedSubgroup] = React.useState<string | null>(null);
   const [selectedSubgroups, setSelectedSubgroups] = React.useState<Set<string>>(new Set());
-  // Map of subgroup id -> Set of exclude filters for that subgroup
-  const [subgroupFilters, setSubgroupFilters] = React.useState<Map<string, Set<string>>>(new Map());
+  // Map of subgroup id -> Set of include filters (tag combos) for that subgroup
+  const [subgroupIncludeFilters, setSubgroupIncludeFilters] = React.useState<Map<string, Set<string>>>(new Map());
   const hasAutoSelected = React.useRef(false);
 
   const { data: searchResults, isLoading: isSearching, isFetching: isSearchFetching } = useSearchMikan(debouncedKeyword);
@@ -114,7 +74,7 @@ export function MikanRssModal({
       setSelectedBangumi(null);
       setExpandedSubgroup(null);
       setSelectedSubgroups(new Set());
-      setSubgroupFilters(new Map());
+      setSubgroupIncludeFilters(new Map());
       hasAutoSelected.current = false;
     }
   }, [open, initialKeyword]);
@@ -131,8 +91,8 @@ export function MikanRssModal({
     });
   };
 
-  const toggleExcludeFilter = (subgroupId: string, filter: string) => {
-    setSubgroupFilters((prev) => {
+  const toggleIncludeFilter = (subgroupId: string, filter: string) => {
+    setSubgroupIncludeFilters((prev) => {
       const next = new Map(prev);
       const subgroupSet = new Set(prev.get(subgroupId) || []);
       if (subgroupSet.has(filter)) {
@@ -152,7 +112,8 @@ export function MikanRssModal({
       .map((sg) => ({
         url: sg.rss_url,
         group: sg.name || null,
-        filters: Array.from(subgroupFilters.get(sg.id) || []),
+        filters: [],
+        include_filters: Array.from(subgroupIncludeFilters.get(sg.id) || []),
       }));
     onSelect(selectedEntries);
     onOpenChange(false);
@@ -161,7 +122,7 @@ export function MikanRssModal({
   const handleBack = () => {
     setSelectedBangumi(null);
     setSelectedSubgroups(new Set());
-    setSubgroupFilters(new Map());
+    setSubgroupIncludeFilters(new Map());
   };
 
   return (
@@ -323,13 +284,22 @@ export function MikanRssModal({
                   ) : bangumiDetail && bangumiDetail.subgroups.length > 0 ? (
                     bangumiDetail.subgroups.map((subgroup) => {
                       const isExpanded = expandedSubgroup === subgroup.id;
-                      // Collect unique tags from all episodes
-                      const allTags = new Set<string>();
+                      // Get unique tag combos (sub_type + resolution) from first 5 episodes
+                      const tagCombos: string[] = [];
+                      const seenCombos = new Set<string>();
                       for (const episode of subgroup.episodes) {
-                        if ("sub_type" in episode && episode.sub_type) allTags.add(episode.sub_type as string);
-                        if ("resolution" in episode && episode.resolution) allTags.add(episode.resolution as string);
+                        if (tagCombos.length >= 5) break;
+                        const parts: string[] = [];
+                        if ("sub_type" in episode && episode.sub_type) parts.push(episode.sub_type as string);
+                        if ("resolution" in episode && episode.resolution) parts.push(episode.resolution as string);
+                        if (parts.length > 0) {
+                          const combo = parts.join(" + ");
+                          if (!seenCombos.has(combo)) {
+                            seenCombos.add(combo);
+                            tagCombos.push(combo);
+                          }
+                        }
                       }
-                      const uniqueTags = Array.from(allTags);
                       return (
                         <div
                           key={subgroup.id}
@@ -383,19 +353,44 @@ export function MikanRssModal({
                             </button>
                           </div>
 
-                          {/* Available Tags for filtering */}
-                          {uniqueTags.length > 0 && (
+                          {/* Include filter - select tag combos */}
+                          {tagCombos.length > 0 && (
                             <div className="border-t border-chart-1/20 dark:border-chart-3/20 px-4 py-2">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs text-muted-foreground">选择过滤标签:</span>
-                                {uniqueTags.map((tag) => (
-                                  <ParsedTagButton
-                                    key={tag}
-                                    label={tag}
-                                    selected={subgroupFilters.get(subgroup.id)?.has(tag) ?? false}
-                                    onClick={() => toggleExcludeFilter(subgroup.id, tag)}
-                                  />
-                                ))}
+                                <span className="text-xs text-muted-foreground">包含过滤:</span>
+                                {tagCombos.map((combo) => {
+                                  const isSelected = subgroupIncludeFilters.get(subgroup.id)?.has(combo) ?? false;
+                                  return (
+                                    <button
+                                      key={combo}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleIncludeFilter(subgroup.id, combo);
+                                      }}
+                                      className={cn(
+                                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                                        "transition-all duration-200 hover:scale-105",
+                                        isSelected
+                                          ? [
+                                              "bg-green-500/20 dark:bg-green-500/30",
+                                              "border border-green-500/50 dark:border-green-500/60",
+                                              "text-green-700 dark:text-green-400",
+                                            ]
+                                          : [
+                                              "bg-chart-1/10 dark:bg-chart-3/20",
+                                              "border border-dashed border-chart-1/30 dark:border-chart-3/30",
+                                              "text-chart-1 dark:text-chart-3",
+                                              "hover:bg-chart-1/20 dark:hover:bg-chart-3/30",
+                                              "hover:border-chart-1/50 dark:hover:border-chart-3/50",
+                                            ]
+                                      )}
+                                    >
+                                      {combo}
+                                      {isSelected && <IconCheck className="size-3" />}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}

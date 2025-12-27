@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 import { IconDeviceTv } from "@tabler/icons-react";
-import { SeasonBadge } from "./season-badge";
-import { StatusBadge } from "./status-badge";
-import { PlatformBadge } from "./platform-badge";
+import { SeasonBadge } from "../season-badge";
+import { StatusBadge } from "../status-badge";
+import { PlatformBadge } from "../platform-badge";
 
 interface BangumiInfoCardProps {
   posterUrl?: string | null;
