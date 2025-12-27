@@ -3,7 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn, generateSavePath } from "@/lib/utils";
-import { type TvShow, type RssEntry as ApiRssEntry, type Rss, type Platform, getSettingsOptions } from "@/lib/api";
+import { type RssEntry as ApiRssEntry, type Rss, type Platform, getSettingsOptions } from "@/lib/api";
 import {
   useCreateBangumi,
   useUpdateBangumi,
@@ -148,7 +148,7 @@ export function BangumiModal({
     return episodes.length >= data.totalEpisodes;
   }, [isEdit, episodes, data.totalEpisodes, data.finished]);
 
-  const [selectedTmdb, setSelectedTmdb] = React.useState<TvShow | null>(null);
+  const [selectedTmdbId, setSelectedTmdbId] = React.useState<number | null>(null);
   const [mikanModalOpen, setMikanModalOpen] = React.useState(false);
   const [torrentSearchModalOpen, setTorrentSearchModalOpen] =
     React.useState(false);
@@ -213,7 +213,7 @@ export function BangumiModal({
               title_original_japanese: data.titleOriginalJapanese || data.titleJapanese || null,
               year: data.year || new Date().getFullYear(),
               bgmtv_id: data.bgmtvId,
-              tmdb_id: selectedTmdb?.id ?? null,
+              tmdb_id: selectedTmdbId ?? data.tmdbId ?? null,
               poster_url: data.posterUrl || null,
               air_date: data.airDate,
               air_week: data.airWeek,
@@ -246,7 +246,7 @@ export function BangumiModal({
 
   const resetForm = React.useCallback(() => {
     form.reset();
-    setSelectedTmdb(null);
+    setSelectedTmdbId(null);
     setMikanModalOpen(false);
     setTorrentSearchModalOpen(false);
     savePathInitializedRef.current = false;
@@ -278,11 +278,6 @@ export function BangumiModal({
           "rss_entries",
           bangumiWithRss.rss_entries.map(rssToFormEntry)
         );
-        // Set existing TMDB if available
-        if (data.tmdbId && !selectedTmdb) {
-          // Note: We don't have full TvShow data, just the ID
-          // The TmdbMatcher will need to handle this
-        }
       }
     } else {
       // Add mode: use data directly
@@ -462,9 +457,9 @@ export function BangumiModal({
                         TMDB 匹配
                       </FieldLabel>
                       <TmdbMatcher
-                        value={selectedTmdb}
-                        onChange={setSelectedTmdb}
+                        onChange={(show) => setSelectedTmdbId(show?.id ?? null)}
                         keyword={titleChinese}
+                        initialTmdbId={data.tmdbId ?? undefined}
                       />
                     </Field>
                   )}
@@ -652,7 +647,7 @@ export function BangumiModal({
                           </Button>
                         </div>
                         <div className="space-y-3">
-                          {field.state.value.map((entry, index) => (
+                          {(Array.isArray(field.state.value) ? field.state.value : []).map((entry, index) => (
                             <div
                               key={index}
                               className={cn(
@@ -807,10 +802,11 @@ export function BangumiModal({
                           open={mikanModalOpen}
                           onOpenChange={setMikanModalOpen}
                           onSelect={({ rssUrls, excludeFilters }) => {
+                            const entries = Array.isArray(field.state.value) ? field.state.value : [];
                             const existingUrls = new Set(
-                              field.state.value.map((e) => e.url)
+                              entries.map((e) => e.url)
                             );
-                            const hasPrimary = field.state.value.some(
+                            const hasPrimary = entries.some(
                               (e) => e.is_primary
                             );
                             const newEntries = rssUrls
@@ -822,7 +818,7 @@ export function BangumiModal({
                               }));
                             if (newEntries.length > 0) {
                               field.handleChange([
-                                ...field.state.value,
+                                ...entries,
                                 ...newEntries,
                               ]);
                             }
