@@ -167,7 +167,12 @@ impl MikanClient {
                         .map(|s| s.to_string());
 
                     if !name.is_empty() {
-                        episodes.push(Episode { name, torrent_url });
+                        episodes.push(Episode {
+                            name,
+                            torrent_url,
+                            sub_type: None,
+                            resolution: None,
+                        });
                     }
                 }
             }

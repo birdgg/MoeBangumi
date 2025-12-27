@@ -777,7 +777,7 @@ export function BangumiModal({
                         <MikanRssModal
                           open={mikanModalOpen}
                           onOpenChange={setMikanModalOpen}
-                          onSelect={(rssUrls) => {
+                          onSelect={({ rssUrls, excludeFilters }) => {
                             const existingUrls = new Set(
                               field.state.value.map((e) => e.url)
                             );
@@ -788,7 +788,7 @@ export function BangumiModal({
                               .filter((url) => !existingUrls.has(url))
                               .map((url, idx) => ({
                                 url,
-                                filters: [],
+                                filters: excludeFilters,
                                 is_primary: !hasPrimary && idx === 0,
                               }));
                             if (newEntries.length > 0) {

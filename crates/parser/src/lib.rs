@@ -21,7 +21,7 @@ mod tests {
         season: Option<i32>,
         subtitle_group: Option<String>,
         resolution: Option<String>,
-        sub_type: Vec<String>,
+        sub_type: Option<String>,
     }
 
     #[derive(Debug, Deserialize)]

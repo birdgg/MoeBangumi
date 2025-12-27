@@ -24,4 +24,9 @@ pub struct Subgroup {
 pub struct Episode {
     pub name: String,
     pub torrent_url: Option<String>,
+    // 解析后的元数据
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<String>,
 }
