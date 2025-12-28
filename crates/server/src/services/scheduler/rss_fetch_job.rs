@@ -44,13 +44,16 @@ impl SchedulerJob for RssFetchJob {
             return Ok(());
         }
 
-        tracing::info!("Found {} enabled RSS subscriptions", rss_list.len());
+        tracing::debug!("Found {} enabled RSS subscriptions", rss_list.len());
 
         // Get global exclude filters from settings
         let global_exclude_filters = self.rss_processing.get_global_exclude_filters();
 
         // Process all RSS subscriptions using the processing service
-        let stats = self.rss_processing.process_batch(rss_list, &global_exclude_filters).await;
+        let stats = self
+            .rss_processing
+            .process_batch(rss_list, &global_exclude_filters)
+            .await;
 
         tracing::info!(
             "RSS fetch completed: {} successful, {} failed, {} torrents created",

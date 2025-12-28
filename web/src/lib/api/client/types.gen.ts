@@ -17,9 +17,9 @@ export type Bangumi = {
    */
   air_week: number;
   /**
-   * Auto download new episodes
+   * Only download the latest episode
    */
-  auto_download: boolean;
+  auto_complete: boolean;
   /**
    * Bangumi.tv ID
    */
@@ -126,9 +126,9 @@ export type CreateBangumi = {
    */
   air_week: number;
   /**
-   * Auto download new episodes
+   * Only download first matching episode per RSS check
    */
-  auto_download?: boolean;
+  auto_complete?: boolean;
   /**
    * Bangumi.tv ID
    */
@@ -706,9 +706,9 @@ export type UpdateBangumiRequest = {
    */
   air_week?: number | null;
   /**
-   * Auto download new episodes
+   * Only download first matching episode per RSS check
    */
-  auto_download?: boolean | null;
+  auto_complete?: boolean | null;
   /**
    * Episode offset
    */

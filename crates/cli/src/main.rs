@@ -14,8 +14,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing with database layer
     tracing_subscriber::registry()
         .with(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .with(tracing_subscriber::fmt::layer())
         .with(DatabaseLayer::new(log_sender))

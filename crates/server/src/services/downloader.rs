@@ -147,6 +147,9 @@ impl DownloaderService {
         // Ensure we have a valid client
         self.ensure_client().await?;
 
+        // Add "rename" tag to options
+        let options = options.add_tag("rename");
+
         // First attempt
         let result = {
             let guard = self.cached.read().await;
@@ -489,6 +492,66 @@ impl DownloaderService {
                     .map(|c| &c.client)
                     .ok_or(DownloaderError::NotConfigured)?;
                 client.get_tasks_info(rid).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Add tags to a torrent
+    pub async fn add_tags(&self, hash: &str, tags: &[&str]) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.add_tags(hash, tags).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.add_tags(hash, tags).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Remove tags from a torrent
+    pub async fn remove_tags(&self, hash: &str, tags: &[&str]) -> downloader::Result<()> {
+        self.ensure_client().await?;
+
+        let result = {
+            let guard = self.cached.read().await;
+            let client = guard
+                .as_ref()
+                .map(|c| &c.client)
+                .ok_or(DownloaderError::NotConfigured)?;
+            client.remove_tags(hash, tags).await
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if Self::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                self.reauthenticate().await?;
+
+                let guard = self.cached.read().await;
+                let client = guard
+                    .as_ref()
+                    .map(|c| &c.client)
+                    .ok_or(DownloaderError::NotConfigured)?;
+                client.remove_tags(hash, tags).await
             }
             Err(e) => Err(e),
         }

@@ -255,10 +255,11 @@ impl RssProcessingService {
                 Some(bangumi.platform.as_str()),
             );
 
-            // Add to downloader
+            // Add to downloader with "moe" tag to identify moe-managed tasks
             let options = AddTorrentOptions::new(torrent_url)
                 .save_path(&save_path)
-                .rename(&filename);
+                .rename(&filename)
+                .add_tag("moe");
 
             match self.downloader.add_task(options).await {
                 Ok(_) => {

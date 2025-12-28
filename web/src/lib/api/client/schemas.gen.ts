@@ -16,7 +16,7 @@ export const BangumiSchema = {
     "total_episodes",
     "episode_offset",
     "current_episode",
-    "auto_download",
+    "auto_complete",
     "save_path",
     "source_type",
     "finished",
@@ -33,9 +33,9 @@ export const BangumiSchema = {
       description:
         "Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday, required)",
     },
-    auto_download: {
+    auto_complete: {
       type: "boolean",
-      description: "Auto download new episodes",
+      description: "Only download the latest episode",
     },
     bgmtv_id: {
       type: ["integer", "null"],
@@ -194,9 +194,9 @@ export const CreateBangumiSchema = {
       description:
         "Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday, required)",
     },
-    auto_download: {
+    auto_complete: {
       type: "boolean",
-      description: "Auto download new episodes",
+      description: "Only download first matching episode per RSS check",
     },
     bgmtv_id: {
       type: ["integer", "null"],
@@ -1061,9 +1061,9 @@ export const UpdateBangumiRequestSchema = {
       description:
         "Day of week when new episodes air (None = unchanged, Some = new value)",
     },
-    auto_download: {
+    auto_complete: {
       type: ["boolean", "null"],
-      description: "Auto download new episodes",
+      description: "Only download first matching episode per RSS check",
     },
     episode_offset: {
       type: ["integer", "null"],
