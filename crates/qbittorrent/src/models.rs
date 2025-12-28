@@ -1,7 +1,111 @@
 use std::collections::HashMap;
+use std::fmt;
 
+use reqwest::multipart::Form;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+/// Torrent state filter for qBittorrent 5.0+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TorrentFilter {
+    All,
+    Downloading,
+    Seeding,
+    Completed,
+    Stopped,
+    Active,
+    Inactive,
+    Running,
+    Stalled,
+    StalledUploading,
+    StalledDownloading,
+    Errored,
+}
+
+impl fmt::Display for TorrentFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            TorrentFilter::All => "all",
+            TorrentFilter::Downloading => "downloading",
+            TorrentFilter::Seeding => "seeding",
+            TorrentFilter::Completed => "completed",
+            TorrentFilter::Stopped => "stopped",
+            TorrentFilter::Active => "active",
+            TorrentFilter::Inactive => "inactive",
+            TorrentFilter::Running => "running",
+            TorrentFilter::Stalled => "stalled",
+            TorrentFilter::StalledUploading => "stalled_uploading",
+            TorrentFilter::StalledDownloading => "stalled_downloading",
+            TorrentFilter::Errored => "errored",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+/// Request parameters for getting torrent list
+#[derive(Debug, Clone, Default)]
+pub struct TorrentInfoRequest {
+    /// Filter by torrent state
+    pub filter: Option<TorrentFilter>,
+    /// Filter by category (empty string = without category)
+    pub category: Option<String>,
+    /// Filter by tag (empty string = without tag)
+    pub tag: Option<String>,
+    /// Filter by torrent hashes (pipe-separated)
+    pub hashes: Option<String>,
+}
+
+impl TorrentInfoRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn filter(mut self, filter: TorrentFilter) -> Self {
+        self.filter = Some(filter);
+        self
+    }
+
+    pub fn category(mut self, category: impl Into<String>) -> Self {
+        self.category = Some(category.into());
+        self
+    }
+
+    pub fn tag(mut self, tag: impl Into<String>) -> Self {
+        self.tag = Some(tag.into());
+        self
+    }
+
+    pub fn hashes(mut self, hashes: &[&str]) -> Self {
+        self.hashes = Some(hashes.join("|"));
+        self
+    }
+}
+
+/// Trait for converting a serializable struct to a multipart form
+pub trait IntoForm: Serialize {
+    /// Convert this struct to a multipart form by serializing to JSON
+    /// and then converting each key-value pair to a form field
+    fn into_form(self) -> Form
+    where
+        Self: Sized,
+    {
+        let value = serde_json::to_value(&self).expect("Failed to serialize to JSON");
+        let obj = value.as_object().expect("Expected JSON object");
+
+        obj.iter().fold(Form::new(), |form, (k, v)| {
+            // Skip null values
+            if v.is_null() {
+                return form;
+            }
+            // Convert value to string without quotes for string types
+            let v_str = match v.as_str() {
+                Some(s) => s.to_string(),
+                None => v.to_string(),
+            };
+            form.text(k.to_string(), v_str)
+        })
+    }
+}
 
 /// Torrent information from qBittorrent
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
@@ -55,6 +159,8 @@ pub struct TorrentFile {
     pub progress: f64,
     /// File priority (0 = do not download, 1-7 = priority levels)
     pub priority: i32,
+    /// True if file is seeding/complete
+    pub is_seed: bool,
 }
 
 impl TorrentFile {
@@ -65,7 +171,9 @@ impl TorrentFile {
 
     /// Check if this is a video file based on extension
     pub fn is_video(&self) -> bool {
-        let video_exts = ["mkv", "mp4", "avi", "mov", "webm", "flv", "m4v", "wmv", "ts"];
+        let video_exts = [
+            "mkv", "mp4", "avi", "mov", "webm", "flv", "m4v", "wmv", "ts",
+        ];
         self.name
             .rsplit('.')
             .next()
@@ -110,7 +218,11 @@ impl AddTorrentRequest {
 
     /// Create a new request with multiple URLs
     pub fn with_urls(urls: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let urls_str = urls.into_iter().map(Into::into).collect::<Vec<_>>().join("\n");
+        let urls_str = urls
+            .into_iter()
+            .map(Into::into)
+            .collect::<Vec<_>>()
+            .join("\n");
         Self {
             urls: Some(urls_str),
             ..Default::default()
@@ -131,7 +243,11 @@ impl AddTorrentRequest {
 
     /// Set tags (will be joined with comma)
     pub fn tags(mut self, tags: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let tags_str = tags.into_iter().map(Into::into).collect::<Vec<_>>().join(",");
+        let tags_str = tags
+            .into_iter()
+            .map(Into::into)
+            .collect::<Vec<_>>()
+            .join(",");
         self.tags = Some(tags_str);
         self
     }
@@ -152,6 +268,8 @@ impl AddTorrentRequest {
         self
     }
 }
+
+impl IntoForm for AddTorrentRequest {}
 
 /// Sync maindata response from qBittorrent
 /// Used for incremental updates - only changed fields are included

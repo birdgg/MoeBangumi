@@ -1,5 +1,8 @@
 use async_trait::async_trait;
-use qbittorrent::{AddTorrentRequest, QBittorrentClient, SyncMainData, TorrentFile, TorrentInfo};
+use qbittorrent::{
+    AddTorrentRequest, QBittorrentClient, SyncMainData, TorrentFile, TorrentInfo,
+    TorrentInfoRequest,
+};
 use serde::Serialize;
 use url::Url;
 
@@ -134,7 +137,8 @@ impl Downloader for QBittorrentDownloader {
 #[async_trait]
 impl DownloaderExt for QBittorrentDownloader {
     async fn get_task_info(&self, hash: &str) -> Result<Option<TorrentInfo>> {
-        let infos = self.client.get_torrents_info(Some(&[hash])).await?;
+        let request = TorrentInfoRequest::new().hashes(&[hash]);
+        let infos = self.client.get_torrents_info(Some(request)).await?;
         Ok(infos.into_iter().next())
     }
 

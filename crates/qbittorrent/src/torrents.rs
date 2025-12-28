@@ -2,32 +2,20 @@ use reqwest::multipart::Form;
 
 use crate::client::QBittorrentClient;
 use crate::error::QBittorrentError;
-use crate::models::{AddTorrentRequest, TorrentFile, TorrentInfo};
+use crate::models::{AddTorrentRequest, IntoForm, TorrentFile, TorrentInfo, TorrentInfoRequest};
 
 impl QBittorrentClient {
     /// Add new torrent(s) via URLs
     /// POST /api/v2/torrents/add
     pub async fn add_torrent(&self, request: AddTorrentRequest) -> crate::Result<()> {
-        let urls = request.urls.ok_or_else(|| {
-            QBittorrentError::InvalidTorrent("At least one URL must be provided".into())
-        })?;
+        if request.urls.is_none() {
+            return Err(QBittorrentError::InvalidTorrent(
+                "At least one URL must be provided".into(),
+            ));
+        }
 
         let url = self.url("/torrents/add");
-
-        let mut form = Form::new().text("urls", urls);
-
-        if let Some(savepath) = request.savepath {
-            form = form.text("savepath", savepath);
-        }
-        if let Some(category) = request.category {
-            form = form.text("category", category);
-        }
-        if let Some(tags) = request.tags {
-            form = form.text("tags", tags);
-        }
-        if let Some(rename) = request.rename {
-            form = form.text("rename", rename);
-        }
+        let form = request.into_form();
 
         let mut request = self.client().post(&url).multipart(form);
 
@@ -101,29 +89,63 @@ impl QBittorrentClient {
         self.handle_response(response).await
     }
 
-    /// Get torrent list with optional hash filter
+    /// Get torrent list with optional filters
     /// GET /api/v2/torrents/info
     ///
     /// # Arguments
-    /// * `hashes` - Optional list of torrent hashes to filter by. If None, returns all torrents.
+    /// * `request` - Optional request parameters for filtering torrents
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Get all torrents
+    /// client.get_torrents_info(None).await?;
+    ///
+    /// // Get downloading torrents
+    /// client.get_torrents_info(Some(
+    ///     TorrentInfoRequest::new().filter(TorrentFilter::Downloading)
+    /// )).await?;
+    ///
+    /// // Get torrents by category and tag
+    /// client.get_torrents_info(Some(
+    ///     TorrentInfoRequest::new()
+    ///         .category("anime")
+    ///         .tag("moe")
+    /// )).await?;
+    /// ```
     pub async fn get_torrents_info(
         &self,
-        hashes: Option<&[&str]>,
+        request: Option<TorrentInfoRequest>,
     ) -> crate::Result<Vec<TorrentInfo>> {
         let url = self.url("/torrents/info");
 
-        let mut request = self.client().get(&url);
+        let mut req = self.client().get(&url);
 
-        if let Some(hashes) = hashes {
-            let hashes_str = hashes.join("|");
-            request = request.query(&[("hashes", hashes_str)]);
+        if let Some(params) = request {
+            let mut query: Vec<(&str, String)> = Vec::new();
+
+            if let Some(filter) = params.filter {
+                query.push(("filter", filter.to_string()));
+            }
+            if let Some(category) = params.category {
+                query.push(("category", category));
+            }
+            if let Some(tag) = params.tag {
+                query.push(("tag", tag));
+            }
+            if let Some(hashes) = params.hashes {
+                query.push(("hashes", hashes));
+            }
+
+            if !query.is_empty() {
+                req = req.query(&query);
+            }
         }
 
         if let Some(sid) = self.get_sid().await {
-            request = request.header(reqwest::header::COOKIE, format!("SID={}", sid));
+            req = req.header(reqwest::header::COOKIE, format!("SID={}", sid));
         }
 
-        let response = request.send().await?;
+        let response = req.send().await?;
 
         let status = response.status();
         if !status.is_success() {

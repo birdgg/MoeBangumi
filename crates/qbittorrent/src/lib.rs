@@ -9,7 +9,8 @@ mod torrents;
 pub use client::QBittorrentClient;
 pub use error::QBittorrentError;
 pub use models::{
-    AddTorrentRequest, ServerState, SyncMainData, SyncTorrentInfo, TorrentFile, TorrentInfo,
+    AddTorrentRequest, ServerState, SyncMainData, SyncTorrentInfo, TorrentFile, TorrentFilter,
+    TorrentInfo, TorrentInfoRequest,
 };
 
 pub type Result<T> = std::result::Result<T, QBittorrentError>;
