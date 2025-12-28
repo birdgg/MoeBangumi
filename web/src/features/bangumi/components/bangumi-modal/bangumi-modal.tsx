@@ -392,19 +392,22 @@ export function BangumiModal({
                         </Button>
                       </div>
                       <div className="space-y-3">
-                        {(Array.isArray(field.state.value) ? field.state.value : []).map((entry, index) => (
+                        {(Array.isArray(field.state.value) ? field.state.value : [])
+                          .map((entry, index) => ({ entry, originalIndex: index }))
+                          .sort((a, b) => (b.entry.is_primary ? 1 : 0) - (a.entry.is_primary ? 1 : 0))
+                          .map(({ entry, originalIndex }) => (
                           <RssEntryItem
-                            key={index}
+                            key={originalIndex}
                             entry={entry}
                             isPrimary={entry.is_primary}
                             onUpdate={(updatedEntry) => {
                               const newEntries = [...field.state.value];
-                              newEntries[index] = updatedEntry;
+                              newEntries[originalIndex] = updatedEntry;
                               field.handleChange(newEntries);
                             }}
                             onRemove={() => {
                               const newEntries = field.state.value.filter(
-                                (_, i) => i !== index
+                                (_, i) => i !== originalIndex
                               );
                               field.handleChange(newEntries);
                             }}
@@ -412,7 +415,7 @@ export function BangumiModal({
                               const newEntries = field.state.value.map(
                                 (e, i) => ({
                                   ...e,
-                                  is_primary: i === index,
+                                  is_primary: i === originalIndex,
                                 })
                               );
                               field.handleChange(newEntries);
