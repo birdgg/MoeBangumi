@@ -15,8 +15,6 @@ import {
   IconLoader2,
   IconCheck,
   IconX,
-  IconWebhook,
-  IconWand,
   IconFolder,
 } from "@tabler/icons-react";
 import { testDownloaderConnection } from "@/lib/api";
@@ -227,54 +225,6 @@ export function DownloaderSection({ form }: DownloaderSectionProps) {
             );
           }}
         </form.Field>
-
-        {/* Webhook Configuration */}
-        <div className="mt-6 rounded-lg border border-border/50 bg-muted/20 p-4">
-          <div className="flex items-center gap-2 pb-3">
-            <IconWebhook className="size-4 text-chart-3" />
-            <span className="text-sm font-medium">Webhook 回调</span>
-          </div>
-          <p className="pb-3 text-xs text-muted-foreground">
-            配置后，下载完成时 qBittorrent 会自动通知服务器进行文件重命名。留空则使用轮询模式（每小时检查一次）。
-          </p>
-
-          <form.Field name="downloader.webhook_url">
-            {(field) => {
-              const error = getErrorMessage(field.state.meta.errors[0]);
-              return (
-                <FormField label="服务器回调地址">
-                  <div className="flex gap-2">
-                    <Input
-                      type="url"
-                      placeholder="http://192.168.1.100:3000"
-                      value={field.state.value ?? ""}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => field.handleChange(window.location.origin)}
-                      className="shrink-0 gap-1.5"
-                    >
-                      <IconWand className="size-3.5" />
-                      自动填充
-                    </Button>
-                  </div>
-                  {error && (
-                    <p className="text-xs text-destructive mt-1">{error}</p>
-                  )}
-                </FormField>
-              );
-            }}
-          </form.Field>
-
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            填写此服务器的可访问地址（需要 qBittorrent 能够访问）。点击"自动填充"使用当前访问地址。
-          </p>
-        </div>
       </div>
     </section>
   );

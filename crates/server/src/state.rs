@@ -121,18 +121,6 @@ impl AppState {
             .with_job(LogCleanupJob::new(Arc::clone(&logs)));
         scheduler.start();
 
-        // Configure webhook on startup if webhook_url is set
-        let startup_settings = settings.get();
-        if !startup_settings.downloader.webhook_url.is_empty() {
-            let downloader_for_webhook = Arc::clone(&downloader_arc);
-            let webhook_url = startup_settings.downloader.webhook_url.clone();
-            tokio::spawn(async move {
-                if let Err(e) = downloader_for_webhook.configure_autorun(&webhook_url).await {
-                    tracing::warn!("Failed to configure downloader webhook on startup: {}", e);
-                }
-            });
-        }
-
         Self {
             db,
             config: Arc::new(config),

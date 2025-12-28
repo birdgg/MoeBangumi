@@ -12,7 +12,6 @@ export const downloaderSchema = z.object({
   username: z.string().min(1, "用户名不能为空"),
   password: z.string().min(1, "密码不能为空"),
   save_path: z.string().min(1, "保存路径不能为空"),
-  webhook_url: z.string().optional(),
 });
 
 /**

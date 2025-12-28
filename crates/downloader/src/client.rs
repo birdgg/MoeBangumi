@@ -47,8 +47,16 @@ impl Downloader for DownloaderClient {
     }
 
     async fn get_tasks(&self) -> Result<Vec<TorrentInfo>> {
+        self.get_tasks_filtered(None, None).await
+    }
+
+    async fn get_tasks_filtered(
+        &self,
+        filter: Option<&str>,
+        tag: Option<&str>,
+    ) -> Result<Vec<TorrentInfo>> {
         match self {
-            Self::QBittorrent(d) => d.get_tasks().await,
+            Self::QBittorrent(d) => d.get_tasks_filtered(filter, tag).await,
         }
     }
 

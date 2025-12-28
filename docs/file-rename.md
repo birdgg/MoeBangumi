@@ -12,12 +12,12 @@
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
-               get_tasks_info(rid) → SyncMainData
+     get_tasks_filtered("completed", "rename") → Vec<TorrentInfo>
                             │
                             ▼
           ┌─────────────────────────────────────┐
-          │ 过滤: state=completed               │
-          │       && tags 含 "rename"           │
+          │ 服务端过滤: filter=completed        │
+          │            && tag="rename"          │
           └─────────────────────────────────────┘
                             │
               ┌─────────────┴─────────────┐
@@ -117,21 +117,19 @@ let options = AddTorrentOptions::new(torrent_url)
 ```rust
 // crates/server/src/services/scheduler/file_rename_job.rs
 
-// 检查标签
-fn has_tag(tags_str: &Option<String>, tag: &str) -> bool {
-    tags_str
-        .as_ref()
-        .is_some_and(|tags| tags.split(',').any(|t| t.trim() == tag))
+// 使用服务端过滤获取需要处理的任务
+let torrents = self
+    .downloader
+    .get_tasks_filtered(Some("completed"), Some("rename"))
+    .await?;
+
+// 检查标签（从 TorrentInfo.tags 字段）
+fn has_tag(tags_str: &str, tag: &str) -> bool {
+    tags_str.split(',').any(|t| t.trim() == tag)
 }
 
-// 检查完成状态
-fn is_completed(state: &Option<String>, progress: &Option<f64>) -> bool {
-    progress.unwrap_or(0.0) >= 1.0
-        || matches!(
-            state.as_deref(),
-            Some("uploading" | "stalledUP" | "pausedUP" | ...)
-        )
-}
+// 判断是否有 moe 标签
+let has_moe_tag = Self::has_tag(&torrent.tags, "moe");
 ```
 
 ## 数据流
@@ -178,20 +176,27 @@ RSS Feed → RssProcessingService
     downloader.remove_tags("rename")
 ```
 
-## 增量同步
+## 服务端过滤
 
-使用 qBittorrent 的 `sync/maindata` API 实现增量更新：
+使用 qBittorrent 的 `torrents/info` API 进行服务端过滤：
 
 ```rust
 pub struct FileRenameJob {
-    rid: AtomicI64,  // 响应 ID，实现增量同步
+    db: SqlitePool,
+    downloader: Arc<DownloaderService>,
+    // 不再需要 rid 状态
 }
 
-// 首次调用 rid=0 获取全量数据
-// 后续调用传上次返回的 rid 只获取变化
-let sync_data = downloader.get_tasks_info(rid).await?;
-self.rid.store(sync_data.rid, Ordering::Relaxed);
+// 直接请求已完成且带 rename 标签的任务
+let torrents = downloader
+    .get_tasks_filtered(Some("completed"), Some("rename"))
+    .await?;
 ```
+
+**优势**：
+- 无需维护 rid 状态
+- 服务端过滤减少数据传输
+- 返回完整的 `TorrentInfo`（非 Optional 字段）
 
 ## 错误处理
 

@@ -6,7 +6,6 @@
 use async_trait::async_trait;
 use downloader::TorrentFile;
 use sqlx::SqlitePool;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -22,34 +21,17 @@ use crate::services::{DownloaderService, FileRenameService};
 pub struct FileRenameJob {
     db: SqlitePool,
     downloader: Arc<DownloaderService>,
-    /// Sync response ID for incremental updates
-    rid: AtomicI64,
 }
 
 impl FileRenameJob {
     /// Creates a new file rename job.
     pub fn new(db: SqlitePool, downloader: Arc<DownloaderService>) -> Self {
-        Self {
-            db,
-            downloader,
-            rid: AtomicI64::new(0),
-        }
+        Self { db, downloader }
     }
 
-    /// Parse tags string (comma-separated) and check if tag exists
-    fn has_tag(tags_str: &Option<String>, tag: &str) -> bool {
-        tags_str
-            .as_ref()
-            .is_some_and(|tags| tags.split(',').any(|t| t.trim() == tag))
-    }
-
-    /// Check if torrent is completed based on state and progress
-    fn is_completed(state: &Option<String>, progress: &Option<f64>) -> bool {
-        progress.unwrap_or(0.0) >= 1.0
-            || matches!(
-                state.as_deref(),
-                Some("uploading" | "stalledUP" | "pausedUP" | "forcedUP" | "queuedUP" | "checkingUP")
-            )
+    /// Check if tags string contains a specific tag
+    fn has_tag(tags_str: &str, tag: &str) -> bool {
+        tags_str.split(',').any(|t| t.trim() == tag)
     }
 
     /// Find the largest completed video file
@@ -260,71 +242,69 @@ impl SchedulerJob for FileRenameJob {
     async fn execute(&self) -> JobResult {
         tracing::debug!("Starting file rename job");
 
-        // Get sync maindata with tags
-        let rid = self.rid.load(Ordering::Relaxed);
-        let sync_data = match self.downloader.get_tasks_info(rid).await {
+        // Get completed torrents with "rename" tag using filtered API
+        let torrents = match self
+            .downloader
+            .get_tasks_filtered(Some("completed"), Some("rename"))
+            .await
+        {
             Ok(data) => data,
             Err(e) => {
-                tracing::warn!("Failed to get tasks info: {}", e);
+                tracing::warn!("Failed to get filtered tasks: {}", e);
                 return Ok(());
             }
         };
 
-        // Update rid for next iteration
-        self.rid.store(sync_data.rid, Ordering::Relaxed);
-
-        // Filter completed torrents with "rename" tag
-        let candidates: Vec<_> = sync_data
-            .torrents
-            .into_iter()
-            .filter(|(_, info)| {
-                Self::has_tag(&info.tags, "rename")
-                    && Self::is_completed(&info.state, &info.progress)
-            })
-            .collect();
-
-        if candidates.is_empty() {
+        if torrents.is_empty() {
             tracing::debug!("No completed torrents with 'rename' tag found");
             return Ok(());
         }
 
         tracing::info!(
             "Found {} completed torrents with 'rename' tag",
-            candidates.len()
+            torrents.len()
         );
 
-        // Process each candidate
-        for (hash, info) in candidates {
-            let has_moe_tag = Self::has_tag(&info.tags, "moe");
-            let torrent_name = info.name.as_deref().unwrap_or("unknown");
+        // Process each torrent
+        for torrent in torrents {
+            let has_moe_tag = Self::has_tag(&torrent.tags, "moe");
 
             tracing::info!(
                 "Processing torrent {} ({}), moe={}",
-                hash,
-                torrent_name,
+                torrent.hash,
+                torrent.name,
                 has_moe_tag
             );
 
             let success = if has_moe_tag {
-                self.process_moe_torrent(&hash, torrent_name).await
+                self.process_moe_torrent(&torrent.hash, &torrent.name)
+                    .await
             } else {
-                self.process_external_torrent(&hash, torrent_name).await
+                self.process_external_torrent(&torrent.hash, &torrent.name)
+                    .await
             };
 
             match success {
                 Ok(true) => {
                     // Remove "rename" tag on success
-                    if let Err(e) = self.downloader.remove_tags(&hash, &["rename"]).await {
-                        tracing::warn!("Failed to remove 'rename' tag from {}: {}", hash, e);
+                    if let Err(e) = self.downloader.remove_tags(&torrent.hash, &["rename"]).await {
+                        tracing::warn!(
+                            "Failed to remove 'rename' tag from {}: {}",
+                            torrent.hash,
+                            e
+                        );
                     } else {
-                        tracing::debug!("Removed 'rename' tag from {}", hash);
+                        tracing::debug!("Removed 'rename' tag from {}", torrent.hash);
                     }
                 }
                 Ok(false) => {
-                    tracing::debug!("Torrent {} not processed successfully, keeping 'rename' tag", hash);
+                    tracing::debug!(
+                        "Torrent {} not processed successfully, keeping 'rename' tag",
+                        torrent.hash
+                    );
                 }
                 Err(e) => {
-                    tracing::error!("Error processing torrent {}: {}", hash, e);
+                    tracing::error!("Error processing torrent {}: {}", torrent.hash, e);
                 }
             }
         }

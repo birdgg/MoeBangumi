@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use qbittorrent::{
-    AddTorrentRequest, QBittorrentClient, SyncMainData, TorrentFile, TorrentInfo,
+    AddTorrentRequest, QBittorrentClient, SyncMainData, TorrentFile, TorrentFilter, TorrentInfo,
     TorrentInfoRequest,
 };
 use serde::Serialize;
@@ -59,7 +59,39 @@ impl Downloader for QBittorrentDownloader {
     }
 
     async fn get_tasks(&self) -> Result<Vec<TorrentInfo>> {
-        let torrents = self.client.get_torrents_info(None).await?;
+        self.get_tasks_filtered(None, None).await
+    }
+
+    async fn get_tasks_filtered(
+        &self,
+        filter: Option<&str>,
+        tag: Option<&str>,
+    ) -> Result<Vec<TorrentInfo>> {
+        let mut request = TorrentInfoRequest::new();
+
+        if let Some(filter_str) = filter {
+            let filter_enum = match filter_str.to_lowercase().as_str() {
+                "completed" => TorrentFilter::Completed,
+                "downloading" => TorrentFilter::Downloading,
+                "seeding" => TorrentFilter::Seeding,
+                "stopped" => TorrentFilter::Stopped,
+                "active" => TorrentFilter::Active,
+                "inactive" => TorrentFilter::Inactive,
+                "stalled" => TorrentFilter::Stalled,
+                "stalled_uploading" => TorrentFilter::StalledUploading,
+                "stalled_downloading" => TorrentFilter::StalledDownloading,
+                "errored" => TorrentFilter::Errored,
+                "running" => TorrentFilter::Running,
+                _ => TorrentFilter::All,
+            };
+            request = request.filter(filter_enum);
+        }
+
+        if let Some(tag_str) = tag {
+            request = request.tag(tag_str);
+        }
+
+        let torrents = self.client.get_torrents_info(Some(request)).await?;
         Ok(torrents)
     }
 
@@ -159,8 +191,7 @@ impl DownloaderExt for QBittorrentDownloader {
         // Build the full callback URL
         let mut callback_url = parsed_url.clone();
         callback_url.set_path("/api/webhook/torrent-completed");
-        callback_url.set_query(Some("name=%N"));
-        callback_url.set_query(Some("hash=%I"));
+        callback_url.set_query(Some("name=%N&hash=%I"));
 
         // The URL is now validated and safe to use
         let autorun_program = format!(r#"curl -X POST "{}""#, callback_url);

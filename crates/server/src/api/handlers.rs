@@ -8,7 +8,6 @@ mod search;
 mod settings;
 mod torrent_search;
 mod torrents;
-mod webhook;
 
 use serde::Deserialize;
 use utoipa::IntoParams;
@@ -65,7 +64,6 @@ pub use torrents::{
     delete_torrents, list_torrents, pause_torrents, resume_torrents, sync_maindata,
     ControlTorrentsRequest, DeleteTorrentsRequest, SyncMainDataQuery,
 };
-pub use webhook::torrent_completed;
 
 // Re-export utoipa path structs for OpenAPI routing
 #[doc(hidden)]
@@ -95,5 +93,3 @@ pub use torrents::{
     __path_delete_torrents, __path_list_torrents, __path_pause_torrents, __path_resume_torrents,
     __path_sync_maindata,
 };
-#[doc(hidden)]
-pub use webhook::__path_torrent_completed;

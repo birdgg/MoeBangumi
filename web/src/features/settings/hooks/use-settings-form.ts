@@ -14,7 +14,6 @@ export function settingsToFormData(settings?: Settings): SettingsFormData {
       username: settings?.downloader?.username ?? "",
       password: settings?.downloader?.password ?? "",
       save_path: settings?.downloader?.save_path ?? "/Media/Bangumi",
-      webhook_url: settings?.downloader?.webhook_url ?? "",
     },
     filter: {
       global_rss_filters: settings?.filter?.global_rss_filters ?? [],
@@ -38,8 +37,6 @@ export function formDataToUpdateSettings(data: SettingsFormData): UpdateSettings
       username: data.downloader.username,
       password: data.downloader.password,
       save_path: data.downloader.save_path,
-      // webhook_url is optional - empty string means clear, undefined means keep existing
-      webhook_url: data.downloader.webhook_url?.trim() || null,
     },
     filter: {
       global_rss_filters: data.filter.global_rss_filters,
@@ -72,7 +69,6 @@ export function useSettingsForm(initialSettings?: Settings) {
       form.setFieldValue("downloader.username", formData.downloader.username);
       form.setFieldValue("downloader.password", formData.downloader.password);
       form.setFieldValue("downloader.save_path", formData.downloader.save_path);
-      form.setFieldValue("downloader.webhook_url", formData.downloader.webhook_url);
       form.setFieldValue("filter.global_rss_filters", formData.filter.global_rss_filters);
       form.setFieldValue("proxy.url", formData.proxy.url);
       form.setFieldValue("proxy.username", formData.proxy.username);

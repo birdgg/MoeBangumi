@@ -126,6 +126,9 @@ pub struct TorrentInfo {
     pub downloaded: i64,
     /// Torrent ETA (seconds)
     pub eta: i64,
+    /// Tags (comma separated)
+    #[serde(default)]
+    pub tags: String,
 }
 
 impl TorrentInfo {

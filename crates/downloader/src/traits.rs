@@ -18,6 +18,17 @@ pub trait Downloader: Send + Sync {
     /// Get all tasks
     async fn get_tasks(&self) -> Result<Vec<TorrentInfo>>;
 
+    /// Get tasks with optional filtering
+    ///
+    /// # Arguments
+    /// * `filter` - Optional torrent filter (e.g., "completed", "downloading")
+    /// * `tag` - Optional tag filter
+    async fn get_tasks_filtered(
+        &self,
+        filter: Option<&str>,
+        tag: Option<&str>,
+    ) -> Result<Vec<TorrentInfo>>;
+
     /// Get tasks info with incremental sync
     ///
     /// # Arguments
