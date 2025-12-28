@@ -113,7 +113,10 @@ export function MikanRssModal({
         url: sg.rss_url,
         group: sg.name || null,
         filters: [],
-        include_filters: Array.from(subgroupIncludeFilters.get(sg.id) || []),
+        // Split combo strings like "简日 + 1080P" into separate filters ["简日", "1080P"]
+        include_filters: Array.from(subgroupIncludeFilters.get(sg.id) || []).flatMap((combo) =>
+          combo.split(" + ").map((s) => s.trim()).filter(Boolean)
+        ),
       }));
     onSelect(selectedEntries);
     onOpenChange(false);

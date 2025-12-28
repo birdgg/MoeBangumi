@@ -126,7 +126,11 @@ impl RssProcessingService {
 
                 // Check include filters (must match ALL if not empty)
                 if !include_filters.is_empty() && !matches_all_filters(title, &include_filters) {
-                    tracing::debug!("Filtered out by include filter: {}", title);
+                    tracing::debug!(
+                        "Filtered out by include filter: {} (filters: {:?})",
+                        title,
+                        rss.include_filters
+                    );
                     return false;
                 }
 
@@ -141,6 +145,13 @@ impl RssProcessingService {
             .collect();
 
         stats.items_filtered = stats.items_fetched - filtered_items.len();
+        tracing::debug!(
+            "RSS {}: fetched {} items, filtered {}, {} remaining",
+            rss.id,
+            stats.items_fetched,
+            stats.items_filtered,
+            filtered_items.len()
+        );
 
         // When auto_complete is disabled, we need to find the latest episode only
         // Pre-parse all items to find the one with highest episode number
@@ -389,14 +400,16 @@ fn parse_rss_source(url: &str) -> RssSource {
     }
 }
 
-/// Compile filter strings into regex patterns
+/// Compile filter strings into regex patterns (case-insensitive)
 fn compile_filters(filters: &[String]) -> Vec<Regex> {
     filters
         .iter()
         .filter_map(|pattern| {
-            Regex::new(pattern)
+            regex::RegexBuilder::new(pattern)
+                .case_insensitive(true)
+                .build()
                 .map_err(|e| {
-                    tracing::warn!("Invalid exclude filter regex '{}': {}", pattern, e);
+                    tracing::warn!("Invalid filter regex '{}': {}", pattern, e);
                     e
                 })
                 .ok()
