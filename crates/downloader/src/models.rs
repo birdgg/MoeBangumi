@@ -19,4 +19,6 @@ pub enum DownloaderType {
     #[default]
     #[serde(rename = "qBittorrent")]
     QBittorrent,
+    #[serde(rename = "Transmission")]
+    Transmission,
 }

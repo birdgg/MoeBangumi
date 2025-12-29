@@ -27,4 +27,18 @@ impl DownloaderConfig {
             password: Some(password.into()),
         }
     }
+
+    /// Create config for Transmission
+    pub fn transmission(
+        url: impl Into<String>,
+        username: Option<String>,
+        password: Option<String>,
+    ) -> Self {
+        Self {
+            downloader_type: DownloaderType::Transmission,
+            url: url.into(),
+            username,
+            password,
+        }
+    }
 }

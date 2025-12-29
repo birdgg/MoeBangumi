@@ -4,43 +4,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build and Run Commands
 
+This project uses [just](https://github.com/casey/just) as a command runner. Run `just --list` to see all available commands.
+
+### Quick Start
+
+```bash
+just              # Start backend dev server (default)
+just dev-all      # Start both backend and frontend dev servers
+just --list       # Show all available commands
+```
+
 ### Backend (Rust)
 
 ```bash
-# Build
-cargo build
-cargo build --release
-
-# Run the server (defaults: port 3000, data path ./data)
-cargo run -p cli
-
-# Check compilation without building
-cargo check
-
-# Run tests
-cargo test
-
+just build          # Build (debug)
+just build-release  # Build (release)
+just dev            # Run the server (defaults: port 3000, data path ./data)
+just check          # Check compilation without building
+just test           # Run tests
+just watch          # Watch mode (requires cargo-watch)
 ```
 
 ### Frontend (Web)
 
 ```bash
-cd web
+just web-install    # Install dependencies
+just web-dev        # Development server
+just web-build      # Production build
+just web-lint       # Lint
+just web-gen-api    # Generate API client
+just web-preview    # Preview production build
+```
 
-# Install dependencies
-bun install
+### Combined Commands
 
-# Development server
-bun run dev
-
-# Generate api
-bun run gen:api
-
-# Production build
-bun run build
-
-# Lint
-bun run lint
+```bash
+just dev-all        # Run both backend and frontend dev servers
+just build-all      # Build both backend and frontend
 ```
 
 ## Configuration

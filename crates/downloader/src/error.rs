@@ -8,6 +8,9 @@ pub enum DownloaderError {
     #[error("qBittorrent error: {0}")]
     QBittorrent(#[from] qbittorrent::QBittorrentError),
 
+    #[error("Transmission error: {0}")]
+    Transmission(String),
+
     #[error("Configuration error: {0}")]
     Config(String),
 

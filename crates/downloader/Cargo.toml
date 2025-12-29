@@ -10,6 +10,8 @@ reqwest.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 url = "2"
 utoipa.workspace = true
 qbittorrent = { path = "../qbittorrent" }
+transmission-rpc = "0.5"
