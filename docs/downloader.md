@@ -2,7 +2,13 @@
 
 ## 概述
 
-`downloader` crate 提供了统一的下载器接口，通过 **Trait + 枚举分发** 模式抽象不同的 torrent 客户端。目前支持 qBittorrent，架构设计可扩展至其他客户端。
+`downloader` crate 提供了统一的下载器接口，通过 **Trait + 枚举分发** 模式抽象不同的 torrent 客户端。目前支持 qBittorrent 和 Transmission，架构设计可扩展至其他客户端。
+
+## 设计理念
+
+- **通用**: 所有方法适用于 BitTorrent、HTTP 等协议
+- **类型安全**: 强类型模型替代字符串 API
+- **异步优先**: 所有操作都是异步的
 
 ## 架构分层
 
@@ -23,194 +29,183 @@
 ┌─────────────────────────────────────────────────────────────┐
 │           DownloaderClient (枚举分发)                        │
 │     - QBittorrent(QBittorrentDownloader)                    │
-│     - 未来可添加: Transmission, Aria2, openlist.              │
+│     - Transmission(TransmissionDownloader)                  │
+│     - 未来可添加: Aria2, Deluge 等                           │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│           Downloader + DownloaderExt Traits                  │
-│     - 统一接口定义                                           │
-│     - 核心操作 vs 扩展功能分离                                │
+│               Downloader Trait (核心接口)                    │
+│     - 8 个核心方法                                           │
+│     - Send + Sync 线程安全                                   │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│           qbittorrent crate (底层 API)                       │
-│     - qBittorrent Web API 封装                               │
+│           底层 API 客户端                                    │
+│     - qbittorrent crate                                     │
+│     - transmission-rpc                                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Trait 接口
 
-### Downloader (核心接口)
-
-所有下载器必须实现的基本操作。
+### Downloader (核心接口 - 8 个方法)
 
 ```rust
 #[async_trait]
 pub trait Downloader: Send + Sync {
-    /// 登录到下载器
+    /// 登录认证
     async fn login(&self) -> Result<()>;
 
     /// 检查是否已登录
     async fn is_login(&self) -> Result<bool>;
 
-    /// 获取所有任务（等价于 get_tasks_filtered(None, None)）
-    async fn get_tasks(&self) -> Result<Vec<TorrentInfo>> {
-        self.get_tasks_filtered(None, None).await
-    }
-
-    /// 获取任务（支持过滤）
-    /// filter: "completed", "downloading", "seeding", "stopped", etc.
-    /// tag: 按标签过滤
-    async fn get_tasks_filtered(
-        &self,
-        filter: Option<&str>,
-        tag: Option<&str>,
-    ) -> Result<Vec<TorrentInfo>>;
-
-    /// 获取增量同步数据
-    /// rid=0 获取全量，后续传入返回的 rid 获取增量
-    async fn get_tasks_info(&self, rid: i64) -> Result<SyncMainData>;
-
-    /// 添加新任务，返回任务标识
-    async fn add_task(&self, options: AddTorrentOptions) -> Result<String>;
-
-    /// 暂停任务，hashes=["all"] 暂停全部
-    async fn pause_task(&self, hashes: &[&str]) -> Result<()>;
-
-    /// 恢复任务，hashes=["all"] 恢复全部
-    async fn resume_task(&self, hashes: &[&str]) -> Result<()>;
+    /// 添加新任务，返回任务 ID
+    async fn add_task(&self, options: AddTaskOptions) -> Result<String>;
 
     /// 删除任务
-    async fn delete_task(&self, hashes: &[&str], delete_files: bool) -> Result<()>;
+    async fn delete_task(&self, ids: &[&str], delete_files: bool) -> Result<()>;
 
-    /// 添加标签
-    async fn add_tags(&self, hash: &str, tags: &[&str]) -> Result<()>;
-
-    /// 移除标签，tags 为空则移除全部
-    async fn remove_tags(&self, hash: &str, tags: &[&str]) -> Result<()>;
+    /// 获取任务列表（支持过滤）
+    async fn get_tasks(&self, filter: Option<&TaskFilter>) -> Result<Vec<Task>>;
 
     /// 获取任务内的文件列表
-    async fn get_task_files(&self, hash: &str) -> Result<Vec<TorrentFile>>;
+    async fn get_task_files(&self, id: &str) -> Result<Vec<TaskFile>>;
 
-    /// 重命名任务内的文件
-    async fn rename_file(&self, hash: &str, old_path: &str, new_path: &str) -> Result<()>;
+    /// 添加标签
+    async fn add_tags(&self, id: &str, tags: &[&str]) -> Result<()>;
 
-    /// 获取下载器类型名称
-    fn downloader_type(&self) -> &'static str;
-}
-```
-
-### DownloaderExt (扩展接口)
-
-可选的高级功能，默认返回 `NotSupported` 错误。
-
-```rust
-#[async_trait]
-pub trait DownloaderExt: Downloader {
-    /// 通过 hash 获取单个任务信息
-    async fn get_task_info(&self, hash: &str) -> Result<Option<TorrentInfo>>;
-
-    /// 配置 autorun webhook（任务完成时回调）
-    async fn configure_autorun(&self, webhook_url: &str) -> Result<()>;
-
-    /// 禁用 autorun 回调
-    async fn disable_autorun(&self) -> Result<()>;
+    /// 移除标签，tags 为空则移除全部
+    async fn remove_tags(&self, id: &str, tags: &[&str]) -> Result<()>;
 }
 ```
 
 ## 数据模型
 
-### TorrentInfo
+### Task (下载任务)
 
 ```rust
-pub struct TorrentInfo {
-    pub hash: String,      // 任务哈希
-    pub name: String,      // 任务名称
-    pub state: String,     // 状态: downloading, uploading, pausedDL, etc.
-    pub progress: f64,     // 进度: 0.0 ~ 1.0
-    pub save_path: String, // 保存路径
-    pub size: i64,         // 总大小 (bytes)
-    pub downloaded: i64,   // 已下载 (bytes)
-    pub eta: i64,          // 预计剩余时间 (seconds)
-    pub tags: String,      // 标签 (逗号分隔)
+pub struct Task {
+    pub id: String,              // 任务 ID (BitTorrent 为 hash)
+    pub name: String,            // 任务名称
+    pub status: TaskStatus,      // 状态枚举
+    pub progress: f64,           // 进度: 0.0 ~ 1.0
+    pub save_path: String,       // 保存路径
+    pub total_size: i64,         // 总大小 (bytes)
+    pub downloaded: i64,         // 已下载 (bytes)
+    pub eta: i64,                // 预计剩余时间 (seconds, -1 表示未知)
+    pub tags: String,            // 标签 (逗号分隔)
+    pub category: Option<String>, // 分类 (可选)
 }
 
-impl TorrentInfo {
-    /// 检查是否已完成下载
-    pub fn is_completed(&self) -> bool;
+impl Task {
+    pub fn is_completed(&self) -> bool;  // 检查是否已完成
+    pub fn tags_vec(&self) -> Vec<String>; // 获取标签列表
+    pub fn has_tag(&self, tag: &str) -> bool; // 检查是否有特定标签
 }
 ```
 
-### TorrentFile
+### TaskStatus (任务状态)
 
 ```rust
-pub struct TorrentFile {
-    pub index: i32,     // 文件索引
-    pub name: String,   // 文件名（含相对路径）
-    pub size: i64,      // 文件大小 (bytes)
-    pub progress: f64,  // 下载进度
-    pub priority: i32,  // 优先级: 0=不下载, 1-7=优先级
-    pub is_seed: bool,  // 是否做种
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskStatus {
+    Queued,       // 排队中
+    Downloading,  // 下载中
+    Paused,       // 已暂停
+    Seeding,      // 做种中 (BitTorrent)
+    Completed,    // 已完成
+    Stalled,      // 停滞
+    Checking,     // 校验中
+    Error,        // 出错
+    Unknown,      // 未知
 }
 
-impl TorrentFile {
-    pub fn is_completed(&self) -> bool;
-    pub fn is_video(&self) -> bool;      // 检查是否为视频文件
-    pub fn extension(&self) -> Option<&str>;
+impl TaskStatus {
+    pub fn is_active(&self) -> bool;   // 是否活跃传输
+    pub fn is_finished(&self) -> bool; // 是否已完成下载
 }
 ```
 
-### AddTorrentOptions
+### TaskFile (任务文件)
 
 ```rust
-pub struct AddTorrentOptions {
-    pub url: String,
-    pub save_path: Option<String>,
-    pub category: Option<String>,
-    pub tags: Vec<String>,
-    pub rename: Option<String>,
+pub struct TaskFile {
+    pub index: i32,      // 文件索引
+    pub path: String,    // 文件路径 (相对于 save_path)
+    pub size: i64,       // 文件大小 (bytes)
+    pub progress: f64,   // 下载进度
+}
+
+impl TaskFile {
+    pub fn is_completed(&self) -> bool;   // 是否已完成
+    pub fn is_video(&self) -> bool;       // 是否为视频文件
+    pub fn extension(&self) -> Option<&str>; // 获取扩展名
+}
+```
+
+### AddTaskOptions (添加任务选项)
+
+```rust
+pub struct AddTaskOptions {
+    pub url: String,               // 下载 URL (HTTP, magnet, torrent)
+    pub save_path: Option<String>, // 保存路径
+    pub category: Option<String>,  // 分类
+    pub tags: Vec<String>,         // 标签
+    pub rename: Option<String>,    // 重命名
 }
 
 // Builder 模式
-AddTorrentOptions::new(url)
-    .save_path("/downloads")
+AddTaskOptions::new("magnet:?xt=...")
+    .save_path("/downloads/anime")
     .category("anime")
     .add_tag("moe")
-    .rename("My Torrent");
+    .rename("My Anime");
 ```
 
-### SyncMainData (增量同步)
+### TaskFilter (任务过滤器)
 
 ```rust
-pub struct SyncMainData {
-    pub rid: i64,                                    // 下次请求使用的响应 ID
-    pub full_update: bool,                           // 是否全量更新
-    pub torrents: HashMap<String, SyncTorrentInfo>,  // 变更的任务
-    pub torrents_removed: Vec<String>,               // 已删除的任务 hash
-    pub server_state: Option<ServerState>,           // 服务器状态
+pub struct TaskFilter {
+    pub status: Option<TaskStatus>,  // 按状态过滤
+    pub category: Option<String>,    // 按分类过滤
+    pub tag: Option<String>,         // 按标签过滤
+    pub ids: Option<Vec<String>>,    // 按 ID 过滤
+}
+
+// Builder 模式
+TaskFilter::new()
+    .status(TaskStatus::Completed)
+    .tag("rename")
+    .id("abc123hash");
+```
+
+## 配置
+
+### DownloaderType (下载器类型)
+
+```rust
+pub enum DownloaderType {
+    QBittorrent,
+    Transmission,
 }
 ```
 
-## Filter 类型
+### DownloaderConfig (配置)
 
-`get_tasks_filtered` 支持的 filter 参数：
+```rust
+pub struct DownloaderConfig {
+    pub downloader_type: DownloaderType,
+    pub url: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
 
-| 值 | 说明 |
-|---|------|
-| `all` | 所有任务 |
-| `downloading` | 正在下载 |
-| `seeding` | 正在做种 |
-| `completed` | 已完成 |
-| `stopped` | 已停止 |
-| `active` | 活动中 |
-| `inactive` | 非活动 |
-| `stalled` | 停滞 |
-| `stalled_uploading` | 做种停滞 |
-| `stalled_downloading` | 下载停滞 |
-| `errored` | 出错 |
-| `running` | 运行中 |
+// 快捷创建
+DownloaderConfig::qbittorrent(url, username, password);
+DownloaderConfig::transmission(url, username, password);
+```
 
 ## 使用示例
 
@@ -218,32 +213,33 @@ pub struct SyncMainData {
 
 ```rust
 // 获取所有任务
-let tasks = downloader.get_tasks().await?;
+let all_tasks = downloader.get_tasks(None).await?;
 
 // 获取已完成且带 "rename" 标签的任务
-let tasks = downloader
-    .get_tasks_filtered(Some("completed"), Some("rename"))
-    .await?;
+let filter = TaskFilter::new()
+    .status(TaskStatus::Completed)
+    .tag("rename");
+let completed = downloader.get_tasks(Some(&filter)).await?;
 
-// 检查特定任务
-let task = downloader.get_task_info("abc123hash").await?;
+// 获取特定任务
+let filter = TaskFilter::new().id("abc123hash");
+let task = downloader.get_tasks(Some(&filter)).await?.pop();
 ```
 
 ### 任务管理
 
 ```rust
 // 添加任务
-let options = AddTorrentOptions::new("magnet:?xt=...")
+let options = AddTaskOptions::new("magnet:?xt=...")
     .save_path("/downloads/anime")
     .add_tag("moe");
-downloader.add_task(options).await?;
+let task_id = downloader.add_task(options).await?;
 
-// 暂停/恢复
-downloader.pause_task(&["hash1", "hash2"]).await?;
-downloader.resume_task(&["all"]).await?;
+// 删除任务（保留文件）
+downloader.delete_task(&["hash1", "hash2"], false).await?;
 
-// 删除（保留文件）
-downloader.delete_task(&["hash1"], false).await?;
+// 删除任务并删除文件
+downloader.delete_task(&["hash1"], true).await?;
 ```
 
 ### 标签管理
@@ -269,12 +265,9 @@ let files = downloader.get_task_files("hash").await?;
 let main_file = files.iter()
     .filter(|f| f.is_completed() && f.is_video())
     .max_by_key(|f| f.size);
-
-// 重命名文件
-downloader.rename_file("hash", "old/path.mkv", "new/path.mkv").await?;
 ```
 
-## DownloaderService
+## DownloaderService (服务层)
 
 服务层封装，提供：
 
@@ -295,7 +288,7 @@ pub struct DownloaderService {
 `DownloaderService::add_task()` 会自动为所有任务添加 `rename` 标签：
 
 ```rust
-pub async fn add_task(&self, options: AddTorrentOptions) -> Result<String> {
+pub async fn add_task(&self, options: AddTaskOptions) -> Result<String> {
     let options = options.add_tag("rename");  // 自动添加
     // ...
 }
@@ -305,11 +298,13 @@ pub async fn add_task(&self, options: AddTorrentOptions) -> Result<String> {
 
 ```rust
 pub enum DownloaderError {
-    Auth(String),           // 认证错误
-    Config(String),         // 配置错误
-    NotConfigured,          // 未配置
-    NotSupported(String),   // 功能不支持
-    QBittorrent(...),       // qBittorrent 特定错误
+    Request(reqwest::Error),      // HTTP 请求错误
+    QBittorrent(...),             // qBittorrent 特定错误
+    Transmission(String),         // Transmission 错误
+    Config(String),               // 配置错误
+    Auth(String),                 // 认证错误
+    NotConfigured,                // 未配置
+    NotSupported(String),         // 功能不支持
 }
 ```
 
@@ -317,21 +312,31 @@ pub enum DownloaderError {
 
 添加新的下载器实现只需 3 步：
 
-1. 创建 `XXXDownloader` 结构体
-2. 实现 `Downloader` trait（+ 可选 `DownloaderExt`）
+1. 在 `impls/` 目录创建实现文件
+2. 实现 `Downloader` trait
 3. 在 `DownloaderClient` 枚举添加新变体
 
 ```rust
-// 1. 定义结构体
-pub struct TransmissionDownloader { ... }
+// 1. 实现结构体 (impls/deluge.rs)
+pub struct DelugeDownloader { ... }
 
 // 2. 实现 trait
-impl Downloader for TransmissionDownloader { ... }
+impl Downloader for DelugeDownloader {
+    async fn login(&self) -> Result<()> { ... }
+    async fn is_login(&self) -> Result<bool> { ... }
+    async fn add_task(&self, options: AddTaskOptions) -> Result<String> { ... }
+    async fn delete_task(&self, ids: &[&str], delete_files: bool) -> Result<()> { ... }
+    async fn get_tasks(&self, filter: Option<&TaskFilter>) -> Result<Vec<Task>> { ... }
+    async fn get_task_files(&self, id: &str) -> Result<Vec<TaskFile>> { ... }
+    async fn add_tags(&self, id: &str, tags: &[&str]) -> Result<()> { ... }
+    async fn remove_tags(&self, id: &str, tags: &[&str]) -> Result<()> { ... }
+}
 
-// 3. 添加到枚举
+// 3. 添加到枚举 (client.rs)
 pub enum DownloaderClient {
     QBittorrent(QBittorrentDownloader),
-    Transmission(TransmissionDownloader),  // 新增
+    Transmission(TransmissionDownloader),
+    Deluge(DelugeDownloader),  // 新增
 }
 ```
 
@@ -341,8 +346,14 @@ pub enum DownloaderClient {
 |------|------|
 | [traits.rs](../crates/downloader/src/traits.rs) | Trait 定义 |
 | [client.rs](../crates/downloader/src/client.rs) | 枚举分发 |
-| [qbittorrent_impl.rs](../crates/downloader/src/qbittorrent_impl.rs) | qBittorrent 实现 |
-| [models.rs](../crates/downloader/src/models.rs) | 数据模型 |
+| [config.rs](../crates/downloader/src/config.rs) | 配置结构 |
+| [models.rs](../crates/downloader/src/models.rs) | 数据模型聚合 |
+| [models/task.rs](../crates/downloader/src/models/task.rs) | Task 模型 |
+| [models/task_status.rs](../crates/downloader/src/models/task_status.rs) | TaskStatus 枚举 |
+| [models/task_file.rs](../crates/downloader/src/models/task_file.rs) | TaskFile 模型 |
+| [models/add_task_options.rs](../crates/downloader/src/models/add_task_options.rs) | AddTaskOptions |
+| [models/task_filter.rs](../crates/downloader/src/models/task_filter.rs) | TaskFilter |
+| [impls/qbittorrent.rs](../crates/downloader/src/impls/qbittorrent.rs) | qBittorrent 实现 |
+| [impls/transmission.rs](../crates/downloader/src/impls/transmission.rs) | Transmission 实现 |
 | [error.rs](../crates/downloader/src/error.rs) | 错误类型 |
 | [downloader.rs](../crates/server/src/services/downloader.rs) | 服务层封装 |
-| [qbittorrent/](../crates/qbittorrent/) | qBittorrent Web API 客户端 |

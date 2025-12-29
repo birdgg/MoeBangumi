@@ -4,33 +4,79 @@ use tokio::sync::RwLock;
 use crate::models::DownloaderSettings;
 use crate::services::SettingsService;
 
+/// Macro to execute an operation with automatic retry on auth errors.
+macro_rules! with_retry {
+    ($self:expr, $client:ident, $op:expr) => {{
+        $self.ensure_client().await?;
+
+        let result = {
+            let guard = $self.cached.read().await;
+            let $client = guard
+                .as_ref()
+                .ok_or(DownloaderError::NotConfigured)?;
+            $op
+        };
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) if DownloaderService::is_auth_error(&e) => {
+                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
+                $self.reauthenticate().await?;
+
+                let guard = $self.cached.read().await;
+                let $client = guard
+                    .as_ref()
+                    .ok_or(DownloaderError::NotConfigured)?;
+                $op
+            }
+            Err(e) => Err(e),
+        }
+    }};
+}
+
 // Re-export types from downloader crate
 pub use downloader::{
     AddTaskOptions, Downloader, DownloaderClient, DownloaderConfig, DownloaderError,
     DownloaderType, Task, TaskFile, TaskFilter, TaskStatus,
 };
 
-/// Cached client with the settings it was created from
-struct CachedClient {
-    client: DownloaderClient,
-    settings: DownloaderSettings,
-}
-
 /// Service that manages the downloader client lifecycle.
-/// Lazily creates/rebuilds client when settings change.
+/// Watches for settings changes and invalidates cache automatically.
+/// Lazily creates client on first use after invalidation.
 /// Automatically retries with re-authentication on auth errors.
 pub struct DownloaderService {
     settings: Arc<SettingsService>,
-    cached: RwLock<Option<CachedClient>>,
+    cached: Arc<RwLock<Option<DownloaderClient>>>,
 }
 
 impl DownloaderService {
     /// Create a new DownloaderService.
+    /// Spawns a background task to watch for settings changes.
     pub fn new(settings: Arc<SettingsService>) -> Self {
-        Self {
-            settings,
-            cached: RwLock::new(None),
-        }
+        let cached = Arc::new(RwLock::new(None));
+
+        // Spawn background task to watch for settings changes
+        let cached_clone = Arc::clone(&cached);
+        let mut watcher = settings.subscribe();
+        let initial_settings = watcher.borrow().downloader.clone();
+
+        tokio::spawn(async move {
+            let mut prev_settings = initial_settings;
+            loop {
+                if watcher.changed().await.is_err() {
+                    break;
+                }
+                let new_settings = watcher.borrow().downloader.clone();
+
+                if Self::settings_changed(&prev_settings, &new_settings) {
+                    tracing::info!("Downloader settings changed, invalidating client cache");
+                    *cached_clone.write().await = None;
+                }
+                prev_settings = new_settings;
+            }
+        });
+
+        Self { settings, cached }
     }
 
     /// Check if downloader settings have changed (only checks active type's config)
@@ -59,11 +105,6 @@ impl DownloaderService {
         }
     }
 
-    /// Check if settings are complete (all required fields filled)
-    fn settings_complete(settings: &DownloaderSettings) -> bool {
-        settings.is_active_config_complete()
-    }
-
     /// Create a downloader client from settings
     fn create_client(settings: &DownloaderSettings) -> downloader::Result<DownloaderClient> {
         let config = settings.get_active_config();
@@ -85,60 +126,45 @@ impl DownloaderService {
         }
     }
 
-    /// Ensure we have a valid client, rebuilding if settings changed.
+    /// Ensure we have a valid client, creating one if needed.
     async fn ensure_client(&self) -> downloader::Result<()> {
-        let current_settings = self.settings.get().downloader;
-
-        // Fast path: check if we have a valid cached client
+        // Fast path: check if we have a cached client
         {
             let guard = self.cached.read().await;
-            if let Some(cached) = guard.as_ref() {
-                if !Self::settings_changed(&cached.settings, &current_settings) {
-                    return Ok(());
-                }
-            }
-        }
-
-        // Slow path: acquire write lock
-        let mut guard = self.cached.write().await;
-
-        // Double-check: re-read settings and check cache again
-        // (another thread may have updated while we waited for the write lock)
-        let current_settings = self.settings.get().downloader;
-        if let Some(cached) = guard.as_ref() {
-            if !Self::settings_changed(&cached.settings, &current_settings) {
+            if guard.is_some() {
                 return Ok(());
             }
         }
 
-        if !Self::settings_complete(&current_settings) {
-            *guard = None;
+        // Slow path: acquire write lock and create client
+        let mut guard = self.cached.write().await;
+
+        // Double-check after acquiring write lock
+        if guard.is_some() {
+            return Ok(());
+        }
+
+        let current_settings = self.settings.get().downloader;
+        if !current_settings.is_active_config_complete() {
             return Err(DownloaderError::NotConfigured);
         }
 
-        tracing::info!("Creating/rebuilding downloader client...");
+        tracing::info!("Creating downloader client...");
         let client = Self::create_client(&current_settings)?;
 
-        // Login (note: we hold the write lock during authentication,
-        // which blocks other operations but ensures consistency)
         client.login().await?;
         tracing::info!("Downloader authenticated successfully");
 
-        // Store the new client
-        *guard = Some(CachedClient {
-            client,
-            settings: current_settings,
-        });
-
+        *guard = Some(client);
         Ok(())
     }
 
     /// Re-authenticate the current client
     async fn reauthenticate(&self) -> downloader::Result<()> {
         let guard = self.cached.read().await;
-        if let Some(cached) = guard.as_ref() {
+        if let Some(client) = guard.as_ref() {
             tracing::info!("Re-authenticating downloader...");
-            cached.client.login().await?;
+            client.login().await?;
             tracing::info!("Re-authentication successful");
             Ok(())
         } else {
@@ -153,200 +179,32 @@ impl DownloaderService {
 
     /// Add a task using the current downloader
     pub async fn add_task(&self, options: AddTaskOptions) -> downloader::Result<String> {
-        // Ensure we have a valid client
-        self.ensure_client().await?;
-
-        // Add "rename" tag to options
         let options = options.add_tag("rename");
-
-        // First attempt
-        let result = {
-            let guard = self.cached.read().await;
-            let client = guard
-                .as_ref()
-                .map(|c| &c.client)
-                .ok_or(DownloaderError::NotConfigured)?;
-            client.add_task(options.clone()).await
-        };
-
-        match result {
-            Ok(value) => Ok(value),
-            Err(e) if Self::is_auth_error(&e) => {
-                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
-
-                // Try to re-authenticate and retry once
-                self.reauthenticate().await?;
-
-                let guard = self.cached.read().await;
-                let client = guard
-                    .as_ref()
-                    .map(|c| &c.client)
-                    .ok_or(DownloaderError::NotConfigured)?;
-                client.add_task(options).await
-            }
-            Err(e) => Err(e),
-        }
+        with_retry!(self, client, client.add_task(options.clone()).await)
     }
 
     /// Get files for a specific task
     pub async fn get_task_files(&self, hash: &str) -> downloader::Result<Vec<TaskFile>> {
-        self.ensure_client().await?;
-
-        let result = {
-            let guard = self.cached.read().await;
-            let client = guard
-                .as_ref()
-                .map(|c| &c.client)
-                .ok_or(DownloaderError::NotConfigured)?;
-            client.get_task_files(hash).await
-        };
-
-        match result {
-            Ok(value) => Ok(value),
-            Err(e) if Self::is_auth_error(&e) => {
-                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
-                self.reauthenticate().await?;
-
-                let guard = self.cached.read().await;
-                let client = guard
-                    .as_ref()
-                    .map(|c| &c.client)
-                    .ok_or(DownloaderError::NotConfigured)?;
-                client.get_task_files(hash).await
-            }
-            Err(e) => Err(e),
-        }
+        with_retry!(self, client, client.get_task_files(hash).await)
     }
 
     /// Get tasks with optional filtering
-    ///
-    /// # Examples
-    /// ```ignore
-    /// // Get all tasks
-    /// service.get_tasks(None).await?;
-    ///
-    /// // Get completed tasks with a specific tag
-    /// service.get_tasks(Some(&TaskFilter::new().status(TaskStatus::Completed).tag("rename"))).await?;
-    ///
-    /// // Get a specific task by ID
-    /// service.get_tasks(Some(&TaskFilter::new().id("abc123"))).await?;
-    /// ```
     pub async fn get_tasks(&self, filter: Option<&TaskFilter>) -> downloader::Result<Vec<Task>> {
-        self.ensure_client().await?;
-
-        let result = {
-            let guard = self.cached.read().await;
-            let client = guard
-                .as_ref()
-                .map(|c| &c.client)
-                .ok_or(DownloaderError::NotConfigured)?;
-            client.get_tasks(filter).await
-        };
-
-        match result {
-            Ok(value) => Ok(value),
-            Err(e) if Self::is_auth_error(&e) => {
-                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
-                self.reauthenticate().await?;
-
-                let guard = self.cached.read().await;
-                let client = guard
-                    .as_ref()
-                    .map(|c| &c.client)
-                    .ok_or(DownloaderError::NotConfigured)?;
-                client.get_tasks(filter).await
-            }
-            Err(e) => Err(e),
-        }
+        with_retry!(self, client, client.get_tasks(filter).await)
     }
 
     /// Delete task by IDs
     pub async fn delete_task(&self, ids: &[&str], delete_files: bool) -> downloader::Result<()> {
-        self.ensure_client().await?;
-
-        let result = {
-            let guard = self.cached.read().await;
-            let client = guard
-                .as_ref()
-                .map(|c| &c.client)
-                .ok_or(DownloaderError::NotConfigured)?;
-            client.delete_task(ids, delete_files).await
-        };
-
-        match result {
-            Ok(()) => Ok(()),
-            Err(e) if Self::is_auth_error(&e) => {
-                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
-                self.reauthenticate().await?;
-
-                let guard = self.cached.read().await;
-                let client = guard
-                    .as_ref()
-                    .map(|c| &c.client)
-                    .ok_or(DownloaderError::NotConfigured)?;
-                client.delete_task(ids, delete_files).await
-            }
-            Err(e) => Err(e),
-        }
+        with_retry!(self, client, client.delete_task(ids, delete_files).await)
     }
 
     /// Add tags to a task
     pub async fn add_tags(&self, id: &str, tags: &[&str]) -> downloader::Result<()> {
-        self.ensure_client().await?;
-
-        let result = {
-            let guard = self.cached.read().await;
-            let client = guard
-                .as_ref()
-                .map(|c| &c.client)
-                .ok_or(DownloaderError::NotConfigured)?;
-            client.add_tags(id, tags).await
-        };
-
-        match result {
-            Ok(()) => Ok(()),
-            Err(e) if Self::is_auth_error(&e) => {
-                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
-                self.reauthenticate().await?;
-
-                let guard = self.cached.read().await;
-                let client = guard
-                    .as_ref()
-                    .map(|c| &c.client)
-                    .ok_or(DownloaderError::NotConfigured)?;
-                client.add_tags(id, tags).await
-            }
-            Err(e) => Err(e),
-        }
+        with_retry!(self, client, client.add_tags(id, tags).await)
     }
 
     /// Remove tags from a task
     pub async fn remove_tags(&self, id: &str, tags: &[&str]) -> downloader::Result<()> {
-        self.ensure_client().await?;
-
-        let result = {
-            let guard = self.cached.read().await;
-            let client = guard
-                .as_ref()
-                .map(|c| &c.client)
-                .ok_or(DownloaderError::NotConfigured)?;
-            client.remove_tags(id, tags).await
-        };
-
-        match result {
-            Ok(()) => Ok(()),
-            Err(e) if Self::is_auth_error(&e) => {
-                tracing::warn!("Auth error detected, attempting re-authentication: {}", e);
-                self.reauthenticate().await?;
-
-                let guard = self.cached.read().await;
-                let client = guard
-                    .as_ref()
-                    .map(|c| &c.client)
-                    .ok_or(DownloaderError::NotConfigured)?;
-                client.remove_tags(id, tags).await
-            }
-            Err(e) => Err(e),
-        }
+        with_retry!(self, client, client.remove_tags(id, tags).await)
     }
 }
