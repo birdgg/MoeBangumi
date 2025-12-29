@@ -19,7 +19,7 @@ pub use downloader::{
 pub use http_client::{HttpClientError, HttpClientService};
 pub use log::{LogError, LogService};
 pub use poster::{PosterError, PosterService};
-pub use rss_processing::{BatchStats, ProcessingStats, RssProcessingError, RssProcessingService};
+pub use rss_processing::RssProcessingService;
 pub use scheduler::{JobResult, LogCleanupJob, RssFetchJob, SchedulerJob, SchedulerService};
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};
 pub use torrent_search::{TorrentSearchError, TorrentSearchService};

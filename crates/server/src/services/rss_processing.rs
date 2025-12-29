@@ -4,44 +4,10 @@ use regex::Regex;
 use rss::{RssClient, RssSource};
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use thiserror::Error;
 
 use crate::models::{CreateTorrent, Rss};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
 use crate::services::{DownloaderService, SettingsService};
-
-#[derive(Debug, Error)]
-pub enum RssProcessingError {
-    #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
-    #[error("RSS fetch error: {0}")]
-    RssFetch(String),
-    #[error("Bangumi not found: {0}")]
-    BangumiNotFound(i64),
-    #[error("RSS not found: {0}")]
-    RssNotFound(i64),
-    #[error("Path generation error: {0}")]
-    PathGeneration(String),
-}
-
-/// Statistics from processing a single RSS feed
-#[derive(Debug, Default)]
-pub struct ProcessingStats {
-    pub items_fetched: usize,
-    pub items_filtered: usize,
-    pub torrents_created: usize,
-    pub tasks_added: usize,
-    pub errors: usize,
-}
-
-/// Statistics from batch processing multiple RSS feeds
-#[derive(Debug, Default)]
-pub struct BatchStats {
-    pub total_rss: usize,
-    pub successful: usize,
-    pub failed: usize,
-    pub total_torrents: usize,
-}
 
 /// Service for processing RSS feeds and creating download tasks.
 ///
@@ -77,134 +43,165 @@ impl RssProcessingService {
     ///
     /// This method fetches the RSS feed, parses items, creates torrent records,
     /// and adds download tasks. Used by both immediate processing and scheduled jobs.
-    pub async fn process_single(
-        &self,
-        rss: &Rss,
-        global_exclude_filters: &[String],
-    ) -> Result<ProcessingStats, RssProcessingError> {
+    /// Errors are logged internally.
+    pub async fn process_single(&self, rss: &Rss, global_exclude_filters: &[String]) {
         tracing::debug!("Processing RSS: {} (id={})", rss.url, rss.id);
 
-        let mut stats = ProcessingStats::default();
+        // Get bangumi info for path generation and error context
+        let bangumi = match BangumiRepository::get_by_id(&self.db, rss.bangumi_id).await {
+            Ok(Some(b)) => b,
+            Ok(None) => {
+                tracing::error!("[bangumi_id={}] Bangumi not found", rss.bangumi_id);
+                return;
+            }
+            Err(e) => {
+                tracing::error!(
+                    "[bangumi_id={}] Failed to get bangumi: {}",
+                    rss.bangumi_id,
+                    e
+                );
+                return;
+            }
+        };
 
-        // Get bangumi info for path generation
-        let bangumi = BangumiRepository::get_by_id(&self.db, rss.bangumi_id)
-            .await?
-            .ok_or(RssProcessingError::BangumiNotFound(rss.bangumi_id))?;
+        // Error context with bangumi name and season
+        let ctx = format!("[{} S{}]", bangumi.title_chinese, bangumi.season);
 
         // Parse URL to determine source type
         let source = parse_rss_source(&rss.url);
 
         // Fetch RSS feed
-        let items = self
-            .rss_client
-            .fetch(&source)
-            .await
-            .map_err(|e| RssProcessingError::RssFetch(e.to_string()))?;
+        let items = match self.rss_client.fetch(&source).await {
+            Ok(items) => items,
+            Err(e) => {
+                tracing::error!("{} RSS fetch failed: {}", ctx, e);
+                return;
+            }
+        };
 
-        stats.items_fetched = items.len();
-        tracing::debug!("Fetched {} items from RSS {}", items.len(), rss.id);
+        // Merge global and RSS-specific exclude filters
+        let all_exclude_filters: Vec<String> = global_exclude_filters
+            .iter()
+            .chain(rss.exclude_filters.iter())
+            .cloned()
+            .collect();
 
-        // Compile include filters
-        let include_filters = compile_filters(&rss.include_filters);
+        // Filter items by include/exclude patterns
+        let filtered_items = filter_rss_items(items, &rss.include_filters, &all_exclude_filters);
 
-        // Merge global and RSS-specific exclude filters, then compile once
-        let exclude_filters = compile_filters(
-            &global_exclude_filters
-                .iter()
-                .chain(rss.exclude_filters.iter())
-                .cloned()
-                .collect::<Vec<_>>(),
-        );
-
-        // Pre-filter items by include/exclude filters to reduce subsequent processing
-        let filtered_items: Vec<_> = items
+        // Parse all items upfront to extract episode numbers
+        // This avoids parsing twice when auto_complete is disabled
+        let mut parsed_items: Vec<_> = filtered_items
             .into_iter()
-            .filter(|item| {
+            .filter_map(|item| {
                 let title = item.title();
-
-                // Check include filters (must match ALL if not empty)
-                if !include_filters.is_empty() && !matches_all_filters(title, &include_filters) {
-                    tracing::debug!(
-                        "Filtered out by include filter: {} (filters: {:?})",
-                        title,
-                        rss.include_filters
-                    );
-                    return false;
+                match self.parser.parse(title) {
+                    Ok(parse_result) => parse_result.episode.map(|ep| (item, ep)),
+                    Err(e) => {
+                        tracing::warn!("Failed to parse title '{}': {}", title, e);
+                        None
+                    }
                 }
-
-                // Check exclude filters (merged global + RSS-specific)
-                if matches_any_filter(title, &exclude_filters) {
-                    tracing::debug!("Filtered out by exclude filter: {}", title);
-                    return false;
-                }
-
-                true
             })
             .collect();
 
-        stats.items_filtered = stats.items_fetched - filtered_items.len();
-        tracing::debug!(
-            "RSS {}: fetched {} items, filtered {}, {} remaining",
-            rss.id,
-            stats.items_fetched,
-            stats.items_filtered,
-            filtered_items.len()
-        );
-
-        // When auto_complete is disabled, we need to find the latest episode only
-        // Pre-parse all items to find the one with highest episode number
-        let items_to_process: Vec<_> = if !bangumi.auto_complete {
-            // Parse all items and find the one with highest episode number
-            let mut parsed_items: Vec<_> = filtered_items
-                .into_iter()
-                .filter_map(|item| {
-                    let title = item.title();
-                    match self.parser.parse(title) {
-                        Ok(parse_result) => parse_result.episode.map(|ep| (item, ep)),
-                        Err(_) => None,
-                    }
-                })
-                .collect();
-
-            // Sort by episode number descending and take only the latest
+        // When auto_complete is disabled, only process the latest episode
+        if !bangumi.auto_complete {
+            // Sort by episode number descending and keep only the latest
             parsed_items.sort_by(|a, b| b.1.cmp(&a.1));
-
-            if let Some((latest_item, ep)) = parsed_items.into_iter().next() {
+            if let Some((_, ep)) = parsed_items.first() {
                 tracing::debug!(
                     "auto_complete disabled for bangumi {}: only processing latest episode {}",
                     bangumi.id,
                     ep
                 );
-                vec![latest_item]
-            } else {
-                vec![]
+                parsed_items.truncate(1);
             }
-        } else {
-            filtered_items
-        };
+        }
 
-        for item in items_to_process {
+        for (item, episode) in parsed_items {
             let title = item.title();
             let info_hash = item.info_hash();
             let torrent_url = item.torrent_url();
 
-            // Parse title to extract episode number
-            let episode_number = match self.parser.parse(title) {
-                Ok(parse_result) => parse_result.episode,
-                Err(e) => {
-                    tracing::warn!("Failed to parse title '{}': {}", title, e);
-                    None
+            // Skip if torrent already exists in database (by info_hash)
+            match TorrentRepository::exists_by_info_hash(&self.db, info_hash).await {
+                Ok(true) => {
+                    tracing::debug!("Skipping existing torrent: {}", title);
+                    continue;
                 }
-            };
+                Ok(false) => {}
+                Err(e) => {
+                    tracing::error!("{} Failed to check torrent existence: {}", ctx, e);
+                    continue;
+                }
+            }
 
-            // Skip if episode number cannot be parsed
-            let Some(episode) = episode_number else {
-                tracing::warn!("Skipping RSS item without episode number: {}", title);
-                continue;
-            };
+            // Check if episode already exists
+            // Primary RSS can override episodes from backup RSS
+            let existing_torrents =
+                match TorrentRepository::get_by_bangumi_episode(&self.db, rss.bangumi_id, episode)
+                    .await
+                {
+                    Ok(torrents) => torrents,
+                    Err(e) => {
+                        tracing::error!("{} Failed to check episode existence: {}", ctx, e);
+                        continue;
+                    }
+                };
+
+            if !existing_torrents.is_empty() {
+                // Episode already exists, check if we should override
+                if !rss.is_primary {
+                    // Backup RSS should not override existing episodes
+                    tracing::debug!(
+                        "Skipping already downloaded episode: {} E{}",
+                        bangumi.title_chinese,
+                        episode
+                    );
+                    continue;
+                }
+
+                // Primary RSS: check if existing torrent is from a non-primary RSS
+                let existing = &existing_torrents[0];
+                let should_override = if let Some(existing_rss_id) = existing.rss_id {
+                    // Check if existing torrent's RSS is primary
+                    match RssRepository::get_by_id(&self.db, existing_rss_id).await {
+                        Ok(Some(existing_rss)) => !existing_rss.is_primary,
+                        Ok(None) => true, // RSS deleted, allow override
+                        Err(e) => {
+                            tracing::error!("{} Failed to check existing RSS: {}", ctx, e);
+                            continue;
+                        }
+                    }
+                } else {
+                    // No RSS ID (manual add), don't override
+                    false
+                };
+
+                if !should_override {
+                    tracing::debug!(
+                        "Skipping episode already from primary RSS: {} E{}",
+                        bangumi.title_chinese,
+                        episode
+                    );
+                    continue;
+                }
+
+                // Override: delete existing torrent from backup RSS
+                tracing::info!(
+                    "{} Overriding backup RSS torrent with primary RSS for E{}",
+                    ctx,
+                    episode
+                );
+                if let Err(e) = TorrentRepository::delete(&self.db, existing.id).await {
+                    tracing::error!("{} Failed to delete backup torrent: {}", ctx, e);
+                    continue;
+                }
+            }
 
             // Create torrent record with parsed episode number
-            let _torrent = TorrentRepository::create(
+            if let Err(e) = TorrentRepository::create(
                 &self.db,
                 CreateTorrent {
                     bangumi_id: rss.bangumi_id,
@@ -215,9 +212,11 @@ impl RssProcessingService {
                     episode_number: Some(episode),
                 },
             )
-            .await?;
-
-            stats.torrents_created += 1;
+            .await
+            {
+                tracing::error!("{} Database error: {}", ctx, e);
+                continue;
+            }
 
             // Use the save_path stored in bangumi (auto-generated when bangumi was created)
             // and generate filename for this specific episode
@@ -239,50 +238,51 @@ impl RssProcessingService {
             match self.downloader.add_task(options).await {
                 Ok(_) => {
                     tracing::debug!("Added to downloader: {}", title);
-                    stats.tasks_added += 1;
                 }
                 Err(e) => {
-                    tracing::error!("Failed to add download task: {} - {}", title, e);
-                    stats.errors += 1;
+                    tracing::error!("{} Failed to add download task: {}", ctx, e);
                 }
             }
         }
-
-        Ok(stats)
     }
 
-    /// Process multiple RSS subscriptions in batch.
+    /// Process multiple RSS subscriptions in batch (concurrently).
     ///
     /// Used by the scheduled RSS fetch job to process all enabled subscriptions.
-    pub async fn process_batch(
-        &self,
-        rss_list: Vec<Rss>,
-        global_exclude_filters: &[String],
-    ) -> BatchStats {
-        let mut batch_stats = BatchStats {
-            total_rss: rss_list.len(),
-            ..Default::default()
-        };
+    /// RSS feeds are fetched and processed concurrently for better performance.
+    ///
+    /// Processing is done in two phases to ensure primary RSS takes priority:
+    /// 1. First, all backup RSS feeds are processed concurrently
+    /// 2. Then, all primary RSS feeds are processed concurrently
+    ///
+    /// Primary RSS can override episodes downloaded by backup RSS, ensuring
+    /// the preferred source is always used when available.
+    pub async fn process_batch(&self, rss_list: Vec<Rss>, global_exclude_filters: &[String]) {
+        // Partition into primary and backup RSS
+        let (primary, backup): (Vec<_>, Vec<_>) =
+            rss_list.into_iter().partition(|rss| rss.is_primary);
 
-        for rss in rss_list {
-            match self.process_single(&rss, global_exclude_filters).await {
-                Ok(stats) => {
-                    batch_stats.successful += 1;
-                    batch_stats.total_torrents += stats.torrents_created;
-                }
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to process RSS subscription: {} (id={}) - {}",
-                        rss.url,
-                        rss.id,
-                        e
-                    );
-                    batch_stats.failed += 1;
-                }
-            }
+        // Phase 1: Process all backup RSS concurrently
+        // Backup RSS downloads first as a fallback
+        if !backup.is_empty() {
+            tracing::debug!("Processing {} backup RSS feeds", backup.len());
+            let futures: Vec<_> = backup
+                .iter()
+                .map(|rss| self.process_single(rss, global_exclude_filters))
+                .collect();
+            futures::future::join_all(futures).await;
         }
 
-        batch_stats
+        // Phase 2: Process all primary RSS concurrently
+        // Primary RSS can override episodes from backup RSS
+        if !primary.is_empty() {
+            tracing::debug!("Processing {} primary RSS feeds", primary.len());
+            let futures: Vec<_> = primary
+                .iter()
+                .map(|rss| self.process_single(rss, global_exclude_filters))
+                .collect();
+            futures::future::join_all(futures).await;
+        }
     }
 
     /// Spawn background tasks to process RSS subscriptions by their IDs.
@@ -328,20 +328,7 @@ impl RssProcessingService {
                     }
                 };
 
-                match service.process_single(&rss, global_exclude_filters).await {
-                    Ok(stats) => {
-                        tracing::info!(
-                            "RSS {} processed: fetched {} items, created {} torrents, added {} download tasks",
-                            rss_id,
-                            stats.items_fetched,
-                            stats.torrents_created,
-                            stats.tasks_added
-                        );
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to process RSS {}: {}", rss_id, e);
-                    }
-                }
+                service.process_single(&rss, global_exclude_filters).await;
             }
 
             tracing::info!("Background RSS fetch completed");
@@ -392,4 +379,29 @@ fn matches_any_filter(title: &str, filters: &[Regex]) -> bool {
 /// Check if title matches all of the include filters (AND logic)
 fn matches_all_filters(title: &str, filters: &[Regex]) -> bool {
     filters.iter().all(|re| re.is_match(title))
+}
+
+/// Filter RSS items by include/exclude filters
+fn filter_rss_items(
+    items: Vec<rss::RssItem>,
+    include_patterns: &[String],
+    exclude_patterns: &[String],
+) -> Vec<rss::RssItem> {
+    let include_filters = compile_filters(include_patterns);
+    let exclude_filters = compile_filters(exclude_patterns);
+
+    items
+        .into_iter()
+        .filter(|item| {
+            let title = item.title();
+
+            // Must match ALL include filters (if any)
+            if !include_filters.is_empty() && !matches_all_filters(title, &include_filters) {
+                return false;
+            }
+
+            // Must NOT match ANY exclude filter
+            !matches_any_filter(title, &exclude_filters)
+        })
+        .collect()
 }

@@ -190,6 +190,23 @@ impl TorrentRepository {
 
         Ok(result > 0)
     }
+
+    /// Check if a torrent for the given bangumi and episode already exists
+    pub async fn exists_by_bangumi_episode(
+        pool: &SqlitePool,
+        bangumi_id: i64,
+        episode_number: i32,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM torrent WHERE bangumi_id = $1 AND episode_number = $2",
+        )
+        .bind(bangumi_id)
+        .bind(episode_number)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(result > 0)
+    }
 }
 
 /// Internal row type for mapping SQLite results

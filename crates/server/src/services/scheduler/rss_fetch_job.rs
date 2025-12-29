@@ -34,33 +34,20 @@ impl SchedulerJob for RssFetchJob {
     }
 
     async fn execute(&self) -> JobResult {
-        tracing::info!("Starting RSS fetch job");
-
         // Get all enabled RSS subscriptions
         let rss_list = RssRepository::get_enabled(&self.db).await?;
 
         if rss_list.is_empty() {
-            tracing::debug!("No enabled RSS subscriptions found");
             return Ok(());
         }
-
-        tracing::debug!("Found {} enabled RSS subscriptions", rss_list.len());
 
         // Get global exclude filters from settings
         let global_exclude_filters = self.rss_processing.get_global_exclude_filters();
 
         // Process all RSS subscriptions using the processing service
-        let stats = self
-            .rss_processing
+        self.rss_processing
             .process_batch(rss_list, &global_exclude_filters)
             .await;
-
-        tracing::info!(
-            "RSS fetch completed: {} successful, {} failed, {} torrents created",
-            stats.successful,
-            stats.failed,
-            stats.total_torrents
-        );
 
         Ok(())
     }
