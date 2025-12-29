@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::SqlitePool;
+use sqlx::{Executor, Sqlite, SqlitePool};
 
 use crate::models::{CreateTorrent, Torrent, TorrentKind, UpdateTorrent};
 
@@ -16,6 +16,21 @@ pub struct TorrentRepository;
 impl TorrentRepository {
     /// Create a new torrent
     pub async fn create(pool: &SqlitePool, data: CreateTorrent) -> Result<Torrent, sqlx::Error> {
+        let id = Self::create_with_executor(pool, data).await?;
+        Self::get_by_id(pool, id)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Create a new torrent using a generic executor (supports transactions)
+    /// Returns the created torrent ID
+    pub async fn create_with_executor<'e, E>(
+        executor: E,
+        data: CreateTorrent,
+    ) -> Result<i64, sqlx::Error>
+    where
+        E: Executor<'e, Database = Sqlite>,
+    {
         let result = sqlx::query(
             r#"
             INSERT INTO torrent (bangumi_id, rss_id, info_hash, torrent_url, kind, episode_number)
@@ -29,13 +44,10 @@ impl TorrentRepository {
         .bind(&data.torrent_url)
         .bind(data.kind.as_str())
         .bind(data.episode_number)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await?;
 
-        let id: i64 = sqlx::Row::get(&result, "id");
-        Self::get_by_id(pool, id)
-            .await?
-            .ok_or(sqlx::Error::RowNotFound)
+        Ok(sqlx::Row::get(&result, "id"))
     }
 
     /// Get a torrent by ID
@@ -155,9 +167,17 @@ impl TorrentRepository {
 
     /// Delete a torrent by ID
     pub async fn delete(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+        Self::delete_with_executor(pool, id).await
+    }
+
+    /// Delete a torrent by ID using a generic executor (supports transactions)
+    pub async fn delete_with_executor<'e, E>(executor: E, id: i64) -> Result<bool, sqlx::Error>
+    where
+        E: Executor<'e, Database = Sqlite>,
+    {
         let result = sqlx::query("DELETE FROM torrent WHERE id = $1")
             .bind(id)
-            .execute(pool)
+            .execute(executor)
             .await?;
 
         Ok(result.rows_affected() > 0)

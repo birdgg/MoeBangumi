@@ -10,6 +10,17 @@ pub struct TorrentSearchResult {
     pub source: TorrentSource,
 }
 
+impl TorrentSearchResult {
+    pub fn from_rss_item(item: RssItem, source: TorrentSource) -> Self {
+        Self {
+            title: item.title,
+            torrent_url: item.torrent_url,
+            info_hash: item.info_hash,
+            source,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TorrentSource {
@@ -23,22 +34,6 @@ impl std::fmt::Display for TorrentSource {
         match self {
             TorrentSource::Mikan => write!(f, "mikan"),
             TorrentSource::Nyaa => write!(f, "nyaa"),
-        }
-    }
-}
-
-impl From<RssItem> for TorrentSearchResult {
-    fn from(item: RssItem) -> Self {
-        let source = match &item {
-            RssItem::Mikan(_) => TorrentSource::Mikan,
-            RssItem::Nyaa(_) => TorrentSource::Nyaa,
-        };
-
-        Self {
-            title: item.title().to_string(),
-            torrent_url: item.torrent_url().to_string(),
-            info_hash: item.info_hash().to_string(),
-            source,
         }
     }
 }

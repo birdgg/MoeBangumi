@@ -1,18 +1,18 @@
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 
-use crate::models::NyaaItem;
+use crate::models::RssItem;
 use crate::RssError;
 
 /// Parse a Nyaa RSS feed from raw XML bytes
-pub fn parse_nyaa_feed(xml: &[u8]) -> Result<Vec<NyaaItem>, RssError> {
+pub fn parse_nyaa_feed(xml: &[u8]) -> Result<Vec<RssItem>, RssError> {
     let mut reader = Reader::from_reader(xml);
     reader.config_mut().trim_text(true);
 
     let mut items = Vec::new();
     let mut buf = Vec::new();
 
-    let mut current_item: Option<NyaaItemBuilder> = None;
+    let mut current_item: Option<RssItemBuilder> = None;
     let mut current_element = String::new();
 
     loop {
@@ -22,7 +22,7 @@ pub fn parse_nyaa_feed(xml: &[u8]) -> Result<Vec<NyaaItem>, RssError> {
                 current_element = name.clone();
 
                 if name == "item" {
-                    current_item = Some(NyaaItemBuilder::default());
+                    current_item = Some(RssItemBuilder::default());
                 }
             }
             Ok(Event::End(e)) => {
@@ -61,15 +61,15 @@ pub fn parse_nyaa_feed(xml: &[u8]) -> Result<Vec<NyaaItem>, RssError> {
 }
 
 #[derive(Default)]
-struct NyaaItemBuilder {
+struct RssItemBuilder {
     title: Option<String>,
     torrent_url: Option<String>,
     info_hash: Option<String>,
 }
 
-impl NyaaItemBuilder {
-    fn build(self) -> Option<NyaaItem> {
-        Some(NyaaItem {
+impl RssItemBuilder {
+    fn build(self) -> Option<RssItem> {
+        Some(RssItem {
             title: self.title?,
             torrent_url: self.torrent_url?,
             info_hash: self.info_hash?,

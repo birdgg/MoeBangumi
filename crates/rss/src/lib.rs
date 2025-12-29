@@ -5,6 +5,6 @@ mod parsers;
 
 pub use client::{ClientProvider, RssClient};
 pub use error::RssError;
-pub use models::{MikanItem, NyaaItem, RssItem, RssSource};
+pub use models::{RssItem, RssSource};
 
 pub type Result<T> = std::result::Result<T, RssError>;

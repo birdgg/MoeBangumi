@@ -13,8 +13,6 @@ use crate::services::{DownloaderService, SettingsService};
 /// Context for RSS processing, avoiding repeated parameter passing
 struct ProcessingContext {
     bangumi: Bangumi,
-    /// Log prefix like "[番剧名 S1]" for consistent error messages
-    log_prefix: String,
 }
 
 /// Lookup structures for existing torrents (O(1) access)
@@ -59,7 +57,7 @@ impl RssProcessingService {
     /// and adds download tasks. Used by both immediate processing and scheduled jobs.
     /// Errors are logged internally.
     pub async fn process_single(&self, rss: &Rss, global_exclude_filters: &[String]) {
-        tracing::debug!("Processing RSS: {} (id={})", rss.url, rss.id);
+        tracing::debug!("Processing RSS: {}", rss.title);
 
         // 1. Prepare processing context (get bangumi info)
         let Some(ctx) = self.prepare_context(rss).await else {
@@ -75,7 +73,7 @@ impl RssProcessingService {
         };
 
         // 3. Build lookup structures for existing torrents
-        let Some(lookup) = self.build_torrent_lookup(rss.bangumi_id, &ctx).await else {
+        let Some(lookup) = self.build_torrent_lookup(rss).await else {
             return;
         };
 
@@ -103,8 +101,7 @@ impl RssProcessingService {
             }
         };
 
-        let log_prefix = format!("[{} S{}]", bangumi.title_chinese, bangumi.season);
-        Some(ProcessingContext { bangumi, log_prefix })
+        Some(ProcessingContext { bangumi })
     }
 
     /// Fetch RSS feed, apply filters, and parse episode numbers
@@ -121,7 +118,7 @@ impl RssProcessingService {
         let items = match self.rss_client.fetch(&source).await {
             Ok(items) => items,
             Err(e) => {
-                tracing::error!("{} RSS fetch failed: {}", ctx.log_prefix, e);
+                tracing::error!("[{}] RSS fetch failed: {}", rss.title, e);
                 return None;
             }
         };
@@ -168,20 +165,15 @@ impl RssProcessingService {
     }
 
     /// Build lookup structures for existing torrents (batch fetch to avoid N+1)
-    async fn build_torrent_lookup(
-        &self,
-        bangumi_id: i64,
-        ctx: &ProcessingContext,
-    ) -> Option<TorrentLookup> {
-        let existing_torrents = match TorrentRepository::get_by_bangumi_id(&self.db, bangumi_id)
-            .await
-        {
-            Ok(torrents) => torrents,
-            Err(e) => {
-                tracing::error!("{} Failed to fetch existing torrents: {}", ctx.log_prefix, e);
-                return None;
-            }
-        };
+    async fn build_torrent_lookup(&self, rss: &Rss) -> Option<TorrentLookup> {
+        let existing_torrents =
+            match TorrentRepository::get_by_bangumi_id(&self.db, rss.bangumi_id).await {
+                Ok(torrents) => torrents,
+                Err(e) => {
+                    tracing::error!("[{}] Failed to fetch existing torrents: {}", rss.title, e);
+                    return None;
+                }
+            };
 
         let existing_hashes: HashSet<String> = existing_torrents
             .iter()
@@ -226,75 +218,178 @@ impl RssProcessingService {
         // Check if episode already exists and handle override logic
         if let Some(existing_torrents) = lookup.episodes_map.get(&episode) {
             if !self
-                .should_override_existing(rss, ctx, existing_torrents, episode)
+                .should_override_existing(rss, existing_torrents, episode)
                 .await
             {
                 return;
             }
 
-            // Override: delete existing torrent from backup RSS
-            let existing = &existing_torrents[0];
-            tracing::info!(
-                "{} Overriding backup RSS torrent with primary RSS for E{}",
-                ctx.log_prefix,
+            // Override ("洗版"): replace existing torrents from backup RSS
+            self.wash_episode(rss, ctx, existing_torrents, info_hash, torrent_url, episode)
+                .await;
+        } else {
+            // No existing torrents, just create and add
+            self.create_and_add_task(rss, ctx, info_hash, torrent_url, episode)
+                .await;
+        }
+    }
+
+    /// Wash episode: atomically delete old torrents and create new one in a transaction
+    async fn wash_episode(
+        &self,
+        rss: &Rss,
+        ctx: &ProcessingContext,
+        existing_torrents: &[Torrent],
+        info_hash: &str,
+        torrent_url: &str,
+        episode: i32,
+    ) {
+        if existing_torrents.len() > 1 {
+            tracing::warn!(
+                "[{}] Found {} torrents for E{}, expected 1. Will delete all.",
+                rss.title,
+                existing_torrents.len(),
                 episode
             );
-            if let Err(e) = TorrentRepository::delete(&self.db, existing.id).await {
-                tracing::error!("{} Failed to delete backup torrent: {}", ctx.log_prefix, e);
+        }
+
+        tracing::info!(
+            "[{}] Washing E{}: replacing backup RSS with primary RSS",
+            rss.title,
+            episode
+        );
+
+        // Collect info_hashes for downloader cleanup (done after transaction)
+        let old_hashes: Vec<String> = existing_torrents
+            .iter()
+            .map(|t| t.info_hash.clone())
+            .collect();
+
+        // Use transaction to ensure atomicity: delete old + create new
+        let mut tx = match self.db.begin().await {
+            Ok(tx) => tx,
+            Err(e) => {
+                tracing::error!("[{}] Failed to begin transaction: {}", rss.title, e);
+                return;
+            }
+        };
+
+        // Delete all existing torrents in transaction
+        for existing in existing_torrents {
+            if let Err(e) = TorrentRepository::delete_with_executor(&mut *tx, existing.id).await {
+                tracing::error!(
+                    "[{}] Failed to delete backup torrent from database: {}",
+                    rss.title,
+                    e
+                );
+                // Transaction will be rolled back on drop
                 return;
             }
         }
 
-        // Create torrent record and add download task
-        self.create_and_add_task(rss, ctx, info_hash, torrent_url, episode)
+        // Create new torrent in transaction
+        let new_torrent = CreateTorrent {
+            bangumi_id: rss.bangumi_id,
+            rss_id: Some(rss.id),
+            info_hash: info_hash.to_string(),
+            torrent_url: torrent_url.to_string(),
+            kind: Default::default(),
+            episode_number: Some(episode),
+        };
+
+        if let Err(e) = TorrentRepository::create_with_executor(&mut *tx, new_torrent).await {
+            tracing::error!("[{}] Failed to create new torrent: {}", rss.title, e);
+            return;
+        }
+
+        // Commit transaction
+        if let Err(e) = tx.commit().await {
+            tracing::error!("[{}] Failed to commit transaction: {}", rss.title, e);
+            return;
+        }
+
+        // Transaction committed successfully, now handle downloader operations (best-effort)
+        // Delete old torrents from downloader
+        for hash in &old_hashes {
+            self.delete_from_downloader(hash, rss).await;
+        }
+
+        // Add new download task
+        self.add_download_task(rss, ctx, info_hash, torrent_url, episode)
             .await;
     }
 
-    /// Determine if we should override an existing episode torrent
+    /// Determine if we should override existing episode torrents
     ///
-    /// Returns true if current RSS is primary and existing torrent is from backup RSS
+    /// Returns true only if:
+    /// - Current RSS is primary, AND
+    /// - ALL existing torrents are from backup RSS (not primary, not manual)
     async fn should_override_existing(
         &self,
         rss: &Rss,
-        ctx: &ProcessingContext,
         existing_torrents: &[Torrent],
         episode: i32,
     ) -> bool {
         // Backup RSS should not override existing episodes
         if !rss.is_primary {
-            tracing::debug!(
-                "Skipping already downloaded episode: {} E{}",
-                ctx.bangumi.title_chinese,
-                episode
-            );
+            tracing::debug!("[{}] Skipping already downloaded episode E{}", rss.title, episode);
             return false;
         }
 
-        // Primary RSS: check if existing torrent is from a non-primary RSS
-        let existing = &existing_torrents[0];
-        let should_override = if let Some(existing_rss_id) = existing.rss_id {
-            match RssRepository::get_by_id(&self.db, existing_rss_id).await {
-                Ok(Some(existing_rss)) => !existing_rss.is_primary,
-                Ok(None) => true, // RSS deleted, allow override
-                Err(e) => {
-                    tracing::error!("{} Failed to check existing RSS: {}", ctx.log_prefix, e);
+        // Check for manual adds first (no RSS ID means manual add, don't override)
+        for existing in existing_torrents {
+            if existing.rss_id.is_none() {
+                tracing::debug!(
+                    "[{}] Skipping E{}: torrent {} is manually added",
+                    rss.title,
+                    episode,
+                    existing.id
+                );
+                return false;
+            }
+        }
+
+        // Batch fetch all RSS entities for existing torrents
+        let rss_ids: Vec<i64> = existing_torrents
+            .iter()
+            .filter_map(|t| t.rss_id)
+            .collect();
+
+        let existing_rss_list = match RssRepository::get_by_ids(&self.db, &rss_ids).await {
+            Ok(list) => list,
+            Err(e) => {
+                tracing::error!("[{}] Failed to fetch existing RSS: {}", rss.title, e);
+                return false;
+            }
+        };
+
+        // Build a map for quick lookup
+        let rss_map: std::collections::HashMap<i64, &Rss> = existing_rss_list
+            .iter()
+            .map(|r| (r.id, r))
+            .collect();
+
+        // Check if ALL existing torrents are from backup RSS
+        for existing in existing_torrents {
+            if let Some(existing_rss_id) = existing.rss_id {
+                let can_override = match rss_map.get(&existing_rss_id) {
+                    Some(existing_rss) => !existing_rss.is_primary,
+                    None => true, // RSS deleted, allow override
+                };
+
+                if !can_override {
+                    tracing::debug!(
+                        "[{}] Skipping E{}: torrent {} is from primary RSS",
+                        rss.title,
+                        episode,
+                        existing.id
+                    );
                     return false;
                 }
             }
-        } else {
-            // No RSS ID (manual add), don't override
-            false
-        };
-
-        if !should_override {
-            tracing::debug!(
-                "Skipping episode already from primary RSS: {} E{}",
-                ctx.bangumi.title_chinese,
-                episode
-            );
         }
 
-        should_override
+        true
     }
 
     /// Create torrent record in database and add download task to downloader
@@ -320,10 +415,23 @@ impl RssProcessingService {
         )
         .await
         {
-            tracing::error!("{} Database error: {}", ctx.log_prefix, e);
+            tracing::error!("[{}] Database error: {}", rss.title, e);
             return;
         }
 
+        self.add_download_task(rss, ctx, info_hash, torrent_url, episode)
+            .await;
+    }
+
+    /// Add download task to downloader (without creating database record)
+    async fn add_download_task(
+        &self,
+        rss: &Rss,
+        ctx: &ProcessingContext,
+        info_hash: &str,
+        torrent_url: &str,
+        episode: i32,
+    ) {
         // Generate filename for this specific episode
         let filename = pathgen::generate_filename(
             &ctx.bangumi.title_chinese,
@@ -343,7 +451,32 @@ impl RssProcessingService {
                 tracing::debug!("Added to downloader: {}", info_hash);
             }
             Err(e) => {
-                tracing::error!("{} Failed to add download task: {}", ctx.log_prefix, e);
+                tracing::error!("[{}] Failed to add download task: {}", rss.title, e);
+            }
+        }
+    }
+
+    /// Delete a torrent from the downloader by info_hash.
+    ///
+    /// Used during "washing" (洗版) when a primary RSS torrent replaces
+    /// a backup RSS torrent. The old torrent task and its downloaded files
+    /// are removed from the downloader.
+    ///
+    /// Errors are logged but not propagated as critical failures since:
+    /// - Task might not exist (already deleted/completed manually)
+    /// - Downloader connection issues shouldn't block database cleanup
+    async fn delete_from_downloader(&self, info_hash: &str, rss: &Rss) {
+        match self.downloader.delete_task(&[info_hash], true).await {
+            Ok(_) => {
+                tracing::info!("[{}] Deleted old torrent from downloader: {}", rss.title, info_hash);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "[{}] Could not delete torrent from downloader (hash={}): {}",
+                    rss.title,
+                    info_hash,
+                    e
+                );
             }
         }
     }

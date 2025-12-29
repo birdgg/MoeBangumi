@@ -95,15 +95,9 @@ impl RssClient {
 
         let bytes = response.bytes().await?;
 
-        let items: Vec<RssItem> = match source {
-            RssSource::Mikan(_) => {
-                let items = parse_mikan_feed(&bytes)?;
-                items.into_iter().map(RssItem::Mikan).collect()
-            }
-            RssSource::Nyaa(_) => {
-                let items = parse_nyaa_feed(&bytes)?;
-                items.into_iter().map(RssItem::Nyaa).collect()
-            }
+        let items = match source {
+            RssSource::Mikan(_) => parse_mikan_feed(&bytes)?,
+            RssSource::Nyaa(_) => parse_nyaa_feed(&bytes)?,
         };
 
         tracing::debug!("Parsed {} items from RSS feed", items.len());

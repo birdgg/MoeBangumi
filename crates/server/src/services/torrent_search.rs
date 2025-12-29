@@ -45,7 +45,10 @@ impl TorrentSearchService {
 
         match self.rss_client.fetch(&rss_source).await {
             Ok(items) => {
-                let results = items.into_iter().map(TorrentSearchResult::from).collect();
+                let results = items
+                    .into_iter()
+                    .map(|item| TorrentSearchResult::from_rss_item(item, source))
+                    .collect();
                 Ok(results)
             }
             Err(e) => {

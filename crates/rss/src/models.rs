@@ -18,57 +18,30 @@ impl RssSource {
     }
 }
 
-/// Unified RSS item enum that wraps source-specific items
+/// RSS item data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "source", rename_all = "lowercase")]
-pub enum RssItem {
-    Mikan(MikanItem),
-    Nyaa(NyaaItem),
-}
-
-impl RssItem {
-    /// Get the title of the RSS item
-    pub fn title(&self) -> &str {
-        match self {
-            RssItem::Mikan(item) => &item.title,
-            RssItem::Nyaa(item) => &item.title,
-        }
-    }
-
-    /// Get the torrent URL
-    pub fn torrent_url(&self) -> &str {
-        match self {
-            RssItem::Mikan(item) => &item.torrent_url,
-            RssItem::Nyaa(item) => &item.torrent_url,
-        }
-    }
-
-    /// Get the info hash
-    pub fn info_hash(&self) -> &str {
-        match self {
-            RssItem::Mikan(item) => &item.info_hash,
-            RssItem::Nyaa(item) => &item.info_hash,
-        }
-    }
-}
-
-/// Mikan-specific RSS item
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MikanItem {
-    /// Title of the torrent
-    pub title: String,
-    /// Direct torrent download URL
-    pub torrent_url: String,
-    pub info_hash: String,
-}
-
-/// Nyaa-specific RSS item with additional metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NyaaItem {
+pub struct RssItem {
     /// Title of the torrent
     pub title: String,
     /// Direct torrent download URL
     pub torrent_url: String,
     /// BitTorrent info hash
     pub info_hash: String,
+}
+
+impl RssItem {
+    /// Get the title of the RSS item
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    /// Get the torrent URL
+    pub fn torrent_url(&self) -> &str {
+        &self.torrent_url
+    }
+
+    /// Get the info hash
+    pub fn info_hash(&self) -> &str {
+        &self.info_hash
+    }
 }

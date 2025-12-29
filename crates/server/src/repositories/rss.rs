@@ -61,6 +61,29 @@ impl RssRepository {
         Ok(row.map(Into::into))
     }
 
+    /// Get multiple RSS subscriptions by IDs (batch query)
+    pub async fn get_by_ids(pool: &SqlitePool, ids: &[i64]) -> Result<Vec<Rss>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Build placeholders: $1, $2, $3, ...
+        let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("${}", i)).collect();
+        let query = format!(
+            "{} WHERE id IN ({})",
+            SELECT_RSS,
+            placeholders.join(", ")
+        );
+
+        let mut query_builder = sqlx::query_as::<_, RssRow>(&query);
+        for id in ids {
+            query_builder = query_builder.bind(id);
+        }
+
+        let rows = query_builder.fetch_all(pool).await?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
     /// Get all RSS subscriptions for a bangumi
     /// Primary RSS is returned first, followed by backups ordered by creation time
     pub async fn get_by_bangumi_id(
