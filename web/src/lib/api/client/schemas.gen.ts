@@ -158,21 +158,6 @@ export const BangumiWithRssSchema = {
   description: "Bangumi with its RSS subscriptions",
 } as const;
 
-export const ControlTorrentsRequestSchema = {
-  type: "object",
-  description: "Request to control torrents (pause/resume)",
-  required: ["hashes"],
-  properties: {
-    hashes: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      description: "List of torrent hashes",
-    },
-  },
-} as const;
-
 export const CreateBangumiSchema = {
   type: "object",
   description: "Request body for creating a new bangumi",
@@ -313,18 +298,13 @@ export const DownloaderSettingsSchema = {
       type: "string",
       description: "Username (qBittorrent)",
     },
-    webhook_url: {
-      type: "string",
-      description:
-        "Webhook URL for torrent completion callback (e.g., http://192.168.1.100:3000)\nUsed to configure qBittorrent's autorun to call back when downloads complete",
-    },
   },
 } as const;
 
 export const DownloaderTypeSchema = {
   type: "string",
   description: "Downloader type",
-  enum: ["qBittorrent"],
+  enum: ["qBittorrent", "Transmission"],
 } as const;
 
 export const EpisodeSchema = {
@@ -581,33 +561,6 @@ export const SearchSubjectsResponseSchema = {
   },
 } as const;
 
-export const ServerStateSchema = {
-  type: "object",
-  description: "Server state from sync maindata",
-  properties: {
-    dl_info_data: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Total downloaded data (bytes)",
-    },
-    dl_info_speed: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Global download speed (bytes/s)",
-    },
-    up_info_data: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Total uploaded data (bytes)",
-    },
-    up_info_speed: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Global upload speed (bytes/s)",
-    },
-  },
-} as const;
-
 export const SettingsSchema = {
   type: "object",
   description: "Application settings stored in TOML file",
@@ -721,140 +674,84 @@ export const SubjectImagesSchema = {
   },
 } as const;
 
-export const SyncMainDataSchema = {
+export const TaskSchema = {
   type: "object",
   description:
-    "Sync maindata response from qBittorrent\nUsed for incremental updates - only changed fields are included",
-  required: ["rid"],
+    "Unified download task representation.\n\nThis model represents a download task across different downloaders,\nnormalizing fields into a common structure.",
+  required: [
+    "id",
+    "name",
+    "status",
+    "progress",
+    "save_path",
+    "total_size",
+    "downloaded",
+    "eta",
+    "tags",
+  ],
   properties: {
-    full_update: {
-      type: "boolean",
-      description:
-        "Whether this is a full update (true) or incremental (false)",
+    category: {
+      type: ["string", "null"],
+      description: "Category (optional, some downloaders support this)",
     },
-    rid: {
+    downloaded: {
       type: "integer",
       format: "int64",
-      description:
-        "Response ID for incremental updates\nPass this value in subsequent requests to get only changes",
+      description: "Downloaded bytes",
     },
-    server_state: {
-      oneOf: [
-        {
-          type: "null",
-        },
-        {
-          $ref: "#/components/schemas/ServerState",
-          description: "Server state info",
-        },
-      ],
+    eta: {
+      type: "integer",
+      format: "int64",
+      description: "Estimated time to completion (seconds, -1 if unknown)",
     },
-    torrents: {
-      type: "object",
-      description:
-        "Torrent data - hash -> partial torrent info\nIn incremental mode, only changed torrents are included",
-      additionalProperties: {
-        $ref: "#/components/schemas/SyncTorrentInfo",
-      },
-      propertyNames: {
-        type: "string",
-      },
+    id: {
+      type: "string",
+      description: "Unique identifier (hash for BitTorrent, ID for HTTP)",
     },
-    torrents_removed: {
-      type: "array",
-      items: {
-        type: "string",
-      },
-      description: "List of removed torrent hashes (incremental updates only)",
+    name: {
+      type: "string",
+      description: "Task name",
+    },
+    progress: {
+      type: "number",
+      format: "double",
+      description: "Download progress (0.0 to 1.0)",
+    },
+    save_path: {
+      type: "string",
+      description: "Save path / download directory",
+    },
+    status: {
+      $ref: "#/components/schemas/TaskStatus",
+      description: "Current status",
+    },
+    tags: {
+      type: "string",
+      description: "Tags (comma-separated string for consistency)",
+    },
+    total_size: {
+      type: "integer",
+      format: "int64",
+      description: "Total size in bytes",
     },
   },
 } as const;
 
-export const SyncTorrentInfoSchema = {
-  type: "object",
+export const TaskStatusSchema = {
+  type: "string",
   description:
-    "Partial torrent info for sync API\nAll fields are optional because incremental updates only include changed fields",
-  properties: {
-    added_on: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Time when torrent was added (Unix timestamp)",
-    },
-    category: {
-      type: ["string", "null"],
-      description: "Category",
-    },
-    completion_on: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Time when torrent completed (Unix timestamp)",
-    },
-    content_path: {
-      type: ["string", "null"],
-      description: "Content path",
-    },
-    dlspeed: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Download speed (bytes/s)",
-    },
-    downloaded: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Amount of data downloaded (bytes)",
-    },
-    eta: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Torrent ETA (seconds)",
-    },
-    name: {
-      type: ["string", "null"],
-      description: "Torrent name",
-    },
-    num_leechs: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Number of leechers",
-    },
-    num_seeds: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Number of seeds",
-    },
-    progress: {
-      type: ["number", "null"],
-      format: "double",
-      description: "Torrent progress (0.0 to 1.0)",
-    },
-    ratio: {
-      type: ["number", "null"],
-      format: "double",
-      description: "Share ratio",
-    },
-    save_path: {
-      type: ["string", "null"],
-      description: "Full path to the torrent's download location",
-    },
-    size: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Torrent total size (bytes)",
-    },
-    state: {
-      type: ["string", "null"],
-      description: "Torrent state",
-    },
-    tags: {
-      type: ["string", "null"],
-      description: "Tags (comma separated)",
-    },
-    upspeed: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Upload speed (bytes/s)",
-    },
-  },
+    "Download task status.\n\nNormalized across different downloader implementations.",
+  enum: [
+    "queued",
+    "downloading",
+    "paused",
+    "seeding",
+    "completed",
+    "stalled",
+    "checking",
+    "error",
+    "unknown",
+  ],
 } as const;
 
 export const TestDownloaderRequestSchema = {
@@ -897,60 +794,6 @@ export const TestProxyRequestSchema = {
     username: {
       type: ["string", "null"],
       description: "Proxy username (optional)",
-    },
-  },
-} as const;
-
-export const TorrentInfoSchema = {
-  type: "object",
-  description: "Torrent information from qBittorrent",
-  required: [
-    "hash",
-    "name",
-    "state",
-    "progress",
-    "save_path",
-    "size",
-    "downloaded",
-    "eta",
-  ],
-  properties: {
-    downloaded: {
-      type: "integer",
-      format: "int64",
-      description: "Amount of data downloaded (bytes)",
-    },
-    eta: {
-      type: "integer",
-      format: "int64",
-      description: "Torrent ETA (seconds)",
-    },
-    hash: {
-      type: "string",
-      description: "Torrent hash",
-    },
-    name: {
-      type: "string",
-      description: "Torrent name",
-    },
-    progress: {
-      type: "number",
-      format: "double",
-      description: "Torrent progress (0.0 to 1.0)",
-    },
-    save_path: {
-      type: "string",
-      description: "Full path to the torrent's download location",
-    },
-    size: {
-      type: "integer",
-      format: "int64",
-      description: "Torrent total size (bytes)",
-    },
-    state: {
-      type: "string",
-      description:
-        "Torrent state (downloading, uploading, pausedDL, pausedUP, stalledDL, stalledUP, checkingDL, checkingUP, completed, etc.)",
     },
   },
 } as const;
@@ -1110,11 +953,6 @@ export const UpdateDownloaderSettingsSchema = {
     username: {
       type: ["string", "null"],
       description: "Username (send null to clear)",
-    },
-    webhook_url: {
-      type: ["string", "null"],
-      description:
-        "Webhook URL for torrent completion callback (send null to clear)",
     },
   },
 } as const;

@@ -21,17 +21,13 @@ import {
   getSettings,
   listTorrents,
   type Options,
-  pauseTorrents,
   resetSettings,
-  resumeTorrents,
   searchBgmtv,
   searchMikan,
   searchTmdb,
   searchTorrents,
-  syncMaindata,
   testDownloaderConnection,
   testProxy,
-  torrentCompleted,
   triggerRssFetch,
   updateBangumi,
   updateSettings,
@@ -56,10 +52,8 @@ import type {
   GetSettingsResponse,
   ListTorrentsData,
   ListTorrentsResponse,
-  PauseTorrentsData,
   ResetSettingsData,
   ResetSettingsResponse,
-  ResumeTorrentsData,
   SearchBgmtvData,
   SearchBgmtvResponse,
   SearchMikanData,
@@ -68,11 +62,8 @@ import type {
   SearchTmdbResponse,
   SearchTorrentsData,
   SearchTorrentsResponse,
-  SyncMaindataData,
-  SyncMaindataResponse,
   TestDownloaderConnectionData,
   TestProxyData,
-  TorrentCompletedData,
   TriggerRssFetchData,
   UpdateBangumiData,
   UpdateBangumiResponse,
@@ -683,52 +674,6 @@ export const deleteTorrentsMutation = (
   return mutationOptions;
 };
 
-/**
- * Pause torrents
- */
-export const pauseTorrentsMutation = (
-  options?: Partial<Options<PauseTorrentsData>>,
-): UseMutationOptions<unknown, DefaultError, Options<PauseTorrentsData>> => {
-  const mutationOptions: UseMutationOptions<
-    unknown,
-    DefaultError,
-    Options<PauseTorrentsData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await pauseTorrents({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-/**
- * Resume torrents
- */
-export const resumeTorrentsMutation = (
-  options?: Partial<Options<ResumeTorrentsData>>,
-): UseMutationOptions<unknown, DefaultError, Options<ResumeTorrentsData>> => {
-  const mutationOptions: UseMutationOptions<
-    unknown,
-    DefaultError,
-    Options<ResumeTorrentsData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await resumeTorrents({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
 export const searchTorrentsQueryKey = (options: Options<SearchTorrentsData>) =>
   createQueryKey("searchTorrents", options);
 
@@ -753,60 +698,3 @@ export const searchTorrentsOptions = (options: Options<SearchTorrentsData>) =>
     },
     queryKey: searchTorrentsQueryKey(options),
   });
-
-export const syncMaindataQueryKey = (options?: Options<SyncMaindataData>) =>
-  createQueryKey("syncMaindata", options);
-
-/**
- * Sync maindata for incremental torrent updates
- *
- * Returns full torrent data on first call (rid=0), then incremental changes on subsequent calls.
- * Use the returned `rid` value in the next request to get only changed data.
- */
-export const syncMaindataOptions = (options?: Options<SyncMaindataData>) =>
-  queryOptions<
-    SyncMaindataResponse,
-    DefaultError,
-    SyncMaindataResponse,
-    ReturnType<typeof syncMaindataQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await syncMaindata({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: syncMaindataQueryKey(options),
-  });
-
-/**
- * Webhook endpoint for qBittorrent torrent completion callback.
- *
- * Configure qBittorrent to call this endpoint when a torrent finishes downloading:
- * Settings -> Downloads -> "Run external program on torrent finished"
- * Command: `curl -X POST "http://your-server:3000/api/webhook/torrent-completed?hash=%I"`
- *
- * The `%I` placeholder will be replaced with the torrent's info hash.
- */
-export const torrentCompletedMutation = (
-  options?: Partial<Options<TorrentCompletedData>>,
-): UseMutationOptions<unknown, DefaultError, Options<TorrentCompletedData>> => {
-  const mutationOptions: UseMutationOptions<
-    unknown,
-    DefaultError,
-    Options<TorrentCompletedData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await torrentCompleted({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};

@@ -26,14 +26,8 @@ import type {
   ListTorrentsData,
   ListTorrentsErrors,
   ListTorrentsResponses,
-  PauseTorrentsData,
-  PauseTorrentsErrors,
-  PauseTorrentsResponses,
   ResetSettingsData,
   ResetSettingsResponses,
-  ResumeTorrentsData,
-  ResumeTorrentsErrors,
-  ResumeTorrentsResponses,
   SearchBgmtvData,
   SearchBgmtvResponses,
   SearchMikanData,
@@ -44,18 +38,12 @@ import type {
   SearchTorrentsResponses,
   StreamLogsData,
   StreamLogsResponses,
-  SyncMaindataData,
-  SyncMaindataErrors,
-  SyncMaindataResponses,
   TestDownloaderConnectionData,
   TestDownloaderConnectionErrors,
   TestDownloaderConnectionResponses,
   TestProxyData,
   TestProxyErrors,
   TestProxyResponses,
-  TorrentCompletedData,
-  TorrentCompletedErrors,
-  TorrentCompletedResponses,
   TriggerRssFetchData,
   TriggerRssFetchResponses,
   UpdateBangumiData,
@@ -357,44 +345,6 @@ export const deleteTorrents = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Pause torrents
- */
-export const pauseTorrents = <ThrowOnError extends boolean = false>(
-  options: Options<PauseTorrentsData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    PauseTorrentsResponses,
-    PauseTorrentsErrors,
-    ThrowOnError
-  >({
-    url: "/api/torrents/pause",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
- * Resume torrents
- */
-export const resumeTorrents = <ThrowOnError extends boolean = false>(
-  options: Options<ResumeTorrentsData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    ResumeTorrentsResponses,
-    ResumeTorrentsErrors,
-    ThrowOnError
-  >({
-    url: "/api/torrents/resume",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-/**
  * Search for torrents from a specific source (Nyaa or Mikan)
  */
 export const searchTorrents = <ThrowOnError extends boolean = false>(
@@ -405,36 +355,3 @@ export const searchTorrents = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: "/api/torrents/search", ...options });
-
-/**
- * Sync maindata for incremental torrent updates
- *
- * Returns full torrent data on first call (rid=0), then incremental changes on subsequent calls.
- * Use the returned `rid` value in the next request to get only changed data.
- */
-export const syncMaindata = <ThrowOnError extends boolean = false>(
-  options?: Options<SyncMaindataData, ThrowOnError>,
-) =>
-  (options?.client ?? client).get<
-    SyncMaindataResponses,
-    SyncMaindataErrors,
-    ThrowOnError
-  >({ url: "/api/torrents/sync", ...options });
-
-/**
- * Webhook endpoint for qBittorrent torrent completion callback.
- *
- * Configure qBittorrent to call this endpoint when a torrent finishes downloading:
- * Settings -> Downloads -> "Run external program on torrent finished"
- * Command: `curl -X POST "http://your-server:3000/api/webhook/torrent-completed?hash=%I"`
- *
- * The `%I` placeholder will be replaced with the torrent's info hash.
- */
-export const torrentCompleted = <ThrowOnError extends boolean = false>(
-  options: Options<TorrentCompletedData, ThrowOnError>,
-) =>
-  (options.client ?? client).post<
-    TorrentCompletedResponses,
-    TorrentCompletedErrors,
-    ThrowOnError
-  >({ url: "/api/webhook/torrent-completed", ...options });

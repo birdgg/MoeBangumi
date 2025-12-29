@@ -20,6 +20,7 @@ import {
 import { testDownloaderConnection } from "@/lib/api";
 import { FormField } from "./shared";
 import { getErrorMessage, type SettingsFormInstance } from "../hooks";
+import { downloaderTypes, type DownloaderTypeValue } from "../schema";
 
 type ConnectionStatus = "idle" | "loading" | "success" | "error";
 
@@ -33,15 +34,26 @@ export function DownloaderSection({ form }: DownloaderSectionProps) {
   const [connectionStatus, setConnectionStatus] = React.useState<ConnectionStatus>("idle");
   const [errorMessage, setErrorMessage] = React.useState<string>("");
 
+  // Check if current type requires credentials
+  const isTransmission = form.state.values.downloader.type === "Transmission";
+
   // Test connection using current form values
   const handleCheckConnection = async () => {
     setErrorMessage("");
 
     const values = form.state.values.downloader;
 
-    if (!values.url || !values.username || !values.password) {
+    // URL is always required
+    if (!values.url) {
       setConnectionStatus("error");
-      setErrorMessage("请填写所有必要字段");
+      setErrorMessage("请填写服务器地址");
+      return;
+    }
+
+    // qBittorrent requires username and password
+    if (!isTransmission && (!values.username || !values.password)) {
+      setConnectionStatus("error");
+      setErrorMessage("请填写用户名和密码");
       return;
     }
 
@@ -80,13 +92,17 @@ export function DownloaderSection({ form }: DownloaderSectionProps) {
             <FormField label="下载器类型">
               <Select
                 value={field.state.value}
-                onValueChange={(v) => field.handleChange(v as "qBittorrent")}
+                onValueChange={(v) => field.handleChange(v as DownloaderTypeValue)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="qBittorrent">qBittorrent</SelectItem>
+                  {downloaderTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FormField>
@@ -120,7 +136,7 @@ export function DownloaderSection({ form }: DownloaderSectionProps) {
             {(field) => {
               const error = getErrorMessage(field.state.meta.errors[0]);
               return (
-                <FormField label="用户名">
+                <FormField label={isTransmission ? "用户名 (可选)" : "用户名"}>
                   <Input
                     type="text"
                     placeholder="admin"
@@ -140,7 +156,7 @@ export function DownloaderSection({ form }: DownloaderSectionProps) {
             {(field) => {
               const error = getErrorMessage(field.state.meta.errors[0]);
               return (
-                <FormField label="密码">
+                <FormField label={isTransmission ? "密码 (可选)" : "密码"}>
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}

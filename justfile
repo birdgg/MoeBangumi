@@ -72,3 +72,9 @@ dev-all:
 
 # Build both backend and frontend
 build-all: build web-build
+
+# === Docker Commands ===
+
+# Start Transmission in Docker
+transmission:
+    docker compose -f docker/docker-compose.transmission.yaml up -d

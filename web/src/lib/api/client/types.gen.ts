@@ -104,16 +104,6 @@ export type BangumiWithRss = Bangumi & {
 };
 
 /**
- * Request to control torrents (pause/resume)
- */
-export type ControlTorrentsRequest = {
-  /**
-   * List of torrent hashes
-   */
-  hashes: Array<string>;
-};
-
-/**
  * Request body for creating a new bangumi
  */
 export type CreateBangumi = {
@@ -229,17 +219,12 @@ export type DownloaderSettings = {
    * Username (qBittorrent)
    */
   username?: string;
-  /**
-   * Webhook URL for torrent completion callback (e.g., http://192.168.1.100:3000)
-   * Used to configure qBittorrent's autorun to call back when downloads complete
-   */
-  webhook_url?: string;
 };
 
 /**
  * Downloader type
  */
-export type DownloaderType = "qBittorrent";
+export type DownloaderType = "qBittorrent" | "Transmission";
 
 /**
  * Episode item
@@ -411,28 +396,6 @@ export type SearchSubjectsResponse = {
 };
 
 /**
- * Server state from sync maindata
- */
-export type ServerState = {
-  /**
-   * Total downloaded data (bytes)
-   */
-  dl_info_data?: number | null;
-  /**
-   * Global download speed (bytes/s)
-   */
-  dl_info_speed?: number | null;
-  /**
-   * Total uploaded data (bytes)
-   */
-  up_info_data?: number | null;
-  /**
-   * Global upload speed (bytes/s)
-   */
-  up_info_speed?: number | null;
-};
-
-/**
  * Application settings stored in TOML file
  */
 export type Settings = {
@@ -488,107 +451,69 @@ export type SubjectImages = {
 };
 
 /**
- * Sync maindata response from qBittorrent
- * Used for incremental updates - only changed fields are included
+ * Unified download task representation.
+ *
+ * This model represents a download task across different downloaders,
+ * normalizing fields into a common structure.
  */
-export type SyncMainData = {
+export type Task = {
   /**
-   * Whether this is a full update (true) or incremental (false)
-   */
-  full_update?: boolean;
-  /**
-   * Response ID for incremental updates
-   * Pass this value in subsequent requests to get only changes
-   */
-  rid: number;
-  server_state?: null | ServerState;
-  /**
-   * Torrent data - hash -> partial torrent info
-   * In incremental mode, only changed torrents are included
-   */
-  torrents?: {
-    [key: string]: SyncTorrentInfo;
-  };
-  /**
-   * List of removed torrent hashes (incremental updates only)
-   */
-  torrents_removed?: Array<string>;
-};
-
-/**
- * Partial torrent info for sync API
- * All fields are optional because incremental updates only include changed fields
- */
-export type SyncTorrentInfo = {
-  /**
-   * Time when torrent was added (Unix timestamp)
-   */
-  added_on?: number | null;
-  /**
-   * Category
+   * Category (optional, some downloaders support this)
    */
   category?: string | null;
   /**
-   * Time when torrent completed (Unix timestamp)
+   * Downloaded bytes
    */
-  completion_on?: number | null;
+  downloaded: number;
   /**
-   * Content path
+   * Estimated time to completion (seconds, -1 if unknown)
    */
-  content_path?: string | null;
+  eta: number;
   /**
-   * Download speed (bytes/s)
+   * Unique identifier (hash for BitTorrent, ID for HTTP)
    */
-  dlspeed?: number | null;
+  id: string;
   /**
-   * Amount of data downloaded (bytes)
+   * Task name
    */
-  downloaded?: number | null;
+  name: string;
   /**
-   * Torrent ETA (seconds)
+   * Download progress (0.0 to 1.0)
    */
-  eta?: number | null;
+  progress: number;
   /**
-   * Torrent name
+   * Save path / download directory
    */
-  name?: string | null;
+  save_path: string;
   /**
-   * Number of leechers
+   * Current status
    */
-  num_leechs?: number | null;
+  status: TaskStatus;
   /**
-   * Number of seeds
+   * Tags (comma-separated string for consistency)
    */
-  num_seeds?: number | null;
+  tags: string;
   /**
-   * Torrent progress (0.0 to 1.0)
+   * Total size in bytes
    */
-  progress?: number | null;
-  /**
-   * Share ratio
-   */
-  ratio?: number | null;
-  /**
-   * Full path to the torrent's download location
-   */
-  save_path?: string | null;
-  /**
-   * Torrent total size (bytes)
-   */
-  size?: number | null;
-  /**
-   * Torrent state
-   */
-  state?: string | null;
-  /**
-   * Tags (comma separated)
-   */
-  tags?: string | null;
-  /**
-   * Upload speed (bytes/s)
-   */
-  upspeed?: number | null;
+  total_size: number;
 };
+
+/**
+ * Download task status.
+ *
+ * Normalized across different downloader implementations.
+ */
+export type TaskStatus =
+  | "queued"
+  | "downloading"
+  | "paused"
+  | "seeding"
+  | "completed"
+  | "stalled"
+  | "checking"
+  | "error"
+  | "unknown";
 
 /**
  * Request body for testing downloader connection
@@ -628,44 +553,6 @@ export type TestProxyRequest = {
    * Proxy username (optional)
    */
   username?: string | null;
-};
-
-/**
- * Torrent information from qBittorrent
- */
-export type TorrentInfo = {
-  /**
-   * Amount of data downloaded (bytes)
-   */
-  downloaded: number;
-  /**
-   * Torrent ETA (seconds)
-   */
-  eta: number;
-  /**
-   * Torrent hash
-   */
-  hash: string;
-  /**
-   * Torrent name
-   */
-  name: string;
-  /**
-   * Torrent progress (0.0 to 1.0)
-   */
-  progress: number;
-  /**
-   * Full path to the torrent's download location
-   */
-  save_path: string;
-  /**
-   * Torrent total size (bytes)
-   */
-  size: number;
-  /**
-   * Torrent state (downloading, uploading, pausedDL, pausedUP, stalledDL, stalledUP, checkingDL, checkingUP, completed, etc.)
-   */
-  state: string;
 };
 
 export type TorrentSearchResult = {
@@ -740,10 +627,6 @@ export type UpdateDownloaderSettings = {
    * Username (send null to clear)
    */
   username?: string | null;
-  /**
-   * Webhook URL for torrent completion callback (send null to clear)
-   */
-  webhook_url?: string | null;
 };
 
 /**
@@ -1169,7 +1052,7 @@ export type ListTorrentsResponses = {
   /**
    * List of all torrents
    */
-  200: Array<TorrentInfo>;
+  200: Array<Task>;
 };
 
 export type ListTorrentsResponse =
@@ -1192,48 +1075,6 @@ export type DeleteTorrentsErrors = {
 export type DeleteTorrentsResponses = {
   /**
    * Torrents deleted successfully
-   */
-  200: unknown;
-};
-
-export type PauseTorrentsData = {
-  body: ControlTorrentsRequest;
-  path?: never;
-  query?: never;
-  url: "/api/torrents/pause";
-};
-
-export type PauseTorrentsErrors = {
-  /**
-   * Invalid request (empty hashes) or downloader not configured
-   */
-  400: unknown;
-};
-
-export type PauseTorrentsResponses = {
-  /**
-   * Torrents paused successfully
-   */
-  200: unknown;
-};
-
-export type ResumeTorrentsData = {
-  body: ControlTorrentsRequest;
-  path?: never;
-  query?: never;
-  url: "/api/torrents/resume";
-};
-
-export type ResumeTorrentsErrors = {
-  /**
-   * Invalid request (empty hashes) or downloader not configured
-   */
-  400: unknown;
-};
-
-export type ResumeTorrentsResponses = {
-  /**
-   * Torrents resumed successfully
    */
   200: unknown;
 };
@@ -1263,62 +1104,3 @@ export type SearchTorrentsResponses = {
 
 export type SearchTorrentsResponse =
   SearchTorrentsResponses[keyof SearchTorrentsResponses];
-
-export type SyncMaindataData = {
-  body?: never;
-  path?: never;
-  query?: {
-    /**
-     * Response ID from previous request. Use 0 for initial request.
-     */
-    rid?: number;
-  };
-  url: "/api/torrents/sync";
-};
-
-export type SyncMaindataErrors = {
-  /**
-   * Downloader not configured
-   */
-  400: unknown;
-};
-
-export type SyncMaindataResponses = {
-  /**
-   * Sync maindata with torrent updates
-   */
-  200: SyncMainData;
-};
-
-export type SyncMaindataResponse =
-  SyncMaindataResponses[keyof SyncMaindataResponses];
-
-export type TorrentCompletedData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Torrent info hash from qBittorrent
-     */
-    hash: string;
-    /**
-     * Torrent name
-     */
-    name: string;
-  };
-  url: "/api/webhook/torrent-completed";
-};
-
-export type TorrentCompletedErrors = {
-  /**
-   * Torrent not found
-   */
-  404: unknown;
-};
-
-export type TorrentCompletedResponses = {
-  /**
-   * File renamed successfully
-   */
-  200: unknown;
-};

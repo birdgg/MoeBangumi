@@ -9,7 +9,7 @@ import type { Settings, UpdateSettings } from "@/lib/api/client/types.gen";
 export function settingsToFormData(settings?: Settings): SettingsFormData {
   return {
     downloader: {
-      type: "qBittorrent" as const,
+      type: settings?.downloader?.type ?? "qBittorrent",
       url: settings?.downloader?.url ?? "",
       username: settings?.downloader?.username ?? "",
       password: settings?.downloader?.password ?? "",
