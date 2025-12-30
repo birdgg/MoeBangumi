@@ -3,7 +3,9 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use utoipa::ToSchema;
 
 /// BGM.tv subject type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize_repr, Deserialize_repr)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Default, Serialize_repr, Deserialize_repr, ToSchema,
+)]
 #[repr(i32)]
 pub enum SubjectType {
     #[default]
@@ -111,4 +113,59 @@ pub struct EpisodesResponse {
     pub total: i64,
     pub limit: i64,
     pub offset: i64,
+}
+
+/// Weekday information for calendar
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct Weekday {
+    pub en: String,
+    pub cn: String,
+    pub ja: String,
+    pub id: i32,
+}
+
+/// Subject item in calendar results
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CalendarSubject {
+    pub id: i64,
+    #[serde(rename = "type")]
+    pub subject_type: SubjectType,
+    pub name: String,
+    pub name_cn: String,
+    pub air_date: String,
+    pub air_weekday: i32,
+    pub images: SubjectImages,
+    pub eps: i64,
+    pub eps_count: i64,
+}
+
+/// Calendar day with weekday info and items
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CalendarDay {
+    pub weekday: Weekday,
+    pub items: Vec<CalendarSubject>,
+}
+
+/// Detailed subject information from GET /v0/subjects/{id}
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SubjectDetail {
+    pub id: i64,
+    #[serde(rename = "type")]
+    pub subject_type: SubjectType,
+    pub name: String,
+    pub name_cn: String,
+    pub summary: String,
+    pub nsfw: bool,
+    pub locked: bool,
+    #[serde(default)]
+    pub date: Option<String>,
+    #[serde(default)]
+    pub platform: Option<String>,
+    pub images: SubjectImages,
+    pub volumes: i64,
+    pub eps: i64,
+    pub total_episodes: i64,
+    #[serde(default)]
+    pub meta_tags: Vec<String>,
+    pub series: bool,
 }

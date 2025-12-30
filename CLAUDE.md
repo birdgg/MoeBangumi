@@ -156,9 +156,6 @@ Always design with cute bangumi aesthetic:
 - **Component styling**: Uses `cn()` helper for conditional class merging
 
 ### TailwindCSS 4 Conventions
-
-- **Use canonical class names**: TailwindCSS 4 prefers `bg-linear-to-*` over `bg-gradient-to-*`
-  - Use `bg-linear-to-r`, `bg-linear-to-br`, etc. instead of `bg-gradient-to-r`, `bg-gradient-to-br`
 - **Respect theme colors**: Use CSS variable-based colors (`chart-1` to `chart-5`) instead of hardcoded colors
   - Use `text-chart-1`, `bg-chart-3/20`, `border-chart-1/30` instead of `text-pink-400`, `bg-purple-200/20`
   - Theme colors are defined in `index.css` and can be changed dynamically via `ThemeColorSelector`
@@ -175,35 +172,8 @@ Since the project is not yet released, database schema changes should be added d
 - **Do NOT use `mod.rs`** for module definitions. Use `module_name.rs` + `module_name/` directory instead of `module_name/mod.rs`.
 - Example: Use `models.rs` + `models/bangumi.rs` instead of `models/mod.rs` + `models/bangumi.rs`
 
-## Git Commit Style
+## Doc
 
-Use [Conventional Commits](https://www.conventionalcommits.org/) format:
+### bgmtv
 
-```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Types
-
-- **feat**: New feature
-- **fix**: Bug fix
-- **docs**: Documentation only
-- **style**: Code style (formatting, semicolons, etc.)
-- **refactor**: Code refactoring (no feature or bug fix)
-- **perf**: Performance improvement
-- **test**: Adding or updating tests
-- **chore**: Build process, dependencies, tooling
-
-### Examples
-
-```
-feat(api): add user authentication endpoint
-fix(db): resolve connection pool timeout issue
-docs: update README with new configuration options
-refactor(handlers): simplify error handling logic
-chore(deps): update axum to 0.8
-```
+when lookup bgmtv api doc, use @docs/bgmtv.json
