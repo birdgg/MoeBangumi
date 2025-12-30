@@ -1,49 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use utoipa::ToSchema;
 
 use super::Clearable;
-
-/// Torrent kind: single episode or collection (batch/season pack)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum TorrentKind {
-    /// Single episode torrent
-    Episode,
-    /// Collection torrent (multiple episodes in one torrent)
-    Collection,
-}
-
-impl TorrentKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            TorrentKind::Episode => "episode",
-            TorrentKind::Collection => "collection",
-        }
-    }
-
-    pub fn is_collection(&self) -> bool {
-        matches!(self, TorrentKind::Collection)
-    }
-}
-
-impl FromStr for TorrentKind {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "episode" => Ok(TorrentKind::Episode),
-            "collection" => Ok(TorrentKind::Collection),
-            _ => Err(format!("Invalid torrent kind: {}", s)),
-        }
-    }
-}
-
-impl Default for TorrentKind {
-    fn default() -> Self {
-        TorrentKind::Episode
-    }
-}
 
 /// Torrent entity representing a BitTorrent file for bangumi episodes
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -63,18 +21,8 @@ pub struct Torrent {
     /// Torrent URL (.torrent file URL or magnet link)
     pub torrent_url: String,
 
-    /// Torrent kind (episode or collection)
-    pub kind: TorrentKind,
-
-    /// Episode number (required for episode kind, None for collection)
+    /// Episode number (optional, can be parsed from filename during rename)
     pub episode_number: Option<i32>,
-}
-
-impl Torrent {
-    /// Check if this torrent is a collection
-    pub fn is_collection(&self) -> bool {
-        self.kind.is_collection()
-    }
 }
 
 /// Request body for creating a new torrent
@@ -90,11 +38,7 @@ pub struct CreateTorrent {
     /// Torrent URL (.torrent file URL or magnet link)
     pub torrent_url: String,
 
-    /// Torrent kind (default: episode)
-    #[serde(default)]
-    pub kind: TorrentKind,
-
-    /// Episode number (required for episode kind)
+    /// Episode number (optional, can be parsed from filename during rename)
     pub episode_number: Option<i32>,
 }
 
@@ -105,8 +49,6 @@ pub struct UpdateTorrent {
     pub rss_id: Clearable<i64>,
     /// Torrent URL (cannot be cleared, only updated)
     pub torrent_url: Option<String>,
-    #[serde(default)]
-    pub kind: Option<TorrentKind>,
     #[serde(default)]
     pub episode_number: Clearable<i32>,
 }

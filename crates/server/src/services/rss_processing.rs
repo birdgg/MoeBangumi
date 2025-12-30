@@ -293,7 +293,6 @@ impl RssProcessingService {
             rss_id: Some(rss.id),
             info_hash: info_hash.to_string(),
             torrent_url: torrent_url.to_string(),
-            kind: Default::default(),
             episode_number: Some(episode),
         };
 
@@ -409,7 +408,6 @@ impl RssProcessingService {
                 rss_id: Some(rss.id),
                 info_hash: info_hash.to_string(),
                 torrent_url: torrent_url.to_string(),
-                kind: Default::default(), // Episode
                 episode_number: Some(episode),
             },
         )
@@ -441,10 +439,12 @@ impl RssProcessingService {
         );
 
         // Add to downloader with "moe" tag to identify moe-managed tasks
+        // Add "rename" tag so RenameService will process it after download completes
         let options = AddTaskOptions::new(torrent_url)
             .save_path(&ctx.bangumi.save_path)
             .rename(&filename)
-            .add_tag("moe");
+            .add_tag("moe")
+            .add_tag("rename");
 
         match self.downloader.add_task(options).await {
             Ok(_) => {

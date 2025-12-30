@@ -5,6 +5,7 @@ mod http_client;
 mod log;
 mod notification;
 mod poster;
+mod rename;
 mod rss_processing;
 mod scheduler;
 mod settings;
@@ -21,9 +22,10 @@ pub use http_client::{HttpClientError, HttpClientService};
 pub use log::{LogError, LogService};
 pub use notification::{NotificationError, NotificationService};
 pub use poster::{PosterError, PosterService};
+pub use rename::{RenameError, RenameService};
 pub use rss_processing::RssProcessingService;
 pub use scheduler::{
-    JobResult, LogCleanupJob, RssFetchJob, SchedulerJob, SchedulerService,
+    JobResult, LogCleanupJob, RenameJob, RssFetchJob, SchedulerJob, SchedulerService,
 };
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};
 pub use torrent_search::{TorrentSearchError, TorrentSearchService};

@@ -111,23 +111,13 @@ CREATE TABLE IF NOT EXISTS torrent (
     info_hash TEXT NOT NULL,                        -- BitTorrent info hash (40-char hex for v1, 64-char for v2)
     torrent_url TEXT NOT NULL,                      -- Torrent URL (.torrent file URL or magnet link)
 
-    -- Torrent kind: 'episode' (single episode) or 'collection' (batch/season pack)
-    kind TEXT NOT NULL DEFAULT 'episode' CHECK(kind IN ('episode', 'collection')),
-
-    -- Episode number (required for 'episode' kind, NULL for 'collection')
-    episode_number INTEGER,
-
-    -- Constraint: episode kind must have episode_number
-    CHECK(
-        (kind = 'episode' AND episode_number IS NOT NULL) OR
-        (kind = 'collection')
-    )
+    -- Episode number (optional, can be parsed from filename during rename)
+    episode_number INTEGER
 );
 
 -- Torrent indexes
 CREATE INDEX IF NOT EXISTS idx_torrent_bangumi_id ON torrent(bangumi_id);
 CREATE INDEX IF NOT EXISTS idx_torrent_rss_id ON torrent(rss_id);
-CREATE INDEX IF NOT EXISTS idx_torrent_kind ON torrent(kind);
 CREATE INDEX IF NOT EXISTS idx_torrent_episode_number ON torrent(episode_number);
 
 -- Unique constraint: info_hash is globally unique (one torrent record per unique hash)

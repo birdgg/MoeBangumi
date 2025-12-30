@@ -1,13 +1,13 @@
 use chrono::{DateTime, Utc};
 use sqlx::{Executor, Sqlite, SqlitePool};
 
-use crate::models::{CreateTorrent, Torrent, TorrentKind, UpdateTorrent};
+use crate::models::{CreateTorrent, Torrent, UpdateTorrent};
 
 /// Common SELECT fields for torrent queries
 const SELECT_TORRENT: &str = r#"
     SELECT
         id, created_at, updated_at,
-        bangumi_id, rss_id, info_hash, torrent_url, kind, episode_number
+        bangumi_id, rss_id, info_hash, torrent_url, episode_number
     FROM torrent
 "#;
 
@@ -33,8 +33,8 @@ impl TorrentRepository {
     {
         let result = sqlx::query(
             r#"
-            INSERT INTO torrent (bangumi_id, rss_id, info_hash, torrent_url, kind, episode_number)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO torrent (bangumi_id, rss_id, info_hash, torrent_url, episode_number)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING id
             "#,
         )
@@ -42,7 +42,6 @@ impl TorrentRepository {
         .bind(data.rss_id)
         .bind(&data.info_hash)
         .bind(&data.torrent_url)
-        .bind(data.kind.as_str())
         .bind(data.episode_number)
         .fetch_one(executor)
         .await?;
@@ -141,7 +140,6 @@ impl TorrentRepository {
 
         let rss_id = data.rss_id.resolve(existing.rss_id);
         let torrent_url = data.torrent_url.unwrap_or(existing.torrent_url);
-        let kind = data.kind.unwrap_or(existing.kind);
         let episode_number = data.episode_number.resolve(existing.episode_number);
 
         sqlx::query(
@@ -149,14 +147,12 @@ impl TorrentRepository {
             UPDATE torrent SET
                 rss_id = $1,
                 torrent_url = $2,
-                kind = $3,
-                episode_number = $4
-            WHERE id = $5
+                episode_number = $3
+            WHERE id = $4
             "#,
         )
         .bind(rss_id)
         .bind(torrent_url)
-        .bind(kind.as_str())
         .bind(episode_number)
         .bind(id)
         .execute(pool)
@@ -239,21 +235,11 @@ struct TorrentRow {
     rss_id: Option<i64>,
     info_hash: String,
     torrent_url: String,
-    kind: String,
     episode_number: Option<i32>,
 }
 
 impl From<TorrentRow> for Torrent {
     fn from(row: TorrentRow) -> Self {
-        let kind = row.kind.parse().unwrap_or_else(|_| {
-            tracing::warn!(
-                "Invalid torrent kind '{}' for torrent id {}, defaulting to Episode",
-                row.kind,
-                row.id
-            );
-            TorrentKind::Episode
-        });
-
         Self {
             id: row.id,
             created_at: row.created_at,
@@ -262,7 +248,6 @@ impl From<TorrentRow> for Torrent {
             rss_id: row.rss_id,
             info_hash: row.info_hash,
             torrent_url: row.torrent_url,
-            kind,
             episode_number: row.episode_number,
         }
     }

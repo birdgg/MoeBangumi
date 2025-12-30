@@ -3,8 +3,8 @@ use super::TaskStatus;
 /// Filter options for querying tasks.
 #[derive(Debug, Clone, Default)]
 pub struct TaskFilter {
-    /// Filter by status
-    pub status: Option<TaskStatus>,
+    /// Filter by statuses (matches any of the specified statuses)
+    pub statuses: Option<Vec<TaskStatus>>,
 
     /// Filter by category
     pub category: Option<String>,
@@ -22,9 +22,16 @@ impl TaskFilter {
         Self::default()
     }
 
-    /// Set status filter (builder pattern)
+    /// Set single status filter (builder pattern)
     pub fn status(mut self, status: TaskStatus) -> Self {
-        self.status = Some(status);
+        self.statuses = Some(vec![status]);
+        self
+    }
+
+    /// Set multiple statuses filter (builder pattern)
+    /// Matches tasks that have any of the specified statuses
+    pub fn statuses(mut self, statuses: impl IntoIterator<Item = TaskStatus>) -> Self {
+        self.statuses = Some(statuses.into_iter().collect());
         self
     }
 
@@ -50,5 +57,13 @@ impl TaskFilter {
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.ids = Some(vec![id.into()]);
         self
+    }
+
+    /// Check if a status matches the filter
+    pub fn matches_status(&self, status: TaskStatus) -> bool {
+        match &self.statuses {
+            Some(statuses) => statuses.contains(&status),
+            None => true,
+        }
     }
 }

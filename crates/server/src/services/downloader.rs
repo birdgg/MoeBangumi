@@ -207,4 +207,18 @@ impl DownloaderService {
     pub async fn remove_tags(&self, id: &str, tags: &[&str]) -> downloader::Result<()> {
         with_retry!(self, client, client.remove_tags(id, tags).await)
     }
+
+    /// Rename a file in a task
+    pub async fn rename_file(
+        &self,
+        id: &str,
+        old_path: &str,
+        new_path: &str,
+    ) -> downloader::Result<()> {
+        with_retry!(
+            self,
+            client,
+            client.rename_file(id, old_path, new_path).await
+        )
+    }
 }

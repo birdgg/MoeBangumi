@@ -143,4 +143,19 @@ pub trait Downloader: Send + Sync {
     /// - If tag doesn't exist, it's silently ignored
     /// - If task doesn't exist, returns error
     async fn remove_tags(&self, id: &str, tags: &[&str]) -> Result<()>;
+
+    /// Rename a file within a task.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Task ID (e.g., torrent hash)
+    /// * `old_path` - Old file path (relative to task content root)
+    /// * `new_path` - New file path (relative to task content root)
+    ///
+    /// # Notes
+    ///
+    /// - Only the filename is changed, not the extension
+    /// - Path must be relative to the task's content root
+    /// - If task doesn't exist, returns error
+    async fn rename_file(&self, id: &str, old_path: &str, new_path: &str) -> Result<()>;
 }

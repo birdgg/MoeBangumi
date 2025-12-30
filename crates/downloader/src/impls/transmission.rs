@@ -260,9 +260,9 @@ impl Downloader for TransmissionDownloader {
 
         // Apply additional filters that Transmission doesn't support natively
         if let Some(f) = filter {
-            // Filter by status
-            if let Some(status) = f.status {
-                tasks.retain(|t| t.status == status);
+            // Filter by status(es)
+            if f.statuses.is_some() {
+                tasks.retain(|t| f.matches_status(t.status));
             }
 
             // Filter by tag
@@ -340,5 +340,44 @@ impl Downloader for TransmissionDownloader {
             .collect();
 
         set_labels(&mut client, id, new_labels).await
+    }
+
+    async fn rename_file(&self, id: &str, old_path: &str, new_path: &str) -> Result<()> {
+        let mut client = self.client.write().await;
+
+        // Transmission's torrent-rename-path API behavior:
+        // - path: the current path relative to torrent's download directory
+        // - name: the new name
+        //
+        // When renaming a file in the same directory, 'name' should be just the filename.
+        // When moving to a different directory, 'name' should include the path.
+        let old_path_obj = std::path::Path::new(old_path);
+        let new_path_obj = std::path::Path::new(new_path);
+
+        // Compare parent directories to determine if we're just renaming or moving
+        let same_dir = old_path_obj.parent() == new_path_obj.parent();
+
+        let name = if same_dir {
+            // Same directory - only pass the new filename
+            new_path_obj
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(new_path)
+                .to_string()
+        } else {
+            // Different directory - pass the full new path
+            new_path.to_string()
+        };
+
+        client
+            .torrent_rename_path(
+                vec![Id::Hash(id.to_string())],
+                old_path.to_string(),
+                name,
+            )
+            .await
+            .map_err(map_trans_err)?;
+
+        Ok(())
     }
 }

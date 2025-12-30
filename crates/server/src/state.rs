@@ -8,8 +8,8 @@ use tmdb::TmdbClient;
 use crate::config::Config;
 use crate::services::{
     BangumiService, CacheService, DownloaderService, HttpClientService, LogCleanupJob, LogService,
-    NotificationService, PosterService, RssFetchJob, RssProcessingService, SchedulerService,
-    SettingsService, TorrentSearchService,
+    NotificationService, PosterService, RenameJob, RenameService, RssFetchJob, RssProcessingService,
+    SchedulerService, SettingsService, TorrentSearchService,
 };
 
 #[derive(Clone)]
@@ -31,6 +31,7 @@ pub struct AppState {
     pub cache: Arc<CacheService>,
     pub torrent_search: Arc<TorrentSearchService>,
     pub notification: Arc<NotificationService>,
+    pub rename: Arc<RenameService>,
 }
 
 /// Create a client provider closure from HttpClientService
@@ -121,10 +122,17 @@ impl AppState {
             Arc::clone(&http_client_service),
         ));
 
+        // Create rename service (for file renaming to Plex/Jellyfin format)
+        let rename = Arc::new(RenameService::new(
+            db.clone(),
+            Arc::clone(&downloader_arc),
+        ));
+
         // Create and start scheduler service
         let scheduler = SchedulerService::new()
             .with_arc_job(Arc::clone(&rss_fetch_job))
-            .with_job(LogCleanupJob::new(Arc::clone(&logs)));
+            .with_job(LogCleanupJob::new(Arc::clone(&logs)))
+            .with_job(RenameJob::new(Arc::clone(&rename)));
         scheduler.start();
 
         Self {
@@ -145,6 +153,7 @@ impl AppState {
             cache,
             torrent_search,
             notification,
+            rename,
         }
     }
 }

@@ -101,4 +101,11 @@ impl Downloader for DownloaderClient {
             Self::Transmission(d) => d.remove_tags(id, tags).await,
         }
     }
+
+    async fn rename_file(&self, id: &str, old_path: &str, new_path: &str) -> Result<()> {
+        match self {
+            Self::QBittorrent(d) => d.rename_file(id, old_path, new_path).await,
+            Self::Transmission(d) => d.rename_file(id, old_path, new_path).await,
+        }
+    }
 }
