@@ -6,20 +6,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 fn print_banner() {
     let version = env!("CARGO_PKG_VERSION");
-    let banner = format!(
-        r#"
-    ╭───────────────────────────────────╮
-    │                                   │
-    │   ♡  moe bangumi  (◕‿◕✿)         │
-    │                                   │
-    │   Your Bangumi Tracker            │
-    │   v{}                           │
-    │                                   │
-    ╰───────────────────────────────────╯
-"#,
-        version
-    );
-    tracing::info!("{}", banner);
+    tracing::info!("MoeBangumi v{} - Your Bangumi Tracker", version);
 }
 
 #[tokio::main]
