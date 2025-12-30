@@ -4,7 +4,7 @@ import type { Platform } from "@/lib/api";
 
 interface PlatformBadgeProps {
   platform: Platform | string | null | undefined;
-  variant?: "default" | "overlay";
+  variant?: "default" | "overlay" | "minimal";
   className?: string;
 }
 
@@ -25,11 +25,10 @@ function normalizePlatform(platform: string | null | undefined): Platform | null
   return null;
 }
 
-function getPlatformIcon(platform: Platform | null, variant: "default" | "overlay") {
+function getPlatformIcon(platform: Platform | null) {
   if (!platform) return null;
-  const iconClass = variant === "overlay" ? "size-3" : "size-3.5";
   const Icon = PLATFORM_CONFIG[platform].icon;
-  return <Icon className={iconClass} />;
+  return <Icon className="size-3" />;
 }
 
 function getPlatformLabel(platform: Platform | null): string | null {
@@ -48,17 +47,21 @@ export function PlatformBadge({ platform: rawPlatform, variant = "default", clas
         "inline-flex items-center gap-1 font-medium",
         variant === "default" && [
           "px-2 py-0.5 rounded-full text-xs",
-          "bg-chart-1/15 text-chart-2",
-          "dark:bg-chart-1/20 dark:text-chart-1",
+          "bg-zinc-100 text-zinc-600",
+          "dark:bg-zinc-800 dark:text-zinc-400",
         ],
         variant === "overlay" && [
-          "px-1 py-0.5 rounded text-[9px] font-bold",
-          "bg-white/20 text-white backdrop-blur-sm",
+          "px-2.5 py-1 rounded-full text-[10px]",
+          "bg-white/20 backdrop-blur-xl backdrop-saturate-150 text-white",
+          "border border-white/10",
+          "shadow-[0_2px_8px_rgba(0,0,0,0.1)]",
+          "transition-transform duration-300 hover:scale-105",
         ],
+        variant === "minimal" && "text-white/60 text-[11px]",
         className
       )}
     >
-      {getPlatformIcon(platform, variant)}
+      {variant !== "minimal" && getPlatformIcon(platform)}
       {label}
     </span>
   );

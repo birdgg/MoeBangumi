@@ -23,13 +23,13 @@ export function StatusBadge({ finished, variant = "default", className }: Status
     return (
       <div
         className={cn(
-          "flex items-center gap-1 rounded-full px-2 py-0.5",
-          "text-[10px] font-bold",
-          "backdrop-blur-md transition-all duration-300",
-          "shadow-sm",
+          "flex items-center gap-1 rounded-lg px-2 py-1",
+          "text-[10px] font-medium",
+          "backdrop-blur-xl",
+          "border",
           finished
-            ? "bg-emerald-400/90 text-emerald-950"
-            : "bg-amber-300/90 text-amber-900",
+            ? "bg-emerald-500/20 text-emerald-100 border-emerald-400/30"
+            : "bg-amber-500/20 text-amber-100 border-amber-400/30",
           className
         )}
       >

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { IconDeviceTv } from "@tabler/icons-react";
-import { SeasonBadge } from "../season-badge";
+import { YearBadge } from "../year-badge";
 import { StatusBadge } from "../status-badge";
 import { PlatformBadge } from "../platform-badge";
 
@@ -106,7 +106,7 @@ export function BangumiInfoCard({
           {hasTags && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {year && broadcastSeason && (
-                <SeasonBadge season={broadcastSeason} year={year} />
+                <YearBadge season={broadcastSeason} year={year} />
               )}
               <PlatformBadge platform={platform} className="rounded-md" />
               {isFinished !== undefined && (

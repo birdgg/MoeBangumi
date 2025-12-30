@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { IconDownload } from "@tabler/icons-react";
 import type { Bangumi } from "@/lib/api";
-import { SeasonBadge } from "./season-badge";
+import { YearBadge } from "./year-badge";
 import { StatusBadge } from "./status-badge";
 import { PlatformBadge } from "./platform-badge";
 
@@ -72,7 +72,7 @@ export function BangumiCard({ bangumi, className, style, animate = true, onClick
           {/* Top badges row */}
           <div className="absolute inset-x-2 top-2 flex items-center justify-between">
             <StatusBadge finished={bangumi.finished} variant="overlay" />
-            <SeasonBadge season={bangumi.season} year={bangumi.year} />
+            <YearBadge season={bangumi.season} year={bangumi.year} />
           </div>
 
           {/* Bottom info overlay */}

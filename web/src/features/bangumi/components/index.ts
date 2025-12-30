@@ -1,5 +1,5 @@
 export { BangumiCard, BangumiGrid, BangumiCardSkeleton } from "./bangumi-card";
-export { SeasonBadge } from "./season-badge";
+export { YearBadge } from "./year-badge";
 export { StatusBadge } from "./status-badge";
 export { PlatformBadge } from "./platform-badge";
 export { BangumiInfoCard } from "./bangumi-modal/bangumi-info-card";

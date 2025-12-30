@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils";
 
-interface SeasonBadgeProps {
+interface YearBadgeProps {
   season: number;
   year: number;
+  variant?: "default" | "minimal";
   className?: string;
 }
 
-// Helper function to format season with cute emoji
+// Helper function to format season
 function formatSeason(season: number, year: number): { text: string; emoji: string } {
   const seasonMap: Record<number, { name: string; emoji: string }> = {
     1: { name: "冬", emoji: "❄️" },
@@ -18,16 +19,24 @@ function formatSeason(season: number, year: number): { text: string; emoji: stri
   return { text: `${year}${s.name}`, emoji: s.emoji };
 }
 
-export function SeasonBadge({ season, year, className }: SeasonBadgeProps) {
+export function YearBadge({ season, year, variant = "default", className }: YearBadgeProps) {
   const formatted = formatSeason(season, year);
+
+  if (variant === "minimal") {
+    return (
+      <span className={cn("text-white/60 text-[11px]", className)}>
+        {formatted.text}
+      </span>
+    );
+  }
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5",
-        "text-[10px] font-bold",
-        "bg-white/80 text-chart-2 backdrop-blur-md shadow-sm",
-        "dark:bg-zinc-900/80 dark:text-chart-1",
+        "inline-flex items-center gap-1 rounded-lg px-2 py-1",
+        "text-[10px] font-medium text-white",
+        "bg-white/15 backdrop-blur-xl",
+        "border border-white/20",
         className
       )}
     >
