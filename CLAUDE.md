@@ -138,17 +138,7 @@ Features are organized in `src/features/` with each feature containing:
 
 Each feature's route is defined in `src/routes/` with a simple import of the page component.
 
-### Design Aesthetic
-Always design with cute bangumi aesthetic:
-- Colors: Soft pastels (sakura pink, sky blue, mint, cream) with smooth gradients
-- Shapes: Rounded corners, pill buttons, avoid sharp angles
-- Shadows: Soft colored shadows, subtle glow on hover
-- Decorations: Stars ✦, hearts ♡, sparkles ✨, floating elements
-- Typography: Rounded, playful fonts with gentle spacing
-- Effects: Frosted glass blur, bouncy micro-animations
-- Anime touch: Character art accents, seasonal motifs, expressive icons
-
-### Key Frontend Patterns
+## Key Frontend Patterns
 
 - **Design Style**: when design page or component, consider cute style first
 - **File-based routing**: Routes defined in `src/routes/` directory
@@ -172,3 +162,7 @@ Since the project is not yet released, database schema changes should be added d
 
 - **Do NOT use `mod.rs`** for module definitions. Use `module_name.rs` + `module_name/` directory instead of `module_name/mod.rs`.
 - Example: Use `models.rs` + `models/bangumi.rs` instead of `models/mod.rs` + `models/bangumi.rs`
+
+## Specific
+
+- start dev server after change

@@ -27,6 +27,8 @@ pub struct RssItem {
     pub torrent_url: String,
     /// BitTorrent info hash
     pub info_hash: String,
+    /// Publication date (ISO 8601 format for easy comparison)
+    pub pub_date: Option<String>,
 }
 
 impl RssItem {
@@ -44,4 +46,29 @@ impl RssItem {
     pub fn info_hash(&self) -> &str {
         &self.info_hash
     }
+}
+
+/// Context for conditional HTTP requests (ETag/Last-Modified)
+#[derive(Debug, Clone, Default)]
+pub struct FetchContext {
+    /// ETag from previous response
+    pub etag: Option<String>,
+    /// Last-Modified from previous response
+    pub last_modified: Option<String>,
+}
+
+/// Result of an RSS fetch operation
+#[derive(Debug, Clone)]
+pub enum FetchResult {
+    /// RSS feed has not been modified (HTTP 304)
+    NotModified,
+    /// RSS feed was fetched successfully
+    Modified {
+        /// Parsed RSS items
+        items: Vec<RssItem>,
+        /// ETag from response (if present)
+        etag: Option<String>,
+        /// Last-Modified from response (if present)
+        last_modified: Option<String>,
+    },
 }

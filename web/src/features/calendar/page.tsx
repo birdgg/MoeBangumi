@@ -1,10 +1,14 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useCalendar } from "./hooks/use-calendar";
+import { useCalendar, useRefreshCalendar } from "./hooks/use-calendar";
 import { CalendarCard, CalendarCardSkeleton } from "./components";
 import { BangumiModal } from "@/features/bangumi/components";
 import type { CalendarSubject } from "@/lib/api";
-import { IconAlertCircle, IconCalendarWeek } from "@tabler/icons-react";
+import {
+  IconAlertCircle,
+  IconCalendarWeek,
+  IconRefresh,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { calendarSubjectToModalData } from "@/lib/converters";
 
@@ -28,9 +32,12 @@ const WEEKDAY_LABELS: Record<number, string> = {
 
 export function SchedulePage() {
   const { data: calendar, isLoading, error } = useCalendar();
+  const refreshMutation = useRefreshCalendar();
   const [selectedSubject, setSelectedSubject] =
     useState<CalendarSubject | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const isRefreshing = refreshMutation.isPending;
 
   // Sort calendar by weekday, starting from today
   const todayWeekday = getTodayWeekday();
@@ -71,7 +78,23 @@ export function SchedulePage() {
       </div>
 
       {/* Content */}
-      <div className="relative px-6 py-8 md:px-8">
+      <div className="relative px-6 py-6 md:px-8">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-lg font-medium text-foreground">每日放送</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refreshMutation.mutate({})}
+            disabled={isLoading || isRefreshing}
+          >
+            <IconRefresh
+              className={cn("size-4", isRefreshing && "animate-spin")}
+            />
+            <span className="ml-1">刷新</span>
+          </Button>
+        </div>
+
         {/* Loading state */}
         {isLoading && (
           <div className="space-y-8">
@@ -131,7 +154,7 @@ export function SchedulePage() {
         {/* Calendar grid by weekday */}
         {!isLoading && !error && !isEmpty && (
           <div className="space-y-10">
-            {sortedCalendar.map((day, dayIndex) => {
+            {sortedCalendar.map((day) => {
               const isToday = day.weekday.id === todayWeekday;
               return (
                 <section key={day.weekday.id}>
@@ -159,18 +182,10 @@ export function SchedulePage() {
 
                   {/* Cards grid */}
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
-                    {day.items.map((subject, subjectIndex) => (
+                    {day.items.map((subject) => (
                       <CalendarCard
                         key={subject.id}
                         subject={subject}
-                        animate={dayIndex < 2} // Only animate first 2 days for performance
-                        style={
-                          dayIndex < 2
-                            ? {
-                                animationDelay: `${dayIndex * 100 + subjectIndex * 50}ms`,
-                              }
-                            : undefined
-                        }
                         onClick={() => handleCardClick(subject)}
                       />
                     ))}

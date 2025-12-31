@@ -26,8 +26,8 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { id: "anime", label: "动漫", icon: <IconDeviceTv />, path: "/" },
-  { id: "downloads", label: "下载", icon: <IconDownload />, path: "/downloads" },
   { id: "schedule", label: "每日放送", icon: <IconCalendarWeek />, path: "/schedule" },
+  { id: "downloads", label: "下载", icon: <IconDownload />, path: "/downloads" },
   { id: "logs", label: "日志", icon: <IconFileText />, path: "/logs" },
   { id: "settings", label: "设置", icon: <IconSettings />, path: "/settings" },
 ];

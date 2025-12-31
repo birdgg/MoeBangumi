@@ -1,7 +1,7 @@
 use downloader::AddTaskOptions;
 use parser::{ParseResult, Parser};
 use regex::Regex;
-use rss::{RssClient, RssItem, RssSource};
+use rss::{FetchContext, FetchResult, RssClient, RssItem, RssSource};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -110,6 +110,10 @@ impl RssProcessingService {
     }
 
     /// Fetch RSS feed, apply filters, and parse episode numbers with metadata
+    /// Returns None if:
+    /// - RSS feed returned 304 Not Modified (no changes)
+    /// - HTTP request failed
+    /// - No items after filtering
     async fn fetch_and_parse_items(
         &self,
         rss: &Rss,
@@ -119,14 +123,47 @@ impl RssProcessingService {
         // Parse URL to determine source type
         let source = parse_rss_source(&rss.url);
 
-        // Fetch RSS feed
-        let items = match self.rss_client.fetch(&source).await {
-            Ok(items) => items,
+        // Build fetch context from stored cache info
+        let fetch_context = FetchContext {
+            etag: rss.etag.clone(),
+            last_modified: rss.last_modified.clone(),
+        };
+
+        // Fetch RSS feed with conditional request (ETag/Last-Modified)
+        let fetch_result = match self
+            .rss_client
+            .fetch_conditional(&source, Some(&fetch_context))
+            .await
+        {
+            Ok(result) => result,
             Err(e) => {
                 tracing::error!("[{}] RSS fetch failed: {}", rss.title, e);
                 return None;
             }
         };
+
+        // Handle fetch result
+        let (items, new_etag, new_last_modified) = match fetch_result {
+            FetchResult::NotModified => {
+                tracing::debug!("[{}] RSS not modified (HTTP 304), skipping", rss.title);
+                return None;
+            }
+            FetchResult::Modified {
+                items,
+                etag,
+                last_modified,
+            } => (items, etag, last_modified),
+        };
+
+        // Extract latest pub_date from ALL items BEFORE filtering (for cache update)
+        let latest_pub_date_from_feed = items
+            .iter()
+            .filter_map(|item| item.pub_date.as_ref())
+            .max()
+            .cloned();
+
+        // Apply pubDate filter (only process items newer than last_pub_date)
+        let items = filter_by_pub_date(items, rss.last_pub_date.as_deref());
 
         // Merge global and RSS-specific exclude filters
         let all_exclude_filters: Vec<String> = global_exclude_filters
@@ -169,6 +206,23 @@ impl RssProcessingService {
                 );
                 parsed_items.truncate(1);
             }
+        }
+
+        // Update cache info in database (after successful fetch)
+        // Use latest pub_date from the ORIGINAL feed (before filtering)
+        // This ensures we don't re-process old items on next fetch
+        let latest_pub_date = latest_pub_date_from_feed.or_else(|| rss.last_pub_date.clone());
+
+        if let Err(e) = RssRepository::update_cache(
+            &self.db,
+            rss.id,
+            new_etag,
+            new_last_modified,
+            latest_pub_date,
+        )
+        .await
+        {
+            tracing::warn!("[{}] Failed to update cache info: {}", rss.title, e);
         }
 
         Some(parsed_items)
@@ -458,4 +512,36 @@ fn filter_rss_items(items: Vec<rss::RssItem>, exclude_patterns: &[String]) -> Ve
             !matches_any_filter(title, &exclude_filters)
         })
         .collect()
+}
+
+/// Filter RSS items by pubDate, keeping only items newer than last_pub_date
+/// Items without pub_date are always included (conservative approach)
+fn filter_by_pub_date(items: Vec<RssItem>, last_pub_date: Option<&str>) -> Vec<RssItem> {
+    let Some(last_pub_date) = last_pub_date else {
+        // No previous pub_date stored, include all items
+        return items;
+    };
+
+    let before_count = items.len();
+    let filtered: Vec<_> = items
+        .into_iter()
+        .filter(|item| {
+            match &item.pub_date {
+                Some(pub_date) => pub_date.as_str() > last_pub_date,
+                // Items without pub_date are included (conservative)
+                None => true,
+            }
+        })
+        .collect();
+
+    let filtered_count = before_count - filtered.len();
+    if filtered_count > 0 {
+        tracing::debug!(
+            "Filtered {} items older than last_pub_date {}",
+            filtered_count,
+            last_pub_date
+        );
+    }
+
+    filtered
 }

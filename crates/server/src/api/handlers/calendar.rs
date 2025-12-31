@@ -29,3 +29,22 @@ pub async fn get_calendar(State(state): State<AppState>) -> AppResult<Json<Vec<C
 
     Ok(Json(calendar))
 }
+
+/// Refresh BGM.tv calendar data
+///
+/// Forces a refresh of the calendar data from BGM.tv API.
+/// Returns the updated calendar data.
+#[utoipa::path(
+    post,
+    path = "/api/calendar/refresh",
+    tag = "calendar",
+    responses(
+        (status = 200, description = "Calendar refreshed successfully", body = Vec<CalendarDay>)
+    )
+)]
+pub async fn refresh_calendar(State(state): State<AppState>) -> AppResult<Json<Vec<CalendarDay>>> {
+    tracing::info!("Manual calendar refresh requested");
+    state.calendar.refresh_calendar().await?;
+    let calendar = state.calendar.get_calendar().await?;
+    Ok(Json(calendar))
+}

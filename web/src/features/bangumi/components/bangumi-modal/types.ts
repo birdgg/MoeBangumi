@@ -51,8 +51,6 @@ export interface BangumiFormValues {
   episode_offset: number;
   auto_complete: boolean;
   rss_entries: RssFormEntry[];
-  torrent: string;
-  torrent_file: File | null;
 }
 
 // Re-export API types for convenience

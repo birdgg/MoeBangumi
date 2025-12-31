@@ -72,7 +72,12 @@ CREATE TABLE IF NOT EXISTS rss (
     enabled INTEGER NOT NULL DEFAULT 1,             -- Whether subscription is enabled (boolean)
     exclude_filters TEXT NOT NULL DEFAULT '[]',     -- JSON array of regex patterns to exclude
     is_primary INTEGER NOT NULL DEFAULT 0,          -- Primary RSS flag (only one per bangumi)
-    "group" TEXT                                    -- Optional subtitle group name
+    "group" TEXT,                                   -- Optional subtitle group name
+
+    -- HTTP caching for incremental updates
+    etag TEXT,                                      -- ETag from last HTTP response
+    last_modified TEXT,                             -- Last-Modified from last HTTP response
+    last_pub_date TEXT                              -- Last processed pubDate (ISO 8601)
 );
 
 -- RSS indexes

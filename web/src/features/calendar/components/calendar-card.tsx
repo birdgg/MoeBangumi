@@ -1,36 +1,26 @@
 import { cn } from "@/lib/utils";
-import { IconStar, IconUsers } from "@tabler/icons-react";
 import type { CalendarSubject } from "@/lib/api";
 
 interface CalendarCardProps {
   subject: CalendarSubject;
   className?: string;
-  style?: React.CSSProperties;
-  animate?: boolean;
   onClick?: () => void;
 }
 
 export function CalendarCard({
   subject,
   className,
-  style,
-  animate = true,
   onClick,
 }: CalendarCardProps) {
   const displayName = subject.name_cn || subject.name;
-  const score = subject.rating?.score;
-  const watching = subject.collection?.doing;
 
   return (
     <div
       className={cn(
         "group relative",
-        animate &&
-          "animate-in fade-in slide-in-from-bottom-3 duration-500 ease-out",
         onClick && "cursor-pointer",
         className
       )}
-      style={style}
       onClick={onClick}
     >
       {/* Soft glow effect on hover */}
@@ -71,30 +61,6 @@ export function CalendarCard({
 
           {/* Decorative top wave */}
           <div className="absolute inset-x-0 top-0 h-8 bg-linear-to-b from-chart-1/20 to-transparent" />
-
-          {/* Top badges row */}
-          <div className="absolute inset-x-2 top-2 flex items-center justify-between">
-            {/* Score badge */}
-            {score && score > 0 && (
-              <div className="flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
-                <IconStar className="size-3 fill-amber-400 text-amber-400" />
-                <span className="text-xs font-bold text-white drop-shadow-sm">
-                  {score.toFixed(1)}
-                </span>
-              </div>
-            )}
-            {/* Watching count */}
-            {watching && watching > 0 && (
-              <div className="flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
-                <IconUsers className="size-3 text-chart-3" />
-                <span className="text-xs font-medium text-white drop-shadow-sm">
-                  {watching > 1000
-                    ? `${(watching / 1000).toFixed(1)}k`
-                    : watching}
-                </span>
-              </div>
-            )}
-          </div>
 
           {/* Bottom info overlay */}
           <div className="absolute inset-x-0 bottom-0 px-2.5 pb-2.5">

@@ -7,7 +7,8 @@ use crate::models::{CreateRss, Rss, UpdateRss};
 const SELECT_RSS: &str = r#"
     SELECT
         id, created_at, updated_at,
-        bangumi_id, title, url, enabled, exclude_filters, is_primary, "group"
+        bangumi_id, title, url, enabled, exclude_filters, is_primary, "group",
+        etag, last_modified, last_pub_date
     FROM rss
 "#;
 
@@ -210,6 +211,34 @@ impl RssRepository {
 
         Ok(row.map(Into::into))
     }
+
+    /// Update HTTP cache information for an RSS subscription
+    /// Used for incremental updates (ETag/Last-Modified/last_pub_date)
+    pub async fn update_cache(
+        pool: &SqlitePool,
+        id: i64,
+        etag: Option<String>,
+        last_modified: Option<String>,
+        last_pub_date: Option<String>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            UPDATE rss SET
+                etag = $1,
+                last_modified = $2,
+                last_pub_date = $3
+            WHERE id = $4
+            "#,
+        )
+        .bind(etag)
+        .bind(last_modified)
+        .bind(last_pub_date)
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
 }
 
 /// Internal row type for mapping SQLite results
@@ -225,6 +254,9 @@ struct RssRow {
     exclude_filters: String,
     is_primary: bool,
     group: Option<String>,
+    etag: Option<String>,
+    last_modified: Option<String>,
+    last_pub_date: Option<String>,
 }
 
 impl From<RssRow> for Rss {
@@ -243,6 +275,9 @@ impl From<RssRow> for Rss {
             exclude_filters,
             is_primary: row.is_primary,
             group: row.group,
+            etag: row.etag,
+            last_modified: row.last_modified,
+            last_pub_date: row.last_pub_date,
         }
     }
 }

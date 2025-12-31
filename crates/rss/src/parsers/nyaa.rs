@@ -1,3 +1,4 @@
+use chrono::DateTime;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 
@@ -45,6 +46,7 @@ pub fn parse_nyaa_feed(xml: &[u8]) -> Result<Vec<RssItem>, RssError> {
                             "title" => item.title = Some(text),
                             "link" => item.torrent_url = Some(text),
                             "nyaa:infoHash" => item.info_hash = Some(text.to_lowercase()),
+                            "pubDate" => item.pub_date = parse_rfc2822_to_iso8601(&text),
                             _ => {}
                         }
                     }
@@ -65,6 +67,7 @@ struct RssItemBuilder {
     title: Option<String>,
     torrent_url: Option<String>,
     info_hash: Option<String>,
+    pub_date: Option<String>,
 }
 
 impl RssItemBuilder {
@@ -73,6 +76,14 @@ impl RssItemBuilder {
             title: self.title?,
             torrent_url: self.torrent_url?,
             info_hash: self.info_hash?,
+            pub_date: self.pub_date,
         })
     }
+}
+
+/// Parse RFC 2822 date to ISO 8601 format for easy string comparison
+fn parse_rfc2822_to_iso8601(date_str: &str) -> Option<String> {
+    DateTime::parse_from_rfc2822(date_str)
+        .ok()
+        .map(|dt| dt.to_rfc3339())
 }

@@ -23,6 +23,16 @@ pub struct Rss {
     pub is_primary: bool,
     /// Optional subtitle group name
     pub group: Option<String>,
+
+    /// HTTP caching: ETag from last response
+    #[serde(skip_serializing)]
+    pub etag: Option<String>,
+    /// HTTP caching: Last-Modified from last response
+    #[serde(skip_serializing)]
+    pub last_modified: Option<String>,
+    /// Last processed pubDate (ISO 8601)
+    #[serde(skip_serializing)]
+    pub last_pub_date: Option<String>,
 }
 
 /// Request body for creating a new RSS subscription

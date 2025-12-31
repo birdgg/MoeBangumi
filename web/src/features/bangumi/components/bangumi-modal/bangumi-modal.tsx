@@ -35,7 +35,6 @@ import { BangumiInfoCard } from "./bangumi-info-card";
 import type { BangumiModalProps, RssFormEntry } from "./types";
 import { normalizePlatform, rssToFormEntry, formEntryToApiEntry } from "./utils";
 import { RssEntryItem } from "./rss-entry-item";
-import { TorrentInputSection } from "./torrent-input-section";
 import { AutoCompleteToggle } from "./auto-complete-toggle";
 
 export function BangumiModal({
@@ -82,8 +81,6 @@ export function BangumiModal({
       episode_offset: 0,
       auto_complete: true,
       rss_entries: [] as RssFormEntry[],
-      torrent: "",
-      torrent_file: null as File | null,
     },
     onSubmit: async ({ value }) => {
       try {
@@ -466,26 +463,6 @@ export function BangumiModal({
                         initialKeyword={searchKeyword}
                       />
                     </Field>
-                  )}
-                </form.Field>
-
-                {/* Torrent Input */}
-                <form.Field name="torrent">
-                  {(field) => (
-                    <form.Subscribe selector={(state) => state.values.torrent_file}>
-                      {(torrentFile) => (
-                        <TorrentInputSection
-                          value={field.state.value}
-                          onChange={field.handleChange}
-                          onBlur={field.handleBlur}
-                          torrentFile={torrentFile}
-                          onTorrentFileChange={(file) =>
-                            form.setFieldValue("torrent_file", file)
-                          }
-                          searchKeyword={searchKeyword}
-                        />
-                      )}
-                    </form.Subscribe>
                   )}
                 </form.Field>
 
