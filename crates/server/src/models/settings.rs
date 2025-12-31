@@ -245,8 +245,8 @@ impl PrioritySettings {
     }
 
     /// Convert to PriorityConfig for the priority calculator
-    pub fn to_config(&self) -> crate::priority::PriorityConfig {
-        crate::priority::PriorityConfig {
+    pub fn to_config(&self) -> washing::PriorityConfig {
+        washing::PriorityConfig {
             subtitle_groups: self.subtitle_groups.clone(),
             subtitle_languages: self.subtitle_languages.clone(),
             resolutions: self.resolutions.clone(),

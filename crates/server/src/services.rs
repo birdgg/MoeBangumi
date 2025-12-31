@@ -11,6 +11,7 @@ mod scheduler;
 mod settings;
 mod torrent_search;
 mod tracing_layer;
+mod washing;
 
 pub use bangumi::{BangumiError, BangumiService};
 pub use cache::{CacheError, CacheService};
@@ -30,3 +31,4 @@ pub use scheduler::{
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};
 pub use torrent_search::{TorrentSearchError, TorrentSearchService};
 pub use tracing_layer::{create_log_channel, start_log_writer, DatabaseLayer, LogReceiver};
+pub use washing::{WashParams, WashingError, WashingService};

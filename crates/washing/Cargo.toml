@@ -1,0 +1,8 @@
+[package]
+name = "washing"
+version.workspace = true
+edition.workspace = true
+description = "Priority-based torrent washing algorithm library"
+
+[dependencies]
+# No external dependencies - pure algorithm library

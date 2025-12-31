@@ -4,7 +4,6 @@ pub mod db;
 pub mod error;
 pub mod models;
 pub mod openapi;
-pub mod priority;
 pub mod repositories;
 pub mod seed;
 pub mod services;

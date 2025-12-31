@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::models::{Bangumi, CreateTorrent, Rss, Torrent};
-use crate::priority::{ComparableTorrent, PriorityCalculator};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
+use crate::services::washing::{WashParams, WashingService};
 use crate::services::{DownloaderService, SettingsService};
 
 /// Context for RSS processing, avoiding repeated parameter passing
@@ -32,6 +32,7 @@ pub struct RssProcessingService {
     rss_client: Arc<RssClient>,
     downloader: Arc<DownloaderService>,
     settings: Arc<SettingsService>,
+    washing: Arc<WashingService>,
     parser: Parser,
 }
 
@@ -42,12 +43,14 @@ impl RssProcessingService {
         rss_client: Arc<RssClient>,
         downloader: Arc<DownloaderService>,
         settings: Arc<SettingsService>,
+        washing: Arc<WashingService>,
     ) -> Self {
         Self {
             db,
             rss_client,
             downloader,
             settings,
+            washing,
             parser: Parser::new(),
         }
     }
@@ -225,7 +228,7 @@ impl RssProcessingService {
 
         // Check if episode already exists and handle priority-based washing
         if let Some(existing_torrents) = lookup.episodes_map.get(&episode) {
-            if !self.should_replace_existing(existing_torrents, parse_result) {
+            if !self.washing.should_wash(existing_torrents, parse_result) {
                 tracing::debug!(
                     "[{}] Skipping E{}: existing torrent has higher or equal priority",
                     rss.title,
@@ -235,145 +238,30 @@ impl RssProcessingService {
             }
 
             // Wash ("洗版"): replace existing torrents with higher priority resource
-            self.wash_episode(
-                rss,
-                ctx,
+            let params = WashParams {
+                bangumi_id: rss.bangumi_id,
+                rss_id: Some(rss.id),
+                rss_title: &rss.title,
                 existing_torrents,
                 info_hash,
                 torrent_url,
                 episode,
                 parse_result,
-            )
-            .await;
+            };
+
+            if let Err(e) = self.washing.wash_episode(params).await {
+                tracing::error!("[{}] Failed to wash E{}: {}", rss.title, episode, e);
+                return;
+            }
+
+            // Add new download task after successful washing
+            self.add_download_task(rss, ctx, info_hash, torrent_url, episode)
+                .await;
         } else {
             // No existing torrents, just create and add
             self.create_and_add_task(rss, ctx, info_hash, torrent_url, episode, parse_result)
                 .await;
         }
-    }
-
-    /// Wash episode: atomically delete old torrents and create new one in a transaction
-    async fn wash_episode(
-        &self,
-        rss: &Rss,
-        ctx: &ProcessingContext,
-        existing_torrents: &[Torrent],
-        info_hash: &str,
-        torrent_url: &str,
-        episode: i32,
-        parse_result: &ParseResult,
-    ) {
-        tracing::info!(
-            "[{}] Washing E{}: replacing {} existing torrent(s) with higher priority resource (group={:?}, lang={:?}, res={:?})",
-            rss.title,
-            episode,
-            existing_torrents.len(),
-            parse_result.subtitle_group,
-            parse_result.sub_type,
-            parse_result.resolution,
-        );
-
-        // Collect info_hashes for downloader cleanup (done after transaction)
-        let old_hashes: Vec<String> = existing_torrents
-            .iter()
-            .map(|t| t.info_hash.clone())
-            .collect();
-
-        // Use transaction to ensure atomicity: delete old + create new
-        let mut tx = match self.db.begin().await {
-            Ok(tx) => tx,
-            Err(e) => {
-                tracing::error!("[{}] Failed to begin transaction: {}", rss.title, e);
-                return;
-            }
-        };
-
-        // Delete all existing torrents in transaction
-        for existing in existing_torrents {
-            if let Err(e) = TorrentRepository::delete_with_executor(&mut *tx, existing.id).await {
-                tracing::error!(
-                    "[{}] Failed to delete old torrent from database: {}",
-                    rss.title,
-                    e
-                );
-                // Transaction will be rolled back on drop
-                return;
-            }
-        }
-
-        // Create new torrent in transaction (with parsed metadata)
-        let new_torrent = CreateTorrent {
-            bangumi_id: rss.bangumi_id,
-            rss_id: Some(rss.id),
-            info_hash: info_hash.to_string(),
-            torrent_url: torrent_url.to_string(),
-            episode_number: Some(episode),
-            subtitle_group: parse_result.subtitle_group.clone(),
-            subtitle_language: parse_result.sub_type.clone(),
-            resolution: parse_result.resolution.clone(),
-        };
-
-        if let Err(e) = TorrentRepository::create_with_executor(&mut *tx, new_torrent).await {
-            tracing::error!("[{}] Failed to create new torrent: {}", rss.title, e);
-            return;
-        }
-
-        // Commit transaction
-        if let Err(e) = tx.commit().await {
-            tracing::error!("[{}] Failed to commit transaction: {}", rss.title, e);
-            return;
-        }
-
-        // Transaction committed successfully, now handle downloader operations (best-effort)
-        // Delete old torrents from downloader
-        for hash in &old_hashes {
-            self.delete_from_downloader(hash, rss).await;
-        }
-
-        // Add new download task
-        self.add_download_task(rss, ctx, info_hash, torrent_url, episode)
-            .await;
-    }
-
-    /// Determine if we should replace existing episode torrents based on priority
-    ///
-    /// Returns true only if the new torrent has higher priority than
-    /// the best existing torrent (comparing subtitle group, language, resolution).
-    fn should_replace_existing(
-        &self,
-        existing_torrents: &[Torrent],
-        new_parse_result: &ParseResult,
-    ) -> bool {
-        if existing_torrents.is_empty() {
-            return true;
-        }
-
-        // Build priority calculator from current settings
-        let settings = self.settings.get();
-        let priority_config = settings.priority.to_config();
-        let calculator = PriorityCalculator::new(priority_config);
-
-        // New torrent's comparable info
-        let new_comparable = ComparableTorrent {
-            subtitle_group: new_parse_result.subtitle_group.clone(),
-            subtitle_language: new_parse_result.sub_type.clone(),
-            resolution: new_parse_result.resolution.clone(),
-        };
-
-        // Convert existing torrents to comparable form
-        let existing_comparables: Vec<ComparableTorrent> = existing_torrents
-            .iter()
-            .map(|t| t.to_comparable())
-            .collect();
-
-        // Find the best existing torrent
-        let best_existing = match calculator.find_best(&existing_comparables) {
-            Some(best) => best,
-            None => return true, // No valid existing torrents, should add
-        };
-
-        // Compare: new must be strictly higher priority to trigger washing
-        calculator.is_higher_priority(&new_comparable, best_existing)
     }
 
     /// Create torrent record in database and add download task to downloader
@@ -445,31 +333,6 @@ impl RssProcessingService {
         }
     }
 
-    /// Delete a torrent from the downloader by info_hash.
-    ///
-    /// Used during "washing" (洗版) when a primary RSS torrent replaces
-    /// a backup RSS torrent. The old torrent task and its downloaded files
-    /// are removed from the downloader.
-    ///
-    /// Errors are logged but not propagated as critical failures since:
-    /// - Task might not exist (already deleted/completed manually)
-    /// - Downloader connection issues shouldn't block database cleanup
-    async fn delete_from_downloader(&self, info_hash: &str, rss: &Rss) {
-        match self.downloader.delete_task(&[info_hash], true).await {
-            Ok(_) => {
-                tracing::info!("[{}] Deleted old torrent from downloader: {}", rss.title, info_hash);
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "[{}] Could not delete torrent from downloader (hash={}): {}",
-                    rss.title,
-                    info_hash,
-                    e
-                );
-            }
-        }
-    }
-
     /// Process multiple RSS subscriptions in batch (concurrently).
     ///
     /// Used by the scheduled RSS fetch job to process all enabled subscriptions.
@@ -505,6 +368,7 @@ impl RssProcessingService {
         let rss_client = Arc::clone(&self.rss_client);
         let downloader = Arc::clone(&self.downloader);
         let settings = Arc::clone(&self.settings);
+        let washing = Arc::clone(&self.washing);
 
         tokio::spawn(async move {
             tracing::info!(
@@ -514,7 +378,7 @@ impl RssProcessingService {
 
             // Create a temporary service instance for background processing
             let service =
-                RssProcessingService::new(db.clone(), rss_client, downloader, settings.clone());
+                RssProcessingService::new(db.clone(), rss_client, downloader, settings.clone(), washing);
 
             // Get global exclude filters from settings
             let settings_data = settings.get();

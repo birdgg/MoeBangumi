@@ -1,10 +1,33 @@
-//! Priority calculation module for torrent selection and washing.
+//! Priority-based torrent washing algorithm library.
 //!
-//! This module provides a priority-based system for selecting the best torrent
+//! This crate provides a priority-based system for selecting the best torrent
 //! among multiple options for the same episode. Priority is determined by:
 //! 1. Subtitle group (highest weight)
 //! 2. Subtitle language
 //! 3. Resolution (lowest weight)
+//!
+//! # Example
+//!
+//! ```
+//! use washing::{PriorityConfig, PriorityCalculator, ComparableTorrent};
+//!
+//! let config = PriorityConfig {
+//!     subtitle_groups: vec!["ANi".to_string(), "LoliHouse".to_string()],
+//!     subtitle_languages: vec!["简日".to_string(), "简体".to_string()],
+//!     resolutions: vec!["1080P".to_string(), "720P".to_string()],
+//! };
+//!
+//! let calculator = PriorityCalculator::new(config);
+//!
+//! let torrent = ComparableTorrent {
+//!     subtitle_group: Some("ANi".to_string()),
+//!     subtitle_language: Some("简日".to_string()),
+//!     resolution: Some("1080P".to_string()),
+//! };
+//!
+//! let score = calculator.calculate_score(&torrent);
+//! assert_eq!(score.group_rank, 0); // Highest priority
+//! ```
 
 use std::cmp::Ordering;
 

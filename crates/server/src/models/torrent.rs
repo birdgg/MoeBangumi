@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use washing::ComparableTorrent;
 
 use super::Clearable;
-use crate::priority::ComparableTorrent;
 
 /// Torrent entity representing a BitTorrent file for bangumi episodes
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
