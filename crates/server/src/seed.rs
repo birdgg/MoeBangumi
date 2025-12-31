@@ -11,7 +11,7 @@ pub async fn seed_bangumi(pool: &SqlitePool) -> Result<(), sqlx::Error> {
         return Ok(());
     }
 
-    tracing::info!("Seeding database with sample bangumi...");
+    tracing::debug!("Seeding database with sample bangumi...");
 
     let seed_data = vec![
         CreateBangumi {
@@ -61,7 +61,7 @@ pub async fn seed_bangumi(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     for data in seed_data {
         let title = data.title_chinese.clone();
         match BangumiRepository::create(pool, data).await {
-            Ok(_) => tracing::info!("Created seed bangumi: {}", title),
+            Ok(_) => tracing::debug!("Created seed bangumi: {}", title),
             Err(e) => tracing::warn!("Failed to create seed bangumi {}: {}", title, e),
         }
     }

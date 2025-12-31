@@ -8,9 +8,9 @@ use tmdb::TmdbClient;
 use crate::config::Config;
 use crate::services::{
     BangumiService, CacheService, CalendarRefreshJob, CalendarService, DownloaderService,
-    HttpClientService, LogCleanupJob, LogService, NotificationService, PosterService, RenameJob,
-    RenameService, RssFetchJob, RssProcessingService, SchedulerService, SettingsService,
-    TorrentSearchService, WashingService,
+    HttpClientService, LogCleanupJob, LogService, MikanMappingService, MikanMappingSyncJob,
+    NotificationService, PosterService, RenameJob, RenameService, RssFetchJob, RssProcessingService,
+    SchedulerService, SettingsService, TorrentSearchService, WashingService,
 };
 
 #[derive(Clone)]
@@ -34,6 +34,7 @@ pub struct AppState {
     pub torrent_search: Arc<TorrentSearchService>,
     pub notification: Arc<NotificationService>,
     pub rename: Arc<RenameService>,
+    pub mikan_mapping: Arc<MikanMappingService>,
 }
 
 /// Create a client provider closure from HttpClientService
@@ -142,12 +143,20 @@ impl AppState {
         let bgmtv_arc = Arc::new(bgmtv);
         let calendar = Arc::new(CalendarService::new(db.clone(), Arc::clone(&bgmtv_arc)));
 
+        // Create Mikan mapping service (for Mikan-BGM.tv ID mapping)
+        let mikan_arc = Arc::new(mikan);
+        let mikan_mapping = Arc::new(MikanMappingService::new(
+            db.clone(),
+            Arc::clone(&mikan_arc),
+        ));
+
         // Create and start scheduler service
         let scheduler = SchedulerService::new()
             .with_arc_job(Arc::clone(&rss_fetch_job))
             .with_job(LogCleanupJob::new(Arc::clone(&logs)))
             .with_job(RenameJob::new(Arc::clone(&rename)))
-            .with_job(CalendarRefreshJob::new(Arc::clone(&calendar)));
+            .with_job(CalendarRefreshJob::new(Arc::clone(&calendar)))
+            .with_job(MikanMappingSyncJob::new(Arc::clone(&mikan_mapping)));
         scheduler.start();
 
         Self {
@@ -156,7 +165,7 @@ impl AppState {
             http_client_service,
             tmdb: Arc::new(tmdb),
             bgmtv: bgmtv_arc,
-            mikan: Arc::new(mikan),
+            mikan: mikan_arc,
             rss: rss_arc,
             settings,
             downloader: downloader_arc,
@@ -170,6 +179,7 @@ impl AppState {
             torrent_search,
             notification,
             rename,
+            mikan_mapping,
         }
     }
 }

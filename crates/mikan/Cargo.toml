@@ -13,3 +13,5 @@ tracing.workspace = true
 scraper.workspace = true
 urlencoding.workspace = true
 utoipa.workspace = true
+regex.workspace = true
+chrono.workspace = true

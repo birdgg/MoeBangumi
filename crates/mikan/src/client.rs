@@ -3,9 +3,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use crate::{
-    models::{BangumiDetail, Episode, SearchResult, Subgroup},
+    models::{BangumiDetail, Episode, Season, SeasonalBangumi, SearchResult, Subgroup},
     MikanError, Result,
 };
+use regex::Regex;
 use scraper::{ElementRef, Html, Selector};
 
 const BASE_URL: &str = "https://mikanani.me";
@@ -191,5 +192,79 @@ impl MikanClient {
         }
 
         Ok(BangumiDetail { subgroups })
+    }
+
+    /// Get the list of bangumi for a specific season.
+    /// URL: /Home/BangumiCoverFlowByDayOfWeek?year={year}&seasonStr={season_chinese}
+    pub async fn get_seasonal_bangumi_list(
+        &self,
+        year: i32,
+        season: Season,
+    ) -> Result<Vec<SeasonalBangumi>> {
+        let season_str = urlencoding::encode(season.to_chinese());
+        let html = self
+            .fetch_html(&format!(
+                "/Home/BangumiCoverFlowByDayOfWeek?year={}&seasonStr={}",
+                year, season_str
+            ))
+            .await?;
+
+        let document = Html::parse_document(&html);
+        let a_selector =
+            Selector::parse("a[href^='/Home/Bangumi/']").map_err(|e| MikanError::Parse(e.to_string()))?;
+
+        let mut results = Vec::new();
+        let mut seen_ids = std::collections::HashSet::new();
+
+        for a in document.select(&a_selector) {
+            let href = a.value().attr("href").unwrap_or_default();
+            let mikan_id = href.trim_start_matches("/Home/Bangumi/").to_string();
+
+            if mikan_id.is_empty() || seen_ids.contains(&mikan_id) {
+                continue;
+            }
+            seen_ids.insert(mikan_id.clone());
+
+            let name = a
+                .value()
+                .attr("title")
+                .map(|s| s.to_string())
+                .or_else(|| {
+                    let text = a.text().collect::<String>();
+                    let trimmed = text.trim();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed.to_string())
+                    }
+                })
+                .unwrap_or_default();
+
+            if !name.is_empty() {
+                results.push(SeasonalBangumi { mikan_id, name });
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Get the BGM.tv ID from a bangumi detail page.
+    /// Parses the page for a link to bgm.tv/subject/{id}.
+    pub async fn get_bangumi_bgmtv_id(&self, mikan_id: &str) -> Result<Option<i64>> {
+        let html = self
+            .fetch_html(&format!("/Home/Bangumi/{}", mikan_id))
+            .await?;
+
+        let re = Regex::new(r"bgm\.tv/subject/(\d+)").map_err(|e| MikanError::Parse(e.to_string()))?;
+
+        if let Some(caps) = re.captures(&html) {
+            if let Some(id_match) = caps.get(1) {
+                if let Ok(id) = id_match.as_str().parse::<i64>() {
+                    return Ok(Some(id));
+                }
+            }
+        }
+
+        Ok(None)
     }
 }

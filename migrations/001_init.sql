@@ -214,3 +214,25 @@ FOR EACH ROW
 BEGIN
     UPDATE calendar_subject SET updated_at = CURRENT_TIMESTAMP WHERE bgmtv_id = OLD.bgmtv_id;
 END;
+
+-- Mikan to BGM.tv/TMDB ID mapping table
+-- Maps Mikan bangumi IDs to external service IDs for quick lookup
+CREATE TABLE IF NOT EXISTS mikan_bgmtv_mapping (
+    -- Primary key: Mikan bangumi ID (unique identifier on mikanani.me)
+    mikan_id TEXT PRIMARY KEY,
+
+    -- External service IDs
+    bgmtv_id INTEGER NOT NULL,          -- BGM.tv subject ID (required, scraped from Mikan)
+    tmdb_id INTEGER,                    -- TMDB ID (optional, updated when adding bangumi)
+
+    -- Timestamp
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index: query by BGM.tv ID (main use case)
+CREATE INDEX IF NOT EXISTS idx_mikan_bgmtv_mapping_bgmtv_id
+    ON mikan_bgmtv_mapping(bgmtv_id);
+
+-- Index: query by TMDB ID
+CREATE INDEX IF NOT EXISTS idx_mikan_bgmtv_mapping_tmdb_id
+    ON mikan_bgmtv_mapping(tmdb_id);
