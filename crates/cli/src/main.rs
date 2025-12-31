@@ -1,4 +1,4 @@
-use server::{create_log_channel, DatabaseLayer, Environment};
+use server::{create_log_channel, print_banner, DatabaseLayer, Environment};
 use std::env;
 use std::net::SocketAddr;
 use tracing_subscriber::layer::SubscriberExt;
@@ -20,6 +20,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .with(DatabaseLayer::new(log_sender))
         .init();
+
+    print_banner();
 
     let app_env = Environment::from_str(&env::var("APP_ENV").unwrap_or_default());
     let port: u16 = env::var("PORT")

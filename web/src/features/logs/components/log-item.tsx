@@ -45,7 +45,7 @@ export function LogItem({ log }: LogItemProps) {
         </span>
 
         {/* Message */}
-        <span className="text-foreground/90 break-all">{log.message}</span>
+        <span className="text-foreground/90 break-all whitespace-pre-wrap">{log.message}</span>
       </div>
     </div>
   );

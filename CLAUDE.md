@@ -86,7 +86,6 @@ server/src/
 ├── db.rs             # Database connection and migrations
 ├── lib.rs            # Library entry point
 ├── openapi.rs        # OpenAPI/Swagger documentation
-├── seed.rs           # Database seeding utilities
 └── state.rs          # AppState with shared resources (DB pool, clients)
 ```
 
