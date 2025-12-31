@@ -6,14 +6,14 @@ use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::models::{Bangumi, CreateTorrent, Rss, Torrent};
+use crate::models::{BangumiWithMetadata, CreateTorrent, Rss, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
 use crate::services::washing::{WashParams, WashingService};
 use crate::services::{DownloaderService, SettingsService};
 
 /// Context for RSS processing, avoiding repeated parameter passing
 struct ProcessingContext {
-    bangumi: Bangumi,
+    bangumi: BangumiWithMetadata,
 }
 
 /// Lookup structures for existing torrents (O(1) access)
@@ -90,7 +90,7 @@ impl RssProcessingService {
 
     /// Prepare processing context by fetching bangumi info
     async fn prepare_context(&self, rss: &Rss) -> Option<ProcessingContext> {
-        let bangumi = match BangumiRepository::get_by_id(&self.db, rss.bangumi_id).await {
+        let bangumi = match BangumiRepository::get_with_metadata_by_id(&self.db, rss.bangumi_id).await {
             Ok(Some(b)) => b,
             Ok(None) => {
                 tracing::error!("[bangumi_id={}] Bangumi not found", rss.bangumi_id);
@@ -196,12 +196,12 @@ impl RssProcessingService {
             .collect();
 
         // When auto_complete is disabled, only process the latest episode
-        if !ctx.bangumi.auto_complete {
+        if !ctx.bangumi.bangumi.auto_complete {
             parsed_items.sort_by(|a, b| b.1.cmp(&a.1));
             if let Some((_, ep, _)) = parsed_items.first() {
                 tracing::debug!(
                     "auto_complete disabled for bangumi {}: only processing latest episode {}",
-                    ctx.bangumi.id,
+                    ctx.bangumi.bangumi.id,
                     ep
                 );
                 parsed_items.truncate(1);
@@ -363,16 +363,16 @@ impl RssProcessingService {
     ) {
         // Generate filename for this specific episode
         let filename = pathgen::generate_filename(
-            &ctx.bangumi.title_chinese,
-            ctx.bangumi.season,
+            &ctx.bangumi.metadata.title_chinese,
+            ctx.bangumi.metadata.season,
             episode,
-            Some(ctx.bangumi.platform.as_str()),
+            Some(ctx.bangumi.metadata.platform.as_str()),
         );
 
         // Add to downloader with "moe" tag to identify moe-managed tasks
         // Add "rename" tag so RenameService will process it after download completes
         let options = AddTaskOptions::new(torrent_url)
-            .save_path(&ctx.bangumi.save_path)
+            .save_path(&ctx.bangumi.bangumi.save_path)
             .rename(&filename)
             .add_tag("moe")
             .add_tag("rename");

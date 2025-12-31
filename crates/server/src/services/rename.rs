@@ -9,7 +9,7 @@ use sqlx::SqlitePool;
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::models::{Bangumi, Torrent};
+use crate::models::{BangumiWithMetadata, Torrent};
 use crate::repositories::{BangumiRepository, TorrentRepository};
 use crate::services::{DownloaderService, Task, TaskFile, TaskFilter, TaskStatus};
 
@@ -95,7 +95,7 @@ impl RenameService {
     }
 
     /// Get all completed tasks with "rename" tag
-    async fn get_pending_tasks(&self) -> Result<Vec<(Task, Torrent, Bangumi)>> {
+    async fn get_pending_tasks(&self) -> Result<Vec<(Task, Torrent, BangumiWithMetadata)>> {
         // Query downloader for completed/seeding tasks with "rename" tag
         let filter = TaskFilter::new()
             .statuses([TaskStatus::Completed, TaskStatus::Seeding])
@@ -108,11 +108,11 @@ impl RenameService {
         for task in all_tasks {
             // Find matching torrent in database by info_hash
             if let Some(torrent) = TorrentRepository::get_by_info_hash(&self.db, &task.id).await? {
-                // Get associated bangumi
-                if let Some(bangumi) =
-                    BangumiRepository::get_by_id(&self.db, torrent.bangumi_id).await?
+                // Get associated bangumi with metadata
+                if let Some(bangumi_with_metadata) =
+                    BangumiRepository::get_with_metadata_by_id(&self.db, torrent.bangumi_id).await?
                 {
-                    result.push((task, torrent, bangumi));
+                    result.push((task, torrent, bangumi_with_metadata));
                 } else {
                     tracing::warn!(
                         "Bangumi not found for torrent {} (bangumi_id: {})",
@@ -134,12 +134,12 @@ impl RenameService {
     }
 
     /// Process a single task
-    async fn process_task(&self, task: &Task, torrent: &Torrent, bangumi: &Bangumi) -> Result<()> {
+    async fn process_task(&self, task: &Task, torrent: &Torrent, bangumi: &BangumiWithMetadata) -> Result<()> {
         tracing::info!(
             "Processing task: {} ({}) for bangumi: {}",
             task.name,
             task.id,
-            bangumi.title_chinese
+            bangumi.metadata.title_chinese
         );
 
         // Get file list from downloader
@@ -187,7 +187,7 @@ impl RenameService {
         &self,
         task: &Task,
         file: &TaskFile,
-        bangumi: &Bangumi,
+        bangumi: &BangumiWithMetadata,
         episode: i32,
         all_files: &[TaskFile],
     ) -> Result<()> {
@@ -198,10 +198,10 @@ impl RenameService {
 
         // Generate new filename using pathgen
         let new_filename_base = pathgen::generate_filename(
-            &bangumi.title_chinese,
-            bangumi.season,
+            &bangumi.metadata.title_chinese,
+            bangumi.metadata.season,
             episode,
-            Some(bangumi.platform.as_str()),
+            Some(bangumi.metadata.platform.as_str()),
         );
 
         let new_filename = format!("{}.{}", new_filename_base, ext);
@@ -331,7 +331,7 @@ impl RenameService {
         &self,
         save_path: &str,
         filename_base: &str,
-        bangumi: &Bangumi,
+        bangumi: &BangumiWithMetadata,
         episode: i32,
         original_filename: &str,
     ) -> Result<()> {
@@ -351,7 +351,7 @@ impl RenameService {
     }
 
     /// Generate NFO content in XML format
-    fn generate_nfo(bangumi: &Bangumi, episode: i32, original_filename: &str) -> String {
+    fn generate_nfo(bangumi: &BangumiWithMetadata, episode: i32, original_filename: &str) -> String {
         let mut nfo =
             String::from("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n");
         nfo.push_str("<episodedetails>\n");
@@ -360,26 +360,28 @@ impl RenameService {
         nfo.push_str(&format!("  <title>Episode {}</title>\n", episode));
         nfo.push_str(&format!(
             "  <showtitle>{}</showtitle>\n",
-            Self::escape_xml(&bangumi.title_chinese)
+            Self::escape_xml(&bangumi.metadata.title_chinese)
         ));
 
         // Season and episode
-        nfo.push_str(&format!("  <season>{}</season>\n", bangumi.season));
+        nfo.push_str(&format!("  <season>{}</season>\n", bangumi.metadata.season));
         nfo.push_str(&format!("  <episode>{}</episode>\n", episode));
 
         // Year and air date
-        nfo.push_str(&format!("  <year>{}</year>\n", bangumi.year));
-        nfo.push_str(&format!("  <aired>{}</aired>\n", bangumi.air_date));
+        nfo.push_str(&format!("  <year>{}</year>\n", bangumi.metadata.year));
+        if let Some(ref air_date) = bangumi.metadata.air_date {
+            nfo.push_str(&format!("  <aired>{}</aired>\n", air_date));
+        }
 
         // IDs
-        if let Some(tmdb_id) = bangumi.tmdb_id {
+        if let Some(tmdb_id) = bangumi.metadata.tmdb_id {
             nfo.push_str(&format!("  <tmdbid>{}</tmdbid>\n", tmdb_id));
             nfo.push_str(&format!(
                 "  <uniqueid type=\"tmdb\" default=\"true\">{}</uniqueid>\n",
                 tmdb_id
             ));
         }
-        if let Some(bgmtv_id) = bangumi.bgmtv_id {
+        if let Some(bgmtv_id) = bangumi.metadata.bgmtv_id {
             nfo.push_str(&format!(
                 "  <uniqueid type=\"bangumi\">{}</uniqueid>\n",
                 bgmtv_id
@@ -441,34 +443,44 @@ mod tests {
 
     #[test]
     fn test_generate_nfo() {
-        use crate::models::{Platform, SourceType};
+        use crate::models::{Bangumi, Metadata, Platform, SourceType};
 
-        let bangumi = Bangumi {
+        let metadata = Metadata {
             id: 1,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
+            mikan_id: None,
+            bgmtv_id: Some(12345),
+            tmdb_id: Some(67890),
             title_chinese: "测试动画".to_string(),
             title_japanese: None,
             title_original_chinese: "测试动画".to_string(),
             title_original_japanese: None,
             season: 1,
             year: 2024,
-            bgmtv_id: Some(12345),
-            tmdb_id: Some(67890),
-            poster_url: None,
-            air_date: "2024-01-01".to_string(),
-            air_week: 1,
+            platform: Platform::Tv,
             total_episodes: 12,
+            poster_url: None,
+            air_date: Some("2024-01-01".to_string()),
+            air_week: 1,
+            finished: false,
+        };
+
+        let bangumi = Bangumi {
+            id: 1,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            metadata_id: 1,
             episode_offset: 0,
             current_episode: 0,
             auto_complete: true,
             save_path: "/downloads".to_string(),
             source_type: SourceType::WebRip,
-            finished: false,
-            platform: Platform::Tv,
         };
 
-        let nfo = RenameService::generate_nfo(&bangumi, 5, "original.mkv");
+        let bangumi_with_metadata = BangumiWithMetadata { bangumi, metadata };
+
+        let nfo = RenameService::generate_nfo(&bangumi_with_metadata, 5, "original.mkv");
 
         assert!(nfo.contains("<episode>5</episode>"));
         assert!(nfo.contains("<season>1</season>"));

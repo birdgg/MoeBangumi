@@ -4,11 +4,11 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::models::{
-    format_rss_title, Bangumi, BangumiWithRss, CreateBangumi, CreateRss, RssEntry, UpdateBangumi,
-    UpdateBangumiRequest,
+    format_rss_title, BangumiWithMetadata, BangumiWithRss, CreateBangumi, CreateRss, RssEntry,
+    UpdateBangumi, UpdateBangumiRequest,
 };
-use crate::repositories::{BangumiRepository, RssRepository};
-use crate::services::{PosterService, RssProcessingService, SettingsService};
+use crate::repositories::{BangumiRepository, CreateBangumiData, RssRepository};
+use crate::services::{MetadataError, MetadataService, PosterService, RssProcessingService, SettingsService};
 
 #[derive(Debug, Error)]
 pub enum BangumiError {
@@ -16,13 +16,18 @@ pub enum BangumiError {
     Database(#[from] sqlx::Error),
     #[error("Bangumi not found")]
     NotFound,
+    #[error("Metadata error: {0}")]
+    Metadata(#[from] MetadataError),
     #[error("Path generation failed: {0}")]
     PathGeneration(#[from] pathgen::PathGenError),
+    #[error("Missing metadata: either metadata_id or metadata must be provided")]
+    MissingMetadata,
 }
 
 /// Service for managing Bangumi entities and their RSS subscriptions
 pub struct BangumiService {
     db: SqlitePool,
+    metadata: Arc<MetadataService>,
     poster: Arc<PosterService>,
     rss_processing: Arc<RssProcessingService>,
     settings: Arc<SettingsService>,
@@ -32,12 +37,14 @@ impl BangumiService {
     /// Create a new BangumiService
     pub fn new(
         db: SqlitePool,
+        metadata: Arc<MetadataService>,
         poster: Arc<PosterService>,
         rss_processing: Arc<RssProcessingService>,
         settings: Arc<SettingsService>,
     ) -> Self {
         Self {
             db,
+            metadata,
             poster,
             rss_processing,
             settings,
@@ -45,27 +52,43 @@ impl BangumiService {
     }
 
     /// Create a new bangumi with optional RSS subscriptions
-    pub async fn create(&self, mut data: CreateBangumi) -> Result<Bangumi, BangumiError> {
-        // Extract RSS entries before creating bangumi
-        let rss_entries = std::mem::take(&mut data.rss_entries);
+    pub async fn create(&self, data: CreateBangumi) -> Result<BangumiWithMetadata, BangumiError> {
+        // Extract RSS entries
+        let rss_entries = data.rss_entries.clone();
 
-        // Note: Poster download is handled asynchronously after bangumi creation
-        // to avoid blocking the API response
+        // Get or create metadata
+        let metadata = if let Some(metadata_id) = data.metadata_id {
+            // Use existing metadata
+            self.metadata.get_by_id(metadata_id).await?
+        } else if let Some(create_metadata) = data.metadata {
+            // Create new metadata (or find existing by external ID)
+            self.metadata.find_or_create(create_metadata).await?
+        } else {
+            return Err(BangumiError::MissingMetadata);
+        };
 
-        // Generate save_path using pathgen
+        // Generate save_path using pathgen with metadata
         let settings = self.settings.get();
         let base_path = &settings.downloader.save_path;
-        data.save_path = pathgen::generate_directory(
+        let save_path = pathgen::generate_directory(
             base_path,
-            &data.title_chinese,
-            data.year,
-            data.season,
-            data.tmdb_id,
-            Some(data.platform.as_str()),
+            &metadata.title_chinese,
+            metadata.year,
+            metadata.season,
+            metadata.tmdb_id,
+            Some(metadata.platform.as_str()),
         )?;
 
         // Create bangumi
-        let bangumi = BangumiRepository::create(&self.db, data).await?;
+        let create_data = CreateBangumiData {
+            metadata_id: metadata.id,
+            episode_offset: data.episode_offset,
+            auto_complete: data.auto_complete,
+            save_path,
+            source_type: data.source_type.as_str().to_string(),
+        };
+
+        let bangumi = BangumiRepository::create(&self.db, create_data).await?;
 
         // Collect newly created RSS IDs for background processing
         let mut new_rss_ids = Vec::new();
@@ -74,8 +97,8 @@ impl BangumiService {
         for entry in rss_entries {
             // Generate title: [group] {bangumi} S{season} or {bangumi} S{season}
             let title = format_rss_title(
-                &bangumi.title_chinese,
-                bangumi.season,
+                &metadata.title_chinese,
+                metadata.season,
                 entry.group.as_deref(),
             );
 
@@ -105,31 +128,39 @@ impl BangumiService {
         }
 
         // Trigger background poster download (non-blocking)
-        if let Some(ref poster_url) = bangumi.poster_url {
+        if let Some(ref poster_url) = metadata.poster_url {
             self.poster
-                .spawn_download_and_update(bangumi.id, poster_url.clone(), self.db.clone());
+                .spawn_download_and_update(metadata.id, poster_url.clone(), self.db.clone());
         }
 
-        Ok(bangumi)
+        Ok(BangumiWithMetadata { bangumi, metadata })
     }
 
-    /// Get all bangumi
-    pub async fn get_all(&self) -> Result<Vec<Bangumi>, BangumiError> {
-        Ok(BangumiRepository::get_all(&self.db).await?)
+    /// Get all bangumi with metadata
+    pub async fn get_all(&self) -> Result<Vec<BangumiWithMetadata>, BangumiError> {
+        Ok(BangumiRepository::get_all_with_metadata(&self.db).await?)
     }
 
-    /// Get a bangumi by ID with its RSS subscriptions
+    /// Get a bangumi by ID with metadata and RSS subscriptions
     pub async fn get_with_rss(&self, id: i64) -> Result<BangumiWithRss, BangumiError> {
-        let bangumi = BangumiRepository::get_by_id(&self.db, id)
+        let bangumi_with_metadata = BangumiRepository::get_with_metadata_by_id(&self.db, id)
             .await?
             .ok_or(BangumiError::NotFound)?;
 
         let rss_entries = RssRepository::get_by_bangumi_id(&self.db, id).await?;
 
         Ok(BangumiWithRss {
-            bangumi,
+            bangumi: bangumi_with_metadata.bangumi,
+            metadata: bangumi_with_metadata.metadata,
             rss_entries,
         })
+    }
+
+    /// Get a bangumi by ID with metadata
+    pub async fn get_by_id(&self, id: i64) -> Result<BangumiWithMetadata, BangumiError> {
+        BangumiRepository::get_with_metadata_by_id(&self.db, id)
+            .await?
+            .ok_or(BangumiError::NotFound)
     }
 
     /// Update a bangumi with optional RSS synchronization
@@ -143,12 +174,10 @@ impl BangumiService {
             .await?
             .ok_or(BangumiError::NotFound)?;
 
-        // Build update data (save_path is not editable, auto-generated on create)
+        // Build update data
         let update_data = UpdateBangumi {
             episode_offset: request.episode_offset,
             auto_complete: request.auto_complete,
-            air_date: request.air_date,
-            air_week: request.air_week,
             ..Default::default()
         };
 
@@ -185,10 +214,12 @@ impl BangumiService {
         bangumi_id: i64,
         entries: Vec<RssEntry>,
     ) -> Result<Vec<i64>, BangumiError> {
-        // Get bangumi info to generate RSS titles
-        let bangumi = BangumiRepository::get_by_id(&self.db, bangumi_id)
+        // Get bangumi with metadata info to generate RSS titles
+        let bangumi_with_metadata = BangumiRepository::get_with_metadata_by_id(&self.db, bangumi_id)
             .await?
             .ok_or(BangumiError::NotFound)?;
+
+        let metadata = &bangumi_with_metadata.metadata;
 
         // Get existing RSS URLs to identify new ones
         let existing_rss = RssRepository::get_by_bangumi_id(&self.db, bangumi_id).await?;
@@ -205,8 +236,8 @@ impl BangumiService {
 
             // Generate title: [group] {bangumi} S{season} or {bangumi} S{season}
             let title = format_rss_title(
-                &bangumi.title_chinese,
-                bangumi.season,
+                &metadata.title_chinese,
+                metadata.season,
                 entry.group.as_deref(),
             );
 

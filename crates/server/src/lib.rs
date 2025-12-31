@@ -1,4 +1,5 @@
 pub mod api;
+pub mod banner;
 pub mod config;
 pub mod db;
 pub mod error;
@@ -77,6 +78,7 @@ pub async fn run_server(
         app
     };
 
+    banner::print_banner();
     tracing::info!("Starting server on {}", addr);
     tracing::info!("Environment: {:?}", env);
     tracing::info!("Data path: {}", data_path);

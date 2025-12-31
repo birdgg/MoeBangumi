@@ -6,7 +6,7 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::time::sleep;
 
-use crate::repositories::{MikanMappingRepository, MikanMappingRow};
+use crate::repositories::MetadataRepository;
 
 #[derive(Debug, Error)]
 pub enum MikanMappingError {
@@ -20,6 +20,7 @@ pub enum MikanMappingError {
 pub type Result<T> = std::result::Result<T, MikanMappingError>;
 
 /// Service for managing Mikan-BGM.tv ID mappings
+/// Stores mappings in the metadata table
 pub struct MikanMappingService {
     db: SqlitePool,
     mikan: Arc<MikanClient>,
@@ -65,7 +66,7 @@ impl MikanMappingService {
         // 2. Process each bangumi
         for (i, bangumi) in bangumi_list.iter().enumerate() {
             // Check if already exists (avoid redundant requests)
-            if MikanMappingRepository::exists(&self.db, &bangumi.mikan_id).await? {
+            if MetadataRepository::mikan_id_exists(&self.db, &bangumi.mikan_id).await? {
                 skipped += 1;
                 tracing::debug!(
                     "Skipping existing mapping for mikan_id={}",
@@ -88,9 +89,13 @@ impl MikanMappingService {
                         bangumi.mikan_id,
                         bgmtv_id
                     );
-                    mappings.push(MikanMappingRow::new(
+                    // (mikan_id, bgmtv_id, title_chinese, air_week)
+                    // SeasonalBangumi doesn't have air_weekday, use 0 as default
+                    mappings.push((
                         bangumi.mikan_id.clone(),
                         bgmtv_id,
+                        bangumi.name.clone(),
+                        0, // air_week unknown from seasonal list
                     ));
                 }
                 Ok(None) => {
@@ -113,8 +118,8 @@ impl MikanMappingService {
             }
         }
 
-        // 3. Batch insert new mappings
-        let inserted = MikanMappingRepository::upsert_batch(&self.db, &mappings).await?;
+        // 3. Batch insert new mappings into metadata table
+        let inserted = MetadataRepository::upsert_batch_mikan(&self.db, &mappings).await?;
 
         tracing::info!(
             "Mikan mapping sync completed: {} inserted, {} skipped, {} no_bgmtv, {} errors",
@@ -129,23 +134,18 @@ impl MikanMappingService {
 
     /// Get Mikan ID by BGM.tv ID
     pub async fn get_mikan_id_by_bgmtv(&self, bgmtv_id: i64) -> Result<Option<String>> {
-        let mapping = MikanMappingRepository::get_by_bgmtv_id(&self.db, bgmtv_id).await?;
-        Ok(mapping.map(|m| m.mikan_id))
+        let metadata = MetadataRepository::get_by_bgmtv_id(&self.db, bgmtv_id).await?;
+        Ok(metadata.and_then(|m| m.mikan_id))
     }
 
     /// Get Mikan ID by TMDB ID
     pub async fn get_mikan_id_by_tmdb(&self, tmdb_id: i64) -> Result<Option<String>> {
-        let mapping = MikanMappingRepository::get_by_tmdb_id(&self.db, tmdb_id).await?;
-        Ok(mapping.map(|m| m.mikan_id))
+        let metadata = MetadataRepository::get_by_tmdb_id(&self.db, tmdb_id).await?;
+        Ok(metadata.and_then(|m| m.mikan_id))
     }
 
-    /// Update TMDB ID for a mapping (called when adding bangumi)
-    pub async fn update_tmdb_id(&self, mikan_id: &str, tmdb_id: i64) -> Result<bool> {
-        Ok(MikanMappingRepository::update_tmdb_id(&self.db, mikan_id, tmdb_id).await?)
-    }
-
-    /// Get mapping statistics
+    /// Get mapping statistics (count of metadata with mikan_id)
     pub async fn get_stats(&self) -> Result<i64> {
-        Ok(MikanMappingRepository::count(&self.db).await?)
+        Ok(MetadataRepository::count(&self.db).await?)
     }
 }

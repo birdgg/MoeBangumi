@@ -8,9 +8,10 @@ use tmdb::TmdbClient;
 use crate::config::Config;
 use crate::services::{
     BangumiService, CacheService, CalendarRefreshJob, CalendarService, DownloaderService,
-    HttpClientService, LogCleanupJob, LogService, MikanMappingService, MikanMappingSyncJob,
-    NotificationService, PosterService, RenameJob, RenameService, RssFetchJob, RssProcessingService,
-    SchedulerService, SettingsService, TorrentSearchService, WashingService,
+    HttpClientService, LogCleanupJob, LogService, MetadataService, MikanMappingService,
+    MikanMappingSyncJob, NotificationService, PosterService, RenameJob, RenameService,
+    RssFetchJob, RssProcessingService, SchedulerService, SettingsService, TorrentSearchService,
+    WashingService,
 };
 
 #[derive(Clone)]
@@ -28,6 +29,7 @@ pub struct AppState {
     pub scheduler: Arc<SchedulerService>,
     pub rss_fetch_job: Arc<RssFetchJob>,
     pub logs: Arc<LogService>,
+    pub metadata: Arc<MetadataService>,
     pub bangumi: Arc<BangumiService>,
     pub cache: Arc<CacheService>,
     pub calendar: Arc<CalendarService>,
@@ -113,9 +115,13 @@ impl AppState {
             Arc::clone(&washing),
         ));
 
-        // Create bangumi service (with RSS processing for immediate fetch)
+        // Create metadata service
+        let metadata = Arc::new(MetadataService::new(db.clone()));
+
+        // Create bangumi service (with MetadataService and RSS processing for immediate fetch)
         let bangumi = Arc::new(BangumiService::new(
             db.clone(),
+            Arc::clone(&metadata),
             Arc::clone(&poster),
             Arc::clone(&rss_processing),
             Arc::clone(&settings),
@@ -173,6 +179,7 @@ impl AppState {
             scheduler: Arc::new(scheduler),
             rss_fetch_job,
             logs,
+            metadata,
             bangumi,
             cache,
             calendar,

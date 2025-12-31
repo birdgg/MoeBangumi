@@ -7,7 +7,7 @@ use reqwest::Client;
 use sqlx::SqlitePool;
 use thiserror::Error;
 
-use crate::repositories::BangumiRepository;
+use crate::repositories::MetadataRepository;
 
 /// A function that asynchronously provides an HTTP client.
 /// Used for dynamic proxy configuration support.
@@ -211,10 +211,10 @@ impl PosterService {
     /// is updated with the local path. If it fails, the original URL is kept.
     ///
     /// # Arguments
-    /// * `bangumi_id` - The ID of the bangumi to update
+    /// * `metadata_id` - The ID of the metadata to update
     /// * `poster_url` - The URL of the poster to download
     /// * `db` - Database connection pool
-    pub fn spawn_download_and_update(self: &Arc<Self>, bangumi_id: i64, poster_url: String, db: SqlitePool) {
+    pub fn spawn_download_and_update(self: &Arc<Self>, metadata_id: i64, poster_url: String, db: SqlitePool) {
         // Skip if already a local path
         if poster_url.starts_with("/posters/") {
             return;
@@ -224,31 +224,31 @@ impl PosterService {
 
         tokio::spawn(async move {
             tracing::info!(
-                "Starting background poster download for bangumi {} from {}",
-                bangumi_id,
+                "Starting background poster download for metadata {} from {}",
+                metadata_id,
                 poster_url
             );
 
             match poster_service.try_download(&poster_url).await {
                 Some(local_path) => {
-                    match BangumiRepository::update_poster_url(&db, bangumi_id, &local_path).await {
+                    match MetadataRepository::update_poster_url(&db, metadata_id, &local_path).await {
                         Ok(true) => {
                             tracing::info!(
-                                "Successfully updated poster for bangumi {}: {}",
-                                bangumi_id,
+                                "Successfully updated poster for metadata {}: {}",
+                                metadata_id,
                                 local_path
                             );
                         }
                         Ok(false) => {
                             tracing::warn!(
-                                "Bangumi {} not found when updating poster",
-                                bangumi_id
+                                "Metadata {} not found when updating poster",
+                                metadata_id
                             );
                         }
                         Err(e) => {
                             tracing::error!(
-                                "Failed to update poster URL for bangumi {}: {}",
-                                bangumi_id,
+                                "Failed to update poster URL for metadata {}: {}",
+                                metadata_id,
                                 e
                             );
                         }
@@ -256,14 +256,14 @@ impl PosterService {
                 }
                 None => {
                     tracing::warn!(
-                        "Failed to download poster for bangumi {}, keeping original URL: {}",
-                        bangumi_id,
+                        "Failed to download poster for metadata {}, keeping original URL: {}",
+                        metadata_id,
                         poster_url
                     );
                 }
             }
 
-            tracing::debug!("Background poster download for bangumi {} completed", bangumi_id);
+            tracing::debug!("Background poster download for metadata {} completed", metadata_id);
         });
     }
 }

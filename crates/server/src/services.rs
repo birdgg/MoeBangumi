@@ -4,6 +4,7 @@ mod calendar;
 mod downloader;
 mod http_client;
 mod log;
+mod metadata;
 mod mikan_mapping;
 mod notification;
 mod poster;
@@ -17,6 +18,7 @@ mod washing;
 
 pub use bangumi::{BangumiError, BangumiService};
 pub use cache::{CacheError, CacheService};
+pub use metadata::{MetadataError, MetadataService};
 pub use calendar::{CalendarError, CalendarService};
 pub use downloader::{
     AddTaskOptions, Downloader, DownloaderClient, DownloaderConfig, DownloaderError,

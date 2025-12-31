@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use utoipa::ToSchema;
 
-use super::Clearable;
+use super::{CreateMetadata, Metadata};
 
 /// Source type for bangumi
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, ToSchema)]
@@ -33,82 +33,23 @@ impl FromStr for SourceType {
     }
 }
 
-/// Platform type for bangumi (TV, Movie, OVA)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum Platform {
-    #[default]
-    Tv,
-    Movie,
-    Ova,
-}
-
-impl Platform {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Platform::Tv => "tv",
-            Platform::Movie => "movie",
-            Platform::Ova => "ova",
-        }
-    }
-
-    /// Check if this platform is a movie
-    pub fn is_movie(&self) -> bool {
-        matches!(self, Platform::Movie)
-    }
-}
-
-impl FromStr for Platform {
-    type Err = std::convert::Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s.to_lowercase().as_str() {
-            "movie" => Platform::Movie,
-            "ova" => Platform::Ova,
-            _ => Platform::Tv,
-        })
-    }
-}
-
-/// Bangumi (anime) main entity
+/// Bangumi (anime) subscription entity
+/// Stores user's subscription state and download configuration
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Bangumi {
     pub id: i64,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 
-    /// Chinese title (primary display)
-    pub title_chinese: String,
-    /// Japanese original name
-    pub title_japanese: Option<String>,
-    /// Original Chinese title (native language, required, unique)
-    pub title_original_chinese: String,
-    /// Original Japanese title
-    pub title_original_japanese: Option<String>,
-    /// Season number
-    pub season: i32,
-    /// Year
-    pub year: i32,
+    /// Reference to metadata (foreign key)
+    pub metadata_id: i64,
 
-    /// Bangumi.tv ID
-    pub bgmtv_id: Option<i64>,
-    /// TMDB ID
-    pub tmdb_id: Option<i64>,
-
-    /// Poster URL
-    pub poster_url: Option<String>,
-    /// First air date (YYYY-MM-DD format, required)
-    pub air_date: String,
-    /// Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday, required)
-    pub air_week: i32,
-    /// Total episodes (0=unknown)
-    pub total_episodes: i32,
     /// Episode offset
     pub episode_offset: i32,
 
     /// Current downloaded episode
     pub current_episode: i32,
-    /// Only download the latest episode
+    /// Only download first matching episode per RSS check
     pub auto_complete: bool,
 
     /// Save path (required)
@@ -116,12 +57,15 @@ pub struct Bangumi {
 
     /// Source type: webrip or bdrip
     pub source_type: SourceType,
+}
 
-    /// Whether the bangumi has finished airing
-    pub finished: bool,
-
-    /// Platform type (TV, Movie, OVA)
-    pub platform: Platform,
+/// Bangumi with its associated metadata
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BangumiWithMetadata {
+    #[serde(flatten)]
+    pub bangumi: Bangumi,
+    /// Associated metadata
+    pub metadata: Metadata,
 }
 
 /// RSS entry for creating bangumi with subscriptions
@@ -143,32 +87,11 @@ pub struct RssEntry {
 /// Request body for creating a new bangumi
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateBangumi {
-    /// Chinese title (required)
-    pub title_chinese: String,
-    /// Japanese original name
-    pub title_japanese: Option<String>,
-    /// Original Chinese title (native language, required, unique)
-    pub title_original_chinese: String,
-    /// Original Japanese title
-    pub title_original_japanese: Option<String>,
-    /// Season number (default: 1)
-    #[serde(default = "default_season")]
-    pub season: i32,
-    /// Year (required)
-    pub year: i32,
-    /// Bangumi.tv ID
-    pub bgmtv_id: Option<i64>,
-    /// TMDB ID
-    pub tmdb_id: Option<i64>,
-    /// Poster URL
-    pub poster_url: Option<String>,
-    /// First air date (YYYY-MM-DD format, required)
-    pub air_date: String,
-    /// Day of week when new episodes air (0=Sunday, 1=Monday, ..., 6=Saturday, required)
-    pub air_week: i32,
-    /// Total episodes
-    #[serde(default)]
-    pub total_episodes: i32,
+    /// Metadata ID (if using existing metadata)
+    pub metadata_id: Option<i64>,
+    /// Inline metadata creation (if not using existing)
+    pub metadata: Option<CreateMetadata>,
+
     /// Episode offset
     #[serde(default)]
     pub episode_offset: i32,
@@ -178,34 +101,28 @@ pub struct CreateBangumi {
     /// Source type
     #[serde(default)]
     pub source_type: SourceType,
-    /// Whether the bangumi has finished airing
-    #[serde(default)]
-    pub finished: bool,
-    /// Platform type (TV, Movie, OVA)
-    #[serde(default)]
-    pub platform: Platform,
+
     /// RSS subscriptions to create with this bangumi
     #[serde(default)]
     pub rss_entries: Vec<RssEntry>,
+
     /// Save path (auto-generated by backend, not exposed in API)
     #[serde(skip_deserializing, default)]
     #[schema(read_only)]
     pub save_path: String,
 }
 
-fn default_season() -> i32 {
-    1
-}
-
 fn default_auto_complete() -> bool {
     true
 }
 
-/// Bangumi with its RSS subscriptions
+/// Bangumi with metadata and RSS subscriptions
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BangumiWithRss {
     #[serde(flatten)]
     pub bangumi: Bangumi,
+    /// Associated metadata
+    pub metadata: Metadata,
     /// RSS subscriptions for this bangumi
     pub rss_entries: Vec<super::Rss>,
 }
@@ -217,45 +134,14 @@ pub struct UpdateBangumiRequest {
     pub episode_offset: Option<i32>,
     /// Only download first matching episode per RSS check
     pub auto_complete: Option<bool>,
-    /// First air date (None = unchanged, Some = new value)
-    pub air_date: Option<String>,
-    /// Day of week when new episodes air (None = unchanged, Some = new value)
-    pub air_week: Option<i32>,
     /// RSS entries to sync (replaces all existing entries)
     pub rss_entries: Option<Vec<RssEntry>>,
 }
 
 /// Request body for updating a bangumi.
-/// Fields use `Clearable` for optional fields that can be cleared,
-/// and `Option` for required fields (None = unchanged, Some = new value).
+/// Only contains subscription-related fields (metadata updates use UpdateMetadata)
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct UpdateBangumi {
-    #[serde(default)]
-    pub title_chinese: Option<String>,
-    #[serde(default)]
-    pub title_japanese: Clearable<String>,
-    #[serde(default)]
-    pub title_original_chinese: Option<String>,
-    #[serde(default)]
-    pub title_original_japanese: Clearable<String>,
-    #[serde(default)]
-    pub season: Option<i32>,
-    #[serde(default)]
-    pub year: Option<i32>,
-    #[serde(default)]
-    pub bgmtv_id: Clearable<i64>,
-    #[serde(default)]
-    pub tmdb_id: Clearable<i64>,
-    #[serde(default)]
-    pub poster_url: Clearable<String>,
-    /// First air date (required field, cannot be cleared)
-    #[serde(default)]
-    pub air_date: Option<String>,
-    /// Day of week when new episodes air (required field, cannot be cleared)
-    #[serde(default)]
-    pub air_week: Option<i32>,
-    #[serde(default)]
-    pub total_episodes: Option<i32>,
     #[serde(default)]
     pub episode_offset: Option<i32>,
     #[serde(default)]
@@ -264,8 +150,4 @@ pub struct UpdateBangumi {
     pub auto_complete: Option<bool>,
     #[serde(default)]
     pub source_type: Option<SourceType>,
-    #[serde(default)]
-    pub finished: Option<bool>,
-    #[serde(default)]
-    pub platform: Option<Platform>,
 }

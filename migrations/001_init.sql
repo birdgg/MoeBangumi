@@ -1,33 +1,70 @@
--- Bangumi (番剧) main table
+-- Metadata table for anime information
+-- Unified metadata center caching data from BGM.tv, TMDB, and Mikan
+CREATE TABLE IF NOT EXISTS metadata (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    -- External service IDs
+    mikan_id TEXT,                                  -- Mikan bangumi ID (from mikanani.me)
+    bgmtv_id INTEGER,                               -- BGM.tv subject ID
+    tmdb_id INTEGER,                                -- TMDB ID
+
+    -- Titles (bilingual support)
+    title_chinese TEXT NOT NULL,                    -- Chinese title (primary display)
+    title_japanese TEXT,                            -- Japanese original name
+    title_original_chinese TEXT NOT NULL,           -- Original Chinese title (from API)
+    title_original_japanese TEXT,                   -- Original Japanese title (from API)
+
+    -- Basic info
+    season INTEGER NOT NULL DEFAULT 1,              -- Season number
+    year INTEGER NOT NULL,                          -- Year
+    platform TEXT NOT NULL DEFAULT 'tv' CHECK(platform IN ('tv', 'movie', 'ova')),
+
+    -- Metadata
+    total_episodes INTEGER NOT NULL DEFAULT 0,      -- Total episodes (0=unknown)
+    poster_url TEXT,                                -- Poster image URL
+    air_date DATE,                                  -- First air date
+    air_week INTEGER NOT NULL,                      -- Air weekday (0=Sunday ~ 6=Saturday)
+    finished INTEGER NOT NULL DEFAULT 0             -- Whether the anime has finished airing
+);
+
+-- Metadata indexes
+CREATE INDEX IF NOT EXISTS idx_metadata_title_chinese ON metadata(title_chinese);
+CREATE INDEX IF NOT EXISTS idx_metadata_title_japanese ON metadata(title_japanese);
+CREATE INDEX IF NOT EXISTS idx_metadata_year ON metadata(year);
+CREATE INDEX IF NOT EXISTS idx_metadata_season ON metadata(season);
+CREATE INDEX IF NOT EXISTS idx_metadata_air_week ON metadata(air_week);
+
+-- Unique indexes for external IDs (ensure uniqueness for non-null values)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_mikan_id ON metadata(mikan_id) WHERE mikan_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_bgmtv_id ON metadata(bgmtv_id) WHERE bgmtv_id IS NOT NULL AND bgmtv_id != 0;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_tmdb_id ON metadata(tmdb_id) WHERE tmdb_id IS NOT NULL AND tmdb_id != 0;
+
+-- Trigger to update updated_at on row modification
+CREATE TRIGGER IF NOT EXISTS update_metadata_timestamp
+AFTER UPDATE ON metadata
+FOR EACH ROW
+BEGIN
+    UPDATE metadata SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+-- Bangumi (番剧) subscription table
+-- Stores user's subscription state and download configuration
 CREATE TABLE IF NOT EXISTS bangumi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    -- Basic info - bilingual title support
-    title_chinese TEXT NOT NULL,                    -- Chinese title (primary display)
-    title_japanese TEXT,                            -- Japanese original name
-    title_original_chinese TEXT NOT NULL DEFAULT '',-- Original Chinese title (native language, required, unique)
-    title_original_japanese TEXT,                   -- Original Japanese title
-    season INTEGER NOT NULL DEFAULT 1,              -- Season number
-    year INTEGER NOT NULL,                          -- Year
+    -- Foreign key to metadata (required, one-to-one)
+    metadata_id INTEGER NOT NULL REFERENCES metadata(id) ON DELETE RESTRICT,
 
-    -- External metadata IDs
-    bgmtv_id INTEGER,                               -- Bangumi.tv ID
-    tmdb_id INTEGER,                                -- TMDB ID
-
-    -- Metadata
-    poster_url TEXT,                                -- Poster URL
-    air_date DATE NOT NULL,                         -- First air date (required)
-    air_week INTEGER NOT NULL,                      -- Air weekday (0=Sunday, 1=Monday, ..., 6=Saturday, required)
-    total_episodes INTEGER NOT NULL DEFAULT 0,      -- Total episodes (0=unknown)
-    episode_offset INTEGER NOT NULL DEFAULT 0,      -- Episode offset
-    platform TEXT NOT NULL DEFAULT 'tv' CHECK(platform IN ('tv', 'movie', 'ova')),  -- Platform type: tv, movie, ova
+    -- Download configuration
+    episode_offset INTEGER NOT NULL DEFAULT 0,      -- Episode offset for download
 
     -- Status management
     current_episode INTEGER NOT NULL DEFAULT 0,     -- Current downloaded episode
     auto_complete INTEGER NOT NULL DEFAULT 1,       -- Only download first matching episode per RSS check (boolean)
-    finished INTEGER NOT NULL DEFAULT 0,            -- Whether bangumi has completed airing
 
     -- Path configuration
     save_path TEXT NOT NULL,                        -- Save path (required)
@@ -37,17 +74,7 @@ CREATE TABLE IF NOT EXISTS bangumi (
 );
 
 -- Bangumi indexes
-CREATE INDEX IF NOT EXISTS idx_bangumi_title_chinese ON bangumi(title_chinese);
-CREATE INDEX IF NOT EXISTS idx_bangumi_title_japanese ON bangumi(title_japanese);
-CREATE INDEX IF NOT EXISTS idx_bangumi_title_original_chinese ON bangumi(title_original_chinese);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bangumi_title_original_chinese_unique ON bangumi(title_original_chinese);
-CREATE INDEX IF NOT EXISTS idx_bangumi_title_original_japanese ON bangumi(title_original_japanese);
-CREATE INDEX IF NOT EXISTS idx_bangumi_season ON bangumi(season);
-CREATE INDEX IF NOT EXISTS idx_bangumi_year ON bangumi(year);
-CREATE INDEX IF NOT EXISTS idx_bangumi_air_date ON bangumi(air_date);
-
--- Unique indexes for non-zero external IDs
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bangumi_bgmtv_id ON bangumi(bgmtv_id) WHERE bgmtv_id IS NOT NULL AND bgmtv_id != 0;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bangumi_metadata_id ON bangumi(metadata_id);
 
 -- Trigger to update updated_at on row modification
 CREATE TRIGGER IF NOT EXISTS update_bangumi_timestamp
@@ -215,24 +242,3 @@ BEGIN
     UPDATE calendar_subject SET updated_at = CURRENT_TIMESTAMP WHERE bgmtv_id = OLD.bgmtv_id;
 END;
 
--- Mikan to BGM.tv/TMDB ID mapping table
--- Maps Mikan bangumi IDs to external service IDs for quick lookup
-CREATE TABLE IF NOT EXISTS mikan_bgmtv_mapping (
-    -- Primary key: Mikan bangumi ID (unique identifier on mikanani.me)
-    mikan_id TEXT PRIMARY KEY,
-
-    -- External service IDs
-    bgmtv_id INTEGER NOT NULL,          -- BGM.tv subject ID (required, scraped from Mikan)
-    tmdb_id INTEGER,                    -- TMDB ID (optional, updated when adding bangumi)
-
-    -- Timestamp
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- Index: query by BGM.tv ID (main use case)
-CREATE INDEX IF NOT EXISTS idx_mikan_bgmtv_mapping_bgmtv_id
-    ON mikan_bgmtv_mapping(bgmtv_id);
-
--- Index: query by TMDB ID
-CREATE INDEX IF NOT EXISTS idx_mikan_bgmtv_mapping_tmdb_id
-    ON mikan_bgmtv_mapping(tmdb_id);
