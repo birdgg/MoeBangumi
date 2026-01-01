@@ -7,7 +7,7 @@ pub struct ParseResult {
     pub season: Option<i32>,
     pub subtitle_group: Option<String>,
     pub resolution: Option<String>,
-    pub sub_type: Option<String>,
+    pub sub_type: Vec<String>,
 }
 
 // 中文数字映射

@@ -1,10 +1,5 @@
-pub mod bgmtv;
 pub mod models;
 pub mod parser;
-
-// Re-export commonly used types
-pub use models::ParseResult;
-pub use parser::Parser;
 
 #[cfg(test)]
 mod tests {
@@ -21,7 +16,7 @@ mod tests {
         season: Option<i32>,
         subtitle_group: Option<String>,
         resolution: Option<String>,
-        sub_type: Option<String>,
+        sub_type: Vec<String>,
     }
 
     #[derive(Debug, Deserialize)]

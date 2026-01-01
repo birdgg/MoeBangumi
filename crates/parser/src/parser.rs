@@ -23,16 +23,21 @@ static RESOLUTION_720_PATTERN: LazyLock<Regex> =
 static RESOLUTION_2160_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"2160|4096x2160|4K|4k").unwrap());
 
-// 匹配字幕语言的正则表达式
-static SUB_LANG_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(简体?中?文?|繁体?中?文?|中文|CHS|CHT|SC|TC|GB|GBK|GB2312|BIG5|日语?|JP|JPSC|ENG|英语?|英文)").unwrap()
-});
+// 匹配简体中文字幕的正则表达式
+static SUB_CHS_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[简中]|CHS|SC|GB|GBK|GB2312").unwrap());
 
-// 匹配完整字幕短语的正则表达式（如 "中日双语"、"简繁内封字幕" 等）
-// 注意：较长的模式必须放在较短的模式前面，否则会被短模式先匹配
-static SUB_PHRASE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(中日双语|简日双语|简繁日内封字幕|简繁内封字幕|简繁内封|简繁日内封|简日内嵌|简日内封|繁日内嵌|繁日内封|简体内嵌|简体内封|繁体内嵌|繁体内封|内封字幕|外挂字幕|内嵌字幕|简体中文|繁体中文|简繁|简日|繁日|CHS|CHT|SC|TC)").unwrap()
-});
+// 匹配繁体中文字幕的正则表达式
+static SUB_CHT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"繁|CHT|BIG5").unwrap());
+
+// 匹配日语字幕的正则表达式
+static SUB_JPN_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[日]|JP|JPSC").unwrap());
+
+// 匹配英语字幕的正则表达式
+static SUB_ENG_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"ENG|英语|英文").unwrap());
 
 // 匹配非法前缀字符的正则表达式
 static PREFIX_PATTERN: LazyLock<Regex> =
@@ -46,7 +51,8 @@ static SEASON_PATTERN: LazyLock<Regex> =
 static BRACKET_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\[\]]").unwrap());
 
 // 匹配中文字符的正则表达式
-static CHS_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\u4e00-\u9fff]{2,}").unwrap());
+static CHS_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[\u4e00-\u9fff]{2,}").unwrap());
 
 // 匹配日文字符的正则表达式
 static JP_PATTERN: LazyLock<Regex> =
@@ -64,7 +70,8 @@ static PUNCTUATION_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[^\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]").unwrap());
 
 // 匹配连续的空格
-static MULTIPLE_SPACES_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s{2,}").unwrap());
+static MULTIPLE_SPACES_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\s{2,}").unwrap());
 
 /// 动画文件名解析器
 #[derive(Debug, Clone, Default)]
@@ -209,72 +216,50 @@ impl Parser {
         result.trim().to_string()
     }
 
-    /// 标准化字幕类型，移除描述性词语，保留语言代码
-    fn normalize_sub_type(sub: &str) -> Option<String> {
-        // 只移除描述词，保留语言代码
-        let result = sub
-            .replace("双语", "")
-            .replace("内封字幕", "")
-            .replace("外挂字幕", "")
-            .replace("内嵌字幕", "")
-            .replace("内封", "")
-            .replace("内嵌", "");
-
-        let result = result.trim();
-        if result.is_empty() {
-            None
-        } else {
-            Some(result.to_string())
-        }
-    }
-
     /// 从其他信息中提取字幕类型和分辨率
-    fn find_tags(other: &str) -> (Option<String>, Option<String>) {
+    fn find_tags(other: &str) -> (Vec<String>, Option<String>) {
         let replaced = BRACKET_PATTERN.replace_all(other, " ").into_owned();
         let elements: Vec<&str> = replaced.split_whitespace().collect();
 
-        let mut sub_type = None;
+        let mut subs = Vec::new();
         let mut resolution = None;
 
-        // 优先匹配完整的字幕短语
         for &element in &elements {
-            if sub_type.is_none() {
-                if let Some(m) = SUB_PHRASE_PATTERN.find(element) {
-                    sub_type = Self::normalize_sub_type(m.as_str());
-                }
+            if SUB_CHS_PATTERN.is_match(element) {
+                subs.push("CHS".to_string());
             }
-            // 分辨率检测：优先匹配最高分辨率，已设置则跳过
-            if resolution.is_none() {
-                if RESOLUTION_2160_PATTERN.is_match(element) {
-                    resolution = Some("2160P".to_string());
-                } else if RESOLUTION_1080_PATTERN.is_match(element) {
-                    resolution = Some("1080P".to_string());
-                } else if RESOLUTION_720_PATTERN.is_match(element) {
-                    resolution = Some("720P".to_string());
-                }
+            if SUB_CHT_PATTERN.is_match(element) {
+                subs.push("CHT".to_string());
             }
-        }
-
-        // 如果没找到完整短语，回退到单独语言代码匹配
-        if sub_type.is_none() {
-            let mut subs = Vec::new();
-            for &element in &elements {
-                for m in SUB_LANG_PATTERN.find_iter(element) {
-                    if let Some(normalized) = Self::normalize_sub_type(m.as_str()) {
-                        subs.push(normalized);
-                    }
-                }
+            if SUB_JPN_PATTERN.is_match(element) {
+                subs.push("JPN".to_string());
             }
-            // 去重
-            subs.sort();
-            subs.dedup();
-
-            if !subs.is_empty() {
-                sub_type = Some(subs.join("+"));
+            if SUB_ENG_PATTERN.is_match(element) {
+                subs.push("ENG".to_string());
+            }
+            if RESOLUTION_1080_PATTERN.is_match(element) {
+                resolution = Some("1080P".to_string());
+            }
+            if RESOLUTION_720_PATTERN.is_match(element) {
+                resolution = Some("720P".to_string());
+            }
+            if RESOLUTION_2160_PATTERN.is_match(element) {
+                resolution = Some("2160P".to_string());
             }
         }
 
-        (sub_type, resolution)
+        // 去重
+        subs.sort();
+        subs.dedup();
+
+        (subs, resolution)
+    }
+
+    /// 清理字幕类型信息，移除无关后缀
+    fn clean_sub(subs: Vec<String>) -> Vec<String> {
+        subs.into_iter()
+            .map(|s| s.replace("_MP4", "").replace("_MKV", ""))
+            .collect()
     }
 
     #[allow(dead_code)]
@@ -323,7 +308,8 @@ impl Parser {
             .and_then(|m| m.as_str().parse().ok());
 
         // 处理其他标签
-        let (sub_type, resolution) = Self::find_tags(other);
+        let (sub, resolution) = Self::find_tags(other);
+        let sub = Self::clean_sub(sub);
 
         // 返回解析结果
         Ok(ParseResult {
@@ -334,7 +320,7 @@ impl Parser {
             season,
             subtitle_group: group,
             resolution,
-            sub_type,
+            sub_type: sub,
         })
     }
 }
