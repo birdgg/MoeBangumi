@@ -5,7 +5,6 @@ mod downloader;
 mod http_client;
 mod log;
 mod metadata;
-mod mikan_mapping;
 mod notification;
 mod poster;
 mod rename;
@@ -26,14 +25,13 @@ pub use downloader::{
 };
 pub use http_client::{HttpClientError, HttpClientService};
 pub use log::{LogError, LogService};
-pub use mikan_mapping::{MikanMappingError, MikanMappingService};
 pub use notification::{NotificationError, NotificationService};
 pub use poster::{PosterError, PosterService};
 pub use rename::{RenameError, RenameService};
 pub use rss_processing::RssProcessingService;
 pub use scheduler::{
-    CalendarRefreshJob, JobResult, LogCleanupJob, MikanMappingSyncJob, RenameJob, RssFetchJob,
-    SchedulerJob, SchedulerService,
+    CalendarRefreshJob, JobResult, LogCleanupJob, RenameJob, RssFetchJob, SchedulerJob,
+    SchedulerService,
 };
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};
 pub use torrent_search::{TorrentSearchError, TorrentSearchService};

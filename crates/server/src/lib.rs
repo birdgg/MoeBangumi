@@ -21,7 +21,9 @@ pub use banner::print_banner;
 pub use config::{Config, Environment};
 pub use db::create_pool;
 pub use error::{AppError, AppResult};
-pub use services::{create_log_channel, start_log_writer, DatabaseLayer, LogReceiver, SettingsService};
+pub use services::{
+    create_log_channel, start_log_writer, DatabaseLayer, LogReceiver, SettingsService,
+};
 pub use state::AppState;
 pub use utils::SeasonIterator;
 
@@ -81,11 +83,6 @@ pub async fn run_server(
     } else {
         app
     };
-
-    tracing::info!("Starting server on {}", addr);
-    tracing::info!("Environment: {:?}", env);
-    tracing::info!("Data path: {}", data_path);
-    tracing::info!("API documentation available at http://{}/docs", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app.into_make_service()).await?;

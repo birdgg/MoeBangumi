@@ -1,13 +1,11 @@
 mod calendar_refresh_job;
 mod log_cleanup_job;
-mod mikan_mapping_job;
 mod rename_job;
 mod rss_fetch_job;
 mod traits;
 
 pub use calendar_refresh_job::CalendarRefreshJob;
 pub use log_cleanup_job::LogCleanupJob;
-pub use mikan_mapping_job::MikanMappingSyncJob;
 pub use rename_job::RenameJob;
 pub use rss_fetch_job::RssFetchJob;
 pub use traits::{JobResult, SchedulerJob};
