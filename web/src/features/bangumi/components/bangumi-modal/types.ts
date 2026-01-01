@@ -10,8 +10,6 @@ export interface BangumiModalData {
   // Titles
   titleChinese: string;
   titleJapanese?: string | null;
-  titleOriginalChinese?: string | null;
-  titleOriginalJapanese?: string | null;
 
   // Metadata
   posterUrl?: string | null;

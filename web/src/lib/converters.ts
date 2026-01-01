@@ -14,8 +14,6 @@ export function subjectToModalData(subject: Subject): BangumiModalData {
     bgmtvId: subject.id,
     titleChinese: parsedChinese.name,
     titleJapanese: subject.name_cn ? parsedJapanese.name : null,
-    titleOriginalChinese: subject.name_cn,
-    titleOriginalJapanese: subject.name,
     posterUrl: subject.image,
     year: subject.date ? parseInt(subject.date.split("-")[0], 10) || null : null,
     season,
@@ -40,8 +38,6 @@ export function calendarSubjectToModalData(
     bgmtvId: subject.id,
     titleChinese: parsedChinese.name,
     titleJapanese: subject.name_cn ? parsedJapanese.name : null,
-    titleOriginalChinese: subject.name_cn,
-    titleOriginalJapanese: subject.name,
     posterUrl: subject.images.large || subject.images.common,
     year: subject.air_date
       ? parseInt(subject.air_date.split("-")[0], 10) || null

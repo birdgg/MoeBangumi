@@ -62,6 +62,10 @@ export const BangumiDetailSchema = {
   type: "object",
   required: ["subgroups"],
   properties: {
+    bgmtv_id: {
+      type: ["integer", "null"],
+      format: "int64",
+    },
     subgroups: {
       type: "array",
       items: {
@@ -317,15 +321,6 @@ export const CreateMetadataSchema = {
       type: ["string", "null"],
       description: "Japanese original name",
     },
-    title_original_chinese: {
-      type: ["string", "null"],
-      description:
-        "Original Chinese title (from API, defaults to title_chinese if not provided)",
-    },
-    title_original_japanese: {
-      type: ["string", "null"],
-      description: "Original Japanese title (from API)",
-    },
     tmdb_id: {
       type: ["integer", "null"],
       format: "int64",
@@ -501,7 +496,6 @@ export const MetadataSchema = {
     "created_at",
     "updated_at",
     "title_chinese",
-    "title_original_chinese",
     "season",
     "year",
     "platform",
@@ -560,14 +554,6 @@ export const MetadataSchema = {
     title_japanese: {
       type: ["string", "null"],
       description: "Japanese original name",
-    },
-    title_original_chinese: {
-      type: "string",
-      description: "Original Chinese title (from API)",
-    },
-    title_original_japanese: {
-      type: ["string", "null"],
-      description: "Original Japanese title (from API)",
     },
     tmdb_id: {
       type: ["integer", "null"],

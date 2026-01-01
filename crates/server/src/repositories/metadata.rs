@@ -8,7 +8,7 @@ const SELECT_METADATA: &str = r#"
     SELECT
         id, created_at, updated_at,
         mikan_id, bgmtv_id, tmdb_id,
-        title_chinese, title_japanese, title_original_chinese, title_original_japanese,
+        title_chinese, title_japanese,
         season, year, platform,
         total_episodes, poster_url, air_date, air_week, finished
     FROM metadata
@@ -19,20 +19,15 @@ pub struct MetadataRepository;
 impl MetadataRepository {
     /// Create new metadata
     pub async fn create(pool: &SqlitePool, data: CreateMetadata) -> Result<Metadata, sqlx::Error> {
-        // Use title_chinese as title_original_chinese if not provided
-        let title_original_chinese = data
-            .title_original_chinese
-            .unwrap_or_else(|| data.title_chinese.clone());
-
         let result = sqlx::query(
             r#"
             INSERT INTO metadata (
                 mikan_id, bgmtv_id, tmdb_id,
-                title_chinese, title_japanese, title_original_chinese, title_original_japanese,
+                title_chinese, title_japanese,
                 season, year, platform,
                 total_episodes, poster_url, air_date, air_week, finished
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id
             "#,
         )
@@ -41,8 +36,6 @@ impl MetadataRepository {
         .bind(data.tmdb_id)
         .bind(&data.title_chinese)
         .bind(&data.title_japanese)
-        .bind(&title_original_chinese)
-        .bind(&data.title_original_japanese)
         .bind(data.season)
         .bind(data.year)
         .bind(data.platform.as_str())
@@ -139,12 +132,6 @@ impl MetadataRepository {
         let tmdb_id = data.tmdb_id.resolve(existing.tmdb_id);
         let title_chinese = data.title_chinese.unwrap_or(existing.title_chinese);
         let title_japanese = data.title_japanese.resolve(existing.title_japanese);
-        let title_original_chinese = data
-            .title_original_chinese
-            .unwrap_or(existing.title_original_chinese);
-        let title_original_japanese = data
-            .title_original_japanese
-            .resolve(existing.title_original_japanese);
         let season = data.season.unwrap_or(existing.season);
         let year = data.year.unwrap_or(existing.year);
         let platform = data.platform.unwrap_or(existing.platform);
@@ -162,17 +149,15 @@ impl MetadataRepository {
                 tmdb_id = $3,
                 title_chinese = $4,
                 title_japanese = $5,
-                title_original_chinese = $6,
-                title_original_japanese = $7,
-                season = $8,
-                year = $9,
-                platform = $10,
-                total_episodes = $11,
-                poster_url = $12,
-                air_date = $13,
-                air_week = $14,
-                finished = $15
-            WHERE id = $16
+                season = $6,
+                year = $7,
+                platform = $8,
+                total_episodes = $9,
+                poster_url = $10,
+                air_date = $11,
+                air_week = $12,
+                finished = $13
+            WHERE id = $14
             "#,
         )
         .bind(&mikan_id)
@@ -180,8 +165,6 @@ impl MetadataRepository {
         .bind(tmdb_id)
         .bind(&title_chinese)
         .bind(&title_japanese)
-        .bind(&title_original_chinese)
-        .bind(&title_original_japanese)
         .bind(season)
         .bind(year)
         .bind(platform.as_str())
@@ -239,9 +222,9 @@ impl MetadataRepository {
             let result = sqlx::query(
                 r#"
                 INSERT OR IGNORE INTO metadata (
-                    mikan_id, bgmtv_id, title_chinese, title_original_chinese, year, air_week
+                    mikan_id, bgmtv_id, title_chinese, year, air_week
                 )
-                VALUES ($1, $2, $3, $3, $4, $5)
+                VALUES ($1, $2, $3, $4, $5)
                 "#,
             )
             .bind(mikan_id)
@@ -290,8 +273,6 @@ struct MetadataRow {
     tmdb_id: Option<i64>,
     title_chinese: String,
     title_japanese: Option<String>,
-    title_original_chinese: String,
-    title_original_japanese: Option<String>,
     season: i32,
     year: i32,
     platform: String,
@@ -313,8 +294,6 @@ impl From<MetadataRow> for Metadata {
             tmdb_id: row.tmdb_id,
             title_chinese: row.title_chinese,
             title_japanese: row.title_japanese,
-            title_original_chinese: row.title_original_chinese,
-            title_original_japanese: row.title_original_japanese,
             season: row.season,
             year: row.year,
             platform: row.platform.parse().unwrap_or_default(),

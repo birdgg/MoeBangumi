@@ -60,10 +60,6 @@ pub struct Metadata {
     pub title_chinese: String,
     /// Japanese original name
     pub title_japanese: Option<String>,
-    /// Original Chinese title (from API)
-    pub title_original_chinese: String,
-    /// Original Japanese title (from API)
-    pub title_original_japanese: Option<String>,
 
     /// Season number
     pub season: i32,
@@ -98,10 +94,6 @@ pub struct CreateMetadata {
     pub title_chinese: String,
     /// Japanese original name
     pub title_japanese: Option<String>,
-    /// Original Chinese title (from API, defaults to title_chinese if not provided)
-    pub title_original_chinese: Option<String>,
-    /// Original Japanese title (from API)
-    pub title_original_japanese: Option<String>,
 
     /// Season number (default: 1)
     #[serde(default = "default_season")]
@@ -144,10 +136,6 @@ pub struct UpdateMetadata {
     pub title_chinese: Option<String>,
     #[serde(default)]
     pub title_japanese: Clearable<String>,
-    #[serde(default)]
-    pub title_original_chinese: Option<String>,
-    #[serde(default)]
-    pub title_original_japanese: Clearable<String>,
 
     #[serde(default)]
     pub season: Option<i32>,

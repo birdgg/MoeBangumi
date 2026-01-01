@@ -454,8 +454,6 @@ mod tests {
             tmdb_id: Some(67890),
             title_chinese: "测试动画".to_string(),
             title_japanese: None,
-            title_original_chinese: "测试动画".to_string(),
-            title_original_japanese: None,
             season: 1,
             year: 2024,
             platform: Platform::Tv,

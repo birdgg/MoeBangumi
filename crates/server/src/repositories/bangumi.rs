@@ -20,7 +20,7 @@ const SELECT_BANGUMI_WITH_METADATA: &str = r#"
         b.auto_complete, b.save_path, b.source_type,
         m.id as m_id, m.created_at as m_created_at, m.updated_at as m_updated_at,
         m.mikan_id, m.bgmtv_id, m.tmdb_id,
-        m.title_chinese, m.title_japanese, m.title_original_chinese, m.title_original_japanese,
+        m.title_chinese, m.title_japanese,
         m.season, m.year, m.platform,
         m.total_episodes, m.poster_url, m.air_date, m.air_week, m.finished
     FROM bangumi b
@@ -243,8 +243,6 @@ struct BangumiWithMetadataRow {
     tmdb_id: Option<i64>,
     title_chinese: String,
     title_japanese: Option<String>,
-    title_original_chinese: String,
-    title_original_japanese: Option<String>,
     season: i32,
     year: i32,
     platform: String,
@@ -278,8 +276,6 @@ impl From<BangumiWithMetadataRow> for BangumiWithMetadata {
                 tmdb_id: row.tmdb_id,
                 title_chinese: row.title_chinese,
                 title_japanese: row.title_japanese,
-                title_original_chinese: row.title_original_chinese,
-                title_original_japanese: row.title_original_japanese,
                 season: row.season,
                 year: row.year,
                 platform: row.platform.parse().unwrap_or_default(),

@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 import { IconDownload } from "@tabler/icons-react";
-import type { Bangumi } from "@/lib/api";
+import type { BangumiWithMetadata } from "@/lib/api";
 import { YearBadge } from "./year-badge";
 import { StatusBadge } from "./status-badge";
 import { PlatformBadge } from "./platform-badge";
 
 interface BangumiCardProps {
-  bangumi: Bangumi;
+  bangumi: BangumiWithMetadata;
   className?: string;
   style?: React.CSSProperties;
   animate?: boolean;
@@ -14,9 +14,10 @@ interface BangumiCardProps {
 }
 
 export function BangumiCard({ bangumi, className, style, animate = true, onClick }: BangumiCardProps) {
+  const { metadata } = bangumi;
   const progress =
-    bangumi.current_episode && bangumi.total_episodes > 0
-      ? Math.round((bangumi.current_episode / bangumi.total_episodes) * 100)
+    bangumi.current_episode && metadata.total_episodes > 0
+      ? Math.round((bangumi.current_episode / metadata.total_episodes) * 100)
       : 0;
 
   return (
@@ -55,8 +56,8 @@ export function BangumiCard({ bangumi, className, style, animate = true, onClick
         {/* Poster section */}
         <div className="relative aspect-2/3 overflow-hidden">
           <img
-            src={bangumi.poster_url || "/placeholder.png"}
-            alt={bangumi.title_original_chinese}
+            src={metadata.poster_url || "/placeholder.png"}
+            alt={metadata.title_chinese}
             className={cn(
               "size-full object-cover transition-all duration-500 ease-out",
               "group-hover:scale-110 group-hover:brightness-105"
@@ -71,8 +72,8 @@ export function BangumiCard({ bangumi, className, style, animate = true, onClick
 
           {/* Top badges row */}
           <div className="absolute inset-x-2 top-2 flex items-center justify-between">
-            <StatusBadge finished={bangumi.finished} variant="overlay" />
-            <YearBadge season={bangumi.season} year={bangumi.year} />
+            <StatusBadge finished={metadata.finished} variant="overlay" />
+            <YearBadge season={metadata.season} year={metadata.year} />
           </div>
 
           {/* Bottom info overlay */}
@@ -80,9 +81,9 @@ export function BangumiCard({ bangumi, className, style, animate = true, onClick
             {/* Title with kind badge */}
             <div className="flex items-center gap-1.5 mb-1.5">
               <h3 className="line-clamp-1 text-sm font-bold text-white min-w-0 flex-1 drop-shadow-md">
-                {bangumi.title_original_chinese}
+                {metadata.title_chinese}
               </h3>
-              <PlatformBadge platform={bangumi.platform} variant="overlay" className="shrink-0" />
+              <PlatformBadge platform={metadata.platform} variant="overlay" className="shrink-0" />
             </div>
 
             {/* Episode progress */}
@@ -90,12 +91,12 @@ export function BangumiCard({ bangumi, className, style, animate = true, onClick
               <div className="flex items-center gap-1 text-white/90">
                 <IconDownload className="size-3 drop-shadow-sm" strokeWidth={2.5} />
                 <span className="text-xs font-bold tabular-nums drop-shadow-sm">
-                  {bangumi.current_episode}/{bangumi.total_episodes || "?"}
+                  {bangumi.current_episode}/{metadata.total_episodes || "?"}
                 </span>
               </div>
 
               {/* Progress bar */}
-              {bangumi.total_episodes > 0 && (
+              {metadata.total_episodes > 0 && (
                 <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-white/20 backdrop-blur-sm">
                   <div
                     className={cn(

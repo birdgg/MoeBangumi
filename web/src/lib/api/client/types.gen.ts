@@ -39,6 +39,7 @@ export type Bangumi = {
 };
 
 export type BangumiDetail = {
+  bgmtv_id?: number | null;
   subgroups: Array<Subgroup>;
 };
 
@@ -177,14 +178,6 @@ export type CreateMetadata = {
    * Japanese original name
    */
   title_japanese?: string | null;
-  /**
-   * Original Chinese title (from API, defaults to title_chinese if not provided)
-   */
-  title_original_chinese?: string | null;
-  /**
-   * Original Japanese title (from API)
-   */
-  title_original_japanese?: string | null;
   /**
    * TMDB ID
    */
@@ -364,14 +357,6 @@ export type Metadata = {
    * Japanese original name
    */
   title_japanese?: string | null;
-  /**
-   * Original Chinese title (from API)
-   */
-  title_original_chinese: string;
-  /**
-   * Original Japanese title (from API)
-   */
-  title_original_japanese?: string | null;
   /**
    * TMDB ID
    */

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bgmtv::BgmtvClient;
+use parser::bgmtv::parse_bgmtv_name;
 use sqlx::SqlitePool;
 use thiserror::Error;
 use tmdb::{DiscoverBangumiParams, TmdbClient};
@@ -27,6 +28,7 @@ pub struct FetchedMetadata {
     pub title_chinese: Option<String>,
     pub title_japanese: Option<String>,
     pub year: Option<i32>,
+    pub season: Option<i32>,
     pub total_episodes: i32,
     pub poster_url: Option<String>,
     pub air_date: Option<String>,
@@ -50,11 +52,20 @@ impl MetadataService {
     pub async fn fetch_from_bgmtv(&self, id: i64) -> Result<FetchedMetadata, MetadataError> {
         let detail = self.bgmtv.get_subject(id).await?;
 
+        // Parse Chinese title to extract clean name and season
+        let parsed_cn = parse_bgmtv_name(&detail.name_cn);
+        // Parse Japanese title to extract clean name
+        let parsed_jp = parse_bgmtv_name(&detail.name);
+
+        // Use parsed season from Chinese title, fallback to Japanese title
+        let season = parsed_cn.season.or(parsed_jp.season);
+
         Ok(FetchedMetadata {
             bgmtv_id: detail.id,
-            title_chinese: Some(detail.name_cn).filter(|s| !s.is_empty()),
-            title_japanese: Some(detail.name).filter(|s| !s.is_empty()),
+            title_chinese: Some(parsed_cn.name).filter(|s| !s.is_empty()),
+            title_japanese: Some(parsed_jp.name).filter(|s| !s.is_empty()),
             year: detail.date.as_deref().and_then(parse_year),
+            season,
             total_episodes: detail.total_episodes as i32,
             poster_url: Some(detail.images.large),
             air_date: detail.date,

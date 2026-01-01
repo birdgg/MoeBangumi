@@ -13,8 +13,6 @@ CREATE TABLE IF NOT EXISTS metadata (
     -- Titles (bilingual support)
     title_chinese TEXT NOT NULL,                    -- Chinese title (primary display)
     title_japanese TEXT,                            -- Japanese original name
-    title_original_chinese TEXT NOT NULL,           -- Original Chinese title (from API)
-    title_original_japanese TEXT,                   -- Original Japanese title (from API)
 
     -- Basic info
     season INTEGER NOT NULL DEFAULT 1,              -- Season number

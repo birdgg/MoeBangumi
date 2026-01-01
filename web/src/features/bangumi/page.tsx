@@ -9,26 +9,25 @@ import {
 import { useGetAllBangumi } from "@/features/bangumi/hooks/use-bangumi";
 import { IconSparkles, IconAlertCircle } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import type { Bangumi } from "@/lib/api";
+import type { BangumiWithMetadata } from "@/lib/api";
 
-// Convert Bangumi to BangumiModalData
-function bangumiToModalData(bangumi: Bangumi): BangumiModalData {
+// Convert BangumiWithMetadata to BangumiModalData
+function bangumiToModalData(bangumi: BangumiWithMetadata): BangumiModalData {
+  const { metadata } = bangumi;
   return {
     id: bangumi.id,
-    bgmtvId: bangumi.bgmtv_id ?? 0,
-    tmdbId: bangumi.tmdb_id,
-    titleChinese: bangumi.title_chinese,
-    titleJapanese: bangumi.title_original_japanese,
-    titleOriginalChinese: bangumi.title_original_chinese,
-    titleOriginalJapanese: bangumi.title_original_japanese,
-    posterUrl: bangumi.poster_url,
-    year: bangumi.year,
-    season: bangumi.season,
-    totalEpisodes: bangumi.total_episodes,
-    platform: bangumi.platform,
-    airDate: bangumi.air_date,
-    airWeek: bangumi.air_week,
-    finished: bangumi.finished,
+    bgmtvId: metadata.bgmtv_id ?? 0,
+    tmdbId: metadata.tmdb_id,
+    titleChinese: metadata.title_chinese,
+    titleJapanese: metadata.title_japanese,
+    posterUrl: metadata.poster_url,
+    year: metadata.year,
+    season: metadata.season,
+    totalEpisodes: metadata.total_episodes,
+    platform: metadata.platform,
+    airDate: metadata.air_date,
+    airWeek: metadata.air_week,
+    finished: metadata.finished,
     sourceType: bangumi.source_type,
     episodeOffset: bangumi.episode_offset,
     autoComplete: bangumi.auto_complete,
@@ -39,7 +38,7 @@ export function BangumiPage() {
   const { data: bangumiList, isLoading, error } = useGetAllBangumi();
   // Only animate on initial load (when no cached data exists at mount time)
   const [shouldAnimate] = useState(() => !bangumiList || bangumiList.length === 0);
-  const [editingBangumi, setEditingBangumi] = useState<Bangumi | null>(null);
+  const [editingBangumi, setEditingBangumi] = useState<BangumiWithMetadata | null>(null);
 
   const isEmpty = !bangumiList || bangumiList.length === 0;
 
