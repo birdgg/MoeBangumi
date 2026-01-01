@@ -157,6 +157,9 @@ pub struct CalendarSubject {
     pub images: SubjectImages,
     #[serde(default)]
     pub collection: Option<CalendarCollection>,
+    /// Platform type (TV, Movie, OVA) - not from BGM.tv API, added by our service
+    #[serde(default)]
+    pub platform: Option<String>,
 }
 
 /// Calendar day with weekday info and items

@@ -120,17 +120,6 @@ export const BangumiWithRssSchema = {
   description: "Bangumi with metadata and RSS subscriptions",
 } as const;
 
-export const CalendarCollectionSchema = {
-  type: "object",
-  description: "Collection information for calendar subject",
-  properties: {
-    doing: {
-      type: "integer",
-      format: "int64",
-    },
-  },
-} as const;
-
 export const CalendarDaySchema = {
   type: "object",
   description: "Calendar day with weekday info and items",
@@ -148,84 +137,49 @@ export const CalendarDaySchema = {
   },
 } as const;
 
-export const CalendarRatingSchema = {
-  type: "object",
-  description: "Rating information for calendar subject",
-  required: ["total", "score"],
-  properties: {
-    score: {
-      type: "number",
-      format: "double",
-    },
-    total: {
-      type: "integer",
-      format: "int64",
-    },
-  },
-} as const;
-
 export const CalendarSubjectSchema = {
   type: "object",
   description: "Subject item in calendar results",
-  required: [
-    "id",
-    "type",
-    "name",
-    "name_cn",
-    "air_date",
-    "air_weekday",
-    "images",
-  ],
+  required: ["title_chinese", "air_week", "platform", "total_episodes"],
   properties: {
     air_date: {
-      type: "string",
+      type: ["string", "null"],
+      description: "First air date (YYYY-MM-DD)",
     },
-    air_weekday: {
+    air_week: {
       type: "integer",
       format: "int32",
+      description: "Day of week (0=Sunday, 1-6=Mon-Sat)",
     },
-    collection: {
-      oneOf: [
-        {
-          type: "null",
-        },
-        {
-          $ref: "#/components/schemas/CalendarCollection",
-        },
-      ],
-    },
-    id: {
-      type: "integer",
-      format: "int64",
-    },
-    images: {
-      $ref: "#/components/schemas/SubjectImages",
-    },
-    name: {
-      type: "string",
-    },
-    name_cn: {
-      type: "string",
-    },
-    rank: {
+    bgmtv_id: {
       type: ["integer", "null"],
       format: "int64",
+      description: "BGM.tv subject ID",
     },
-    rating: {
-      oneOf: [
-        {
-          type: "null",
-        },
-        {
-          $ref: "#/components/schemas/CalendarRating",
-        },
-      ],
+    mikan_id: {
+      type: ["string", "null"],
+      description: "Mikan bangumi ID",
     },
-    summary: {
+    platform: {
+      $ref: "#/components/schemas/Platform",
+      description: "Platform type (tv, movie, ova)",
+    },
+    poster_url: {
+      type: ["string", "null"],
+      description: "Poster image URL",
+    },
+    title_chinese: {
       type: "string",
+      description: "Chinese title",
     },
-    type: {
-      $ref: "#/components/schemas/SubjectType",
+    title_japanese: {
+      type: ["string", "null"],
+      description: "Japanese title",
+    },
+    total_episodes: {
+      type: "integer",
+      format: "int32",
+      description: "Total episodes",
     },
   },
 } as const;
@@ -1463,21 +1417,25 @@ export const UpdateTransmissionConfigSchema = {
 
 export const WeekdaySchema = {
   type: "object",
-  description: "Weekday information for calendar",
-  required: ["en", "cn", "ja", "id"],
+  description: "Weekday info",
+  required: ["id", "en", "cn", "ja"],
   properties: {
     cn: {
       type: "string",
+      description: "Chinese name",
     },
     en: {
       type: "string",
+      description: "English name",
     },
     id: {
       type: "integer",
       format: "int32",
+      description: "Weekday ID (1=Mon, 7=Sun)",
     },
     ja: {
       type: "string",
+      description: "Japanese name",
     },
   },
 } as const;

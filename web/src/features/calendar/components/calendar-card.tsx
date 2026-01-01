@@ -12,7 +12,7 @@ export function CalendarCard({
   className,
   onClick,
 }: CalendarCardProps) {
-  const displayName = subject.name_cn || subject.name;
+  const displayName = subject.title_chinese || subject.title_japanese || "";
 
   return (
     <div
@@ -48,7 +48,7 @@ export function CalendarCard({
         {/* Poster section */}
         <div className="relative aspect-2/3 overflow-hidden">
           <img
-            src={subject.images.large || subject.images.common}
+            src={subject.poster_url || ""}
             alt={displayName}
             className={cn(
               "size-full object-cover transition-all duration-500 ease-out",

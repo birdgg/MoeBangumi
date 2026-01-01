@@ -49,6 +49,36 @@ const SEASON_LABELS: Record<Season, string> = {
 const MIN_YEAR = 2012;
 const MAX_YEAR = new Date().getFullYear();
 
+// LocalStorage key for persisting season selection
+const CALENDAR_SEASON_KEY = "moe-calendar-season";
+
+// Get stored season selection from localStorage
+function getStoredSeasonSelection(): { year: number; season: Season } | null {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem(CALENDAR_SEASON_KEY);
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored);
+    if (
+      typeof parsed.year === "number" &&
+      parsed.year >= MIN_YEAR &&
+      parsed.year <= MAX_YEAR &&
+      SEASONS.includes(parsed.season)
+    ) {
+      return parsed;
+    }
+  } catch {
+    // Invalid JSON, ignore
+  }
+  return null;
+}
+
+// Save season selection to localStorage
+function setStoredSeasonSelection(year: number, season: Season): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(CALENDAR_SEASON_KEY, JSON.stringify({ year, season }));
+}
+
 // Season option type
 interface SeasonOption {
   value: string; // "2025-winter"
@@ -84,9 +114,15 @@ function getCurrentSeason(): Season {
 }
 
 export function SchedulePage() {
-  // Season selection state - combined year and season
-  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const [selectedSeason, setSelectedSeason] = useState<Season>(getCurrentSeason);
+  // Season selection state - combined year and season (persisted to localStorage)
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const stored = getStoredSeasonSelection();
+    return stored?.year ?? new Date().getFullYear();
+  });
+  const [selectedSeason, setSelectedSeason] = useState<Season>(() => {
+    const stored = getStoredSeasonSelection();
+    return stored?.season ?? getCurrentSeason();
+  });
 
   const calendarParams = { year: selectedYear, season: selectedSeason };
   const { data: calendar, isLoading, error } = useCalendar(calendarParams);
@@ -107,6 +143,7 @@ export function SchedulePage() {
     if (option) {
       setSelectedYear(option.year);
       setSelectedSeason(option.season);
+      setStoredSeasonSelection(option.year, option.season);
     }
   };
 
@@ -276,7 +313,7 @@ export function SchedulePage() {
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
                     {day.items.map((subject) => (
                       <CalendarCard
-                        key={subject.id}
+                        key={subject.bgmtv_id ?? subject.mikan_id ?? subject.title_chinese}
                         subject={subject}
                         onClick={() => handleCardClick(subject)}
                       />

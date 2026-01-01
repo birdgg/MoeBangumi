@@ -1,10 +1,8 @@
-mod calendar_refresh_job;
 mod log_cleanup_job;
 mod rename_job;
 mod rss_fetch_job;
 mod traits;
 
-pub use calendar_refresh_job::CalendarRefreshJob;
 pub use log_cleanup_job::LogCleanupJob;
 pub use rename_job::RenameJob;
 pub use rss_fetch_job::RssFetchJob;

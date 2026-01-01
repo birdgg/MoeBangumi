@@ -1,4 +1,5 @@
 mod bangumi;
+mod calendar;
 mod common;
 mod log;
 mod metadata;
@@ -9,6 +10,7 @@ mod torrent;
 mod torrent_search;
 
 pub use bangumi::*;
+pub use calendar::*;
 pub use common::*;
 pub use downloader::DownloaderType;
 pub use log::*;

@@ -68,13 +68,6 @@ export type BangumiWithRss = Bangumi & {
 };
 
 /**
- * Collection information for calendar subject
- */
-export type CalendarCollection = {
-  doing?: number;
-};
-
-/**
  * Calendar day with weekday info and items
  */
 export type CalendarDay = {
@@ -83,28 +76,45 @@ export type CalendarDay = {
 };
 
 /**
- * Rating information for calendar subject
- */
-export type CalendarRating = {
-  score: number;
-  total: number;
-};
-
-/**
  * Subject item in calendar results
  */
 export type CalendarSubject = {
-  air_date: string;
-  air_weekday: number;
-  collection?: null | CalendarCollection;
-  id: number;
-  images: SubjectImages;
-  name: string;
-  name_cn: string;
-  rank?: number | null;
-  rating?: null | CalendarRating;
-  summary?: string;
-  type: SubjectType;
+  /**
+   * First air date (YYYY-MM-DD)
+   */
+  air_date?: string | null;
+  /**
+   * Day of week (0=Sunday, 1-6=Mon-Sat)
+   */
+  air_week: number;
+  /**
+   * BGM.tv subject ID
+   */
+  bgmtv_id?: number | null;
+  /**
+   * Mikan bangumi ID
+   */
+  mikan_id?: string | null;
+  /**
+   * Platform type (tv, movie, ova)
+   */
+  platform: Platform;
+  /**
+   * Poster image URL
+   */
+  poster_url?: string | null;
+  /**
+   * Chinese title
+   */
+  title_chinese: string;
+  /**
+   * Japanese title
+   */
+  title_japanese?: string | null;
+  /**
+   * Total episodes
+   */
+  total_episodes: number;
 };
 
 /**
@@ -916,12 +926,24 @@ export type UpdateTransmissionConfig = {
 };
 
 /**
- * Weekday information for calendar
+ * Weekday info
  */
 export type Weekday = {
+  /**
+   * Chinese name
+   */
   cn: string;
+  /**
+   * English name
+   */
   en: string;
+  /**
+   * Weekday ID (1=Mon, 7=Sun)
+   */
   id: number;
+  /**
+   * Japanese name
+   */
   ja: string;
 };
 

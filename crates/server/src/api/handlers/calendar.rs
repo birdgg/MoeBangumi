@@ -2,12 +2,11 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use bgmtv::CalendarDay;
 use mikan::Season;
 use serde::Deserialize;
 use utoipa::IntoParams;
 
-use crate::{error::AppResult, services::CalendarService, state::AppState};
+use crate::{error::AppResult, models::CalendarDay, services::CalendarService, state::AppState};
 
 /// Query parameters for calendar endpoints
 #[derive(Debug, Deserialize, IntoParams)]
@@ -52,14 +51,14 @@ pub async fn get_calendar(
     // Try to get from database first
     let calendar = state.calendar.get_calendar(year, season).await?;
 
-    // If database is empty, fetch from API and cache it
+    // If database is empty, import seed data from GitHub
     if calendar.is_empty() {
         tracing::info!(
-            "Calendar database is empty for {} {:?}, fetching from Mikan/BGM.tv",
+            "Calendar database is empty for {} {:?}, importing seed data",
             year,
             season
         );
-        state.calendar.refresh_calendar(year, season).await?;
+        state.calendar.import_seed_data().await?;
         let calendar = state.calendar.get_calendar(year, season).await?;
         return Ok(Json(calendar));
     }
@@ -69,7 +68,7 @@ pub async fn get_calendar(
 
 /// Refresh calendar data
 ///
-/// Forces a refresh of the calendar data from Mikan/BGM.tv API.
+/// Re-imports calendar data from GitHub seed file.
 /// Returns the updated calendar data.
 /// Defaults to current season if year/season not specified.
 #[utoipa::path(
@@ -87,7 +86,7 @@ pub async fn refresh_calendar(
 ) -> AppResult<Json<Vec<CalendarDay>>> {
     let (year, season) = query.resolve();
     tracing::info!("Manual calendar refresh requested for {} {:?}", year, season);
-    state.calendar.refresh_calendar(year, season).await?;
+    state.calendar.import_seed_data().await?;
     let calendar = state.calendar.get_calendar(year, season).await?;
     Ok(Json(calendar))
 }

@@ -8,7 +8,10 @@ use mikan::{MikanClient, Season};
 use sqlx::SqlitePool;
 use thiserror::Error;
 
-use crate::models::{CalendarSeedData, CalendarSeedEntry, CreateMetadata, Platform};
+use crate::models::{
+    CalendarDay, CalendarSeedData, CalendarSeedEntry, CalendarSubject, CreateMetadata, Platform,
+    Weekday,
+};
 use crate::repositories::{CalendarEntry, CalendarRepository, MetadataRepository};
 
 /// URL to download calendar seed data from GitHub
@@ -134,12 +137,12 @@ impl CalendarService {
     }
 
     /// Get calendar data for a specific season
-    pub async fn get_calendar(&self, year: i32, season: Season) -> Result<Vec<bgmtv::CalendarDay>> {
+    pub async fn get_calendar(&self, year: i32, season: Season) -> Result<Vec<CalendarDay>> {
         let season_str = season.to_db_string();
         let entries = CalendarRepository::get_by_season(&self.db, year, &season_str).await?;
 
         // Group by weekday (1-7)
-        let mut weekday_map: HashMap<i32, Vec<bgmtv::CalendarSubject>> = HashMap::new();
+        let mut weekday_map: HashMap<i32, Vec<CalendarSubject>> = HashMap::new();
 
         for entry in entries {
             let subject = entry.to_calendar_subject();
@@ -148,10 +151,10 @@ impl CalendarService {
         }
 
         // Convert to CalendarDay format
-        let calendar_days: Vec<bgmtv::CalendarDay> = (1..=7)
+        let calendar_days: Vec<CalendarDay> = (1..=7)
             .filter_map(|weekday_id| {
-                weekday_map.remove(&weekday_id).map(|items| bgmtv::CalendarDay {
-                    weekday: Self::weekday_info(weekday_id),
+                weekday_map.remove(&weekday_id).map(|items| CalendarDay {
+                    weekday: Weekday::from_id(weekday_id),
                     items,
                 })
             })
@@ -413,27 +416,6 @@ impl CalendarService {
             air_date: subject.date.clone(),
             air_week: mikan_data.air_week,
             finished: false,
-        }
-    }
-
-    /// Helper: Create weekday info
-    fn weekday_info(id: i32) -> bgmtv::Weekday {
-        let (en, cn, ja) = match id {
-            1 => ("Mon", "星期一", "月曜日"),
-            2 => ("Tue", "星期二", "火曜日"),
-            3 => ("Wed", "星期三", "水曜日"),
-            4 => ("Thu", "星期四", "木曜日"),
-            5 => ("Fri", "星期五", "金曜日"),
-            6 => ("Sat", "星期六", "土曜日"),
-            7 => ("Sun", "星期日", "日曜日"),
-            _ => ("Unknown", "未知", "不明"),
-        };
-
-        bgmtv::Weekday {
-            en: en.to_string(),
-            cn: cn.to_string(),
-            ja: ja.to_string(),
-            id,
         }
     }
 }

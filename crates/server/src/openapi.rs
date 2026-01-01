@@ -2,10 +2,11 @@ use utoipa::OpenApi;
 
 use crate::api::handlers::DeleteTorrentsRequest;
 use crate::models::{
-    Bangumi, BangumiWithMetadata, BangumiWithRss, CreateBangumi, CreateMetadata,
-    DownloaderSettings, FilterSettings, Log, LogLevel, Metadata, Platform, PrioritySettings, Rss,
-    RssEntry, Settings, SourceType, TorrentSearchResult, TorrentSource, UpdateBangumiRequest,
-    UpdateDownloaderSettings, UpdateFilterSettings, UpdatePrioritySettings, UpdateSettings,
+    Bangumi, BangumiWithMetadata, BangumiWithRss, CalendarDay, CalendarSubject, CreateBangumi,
+    CreateMetadata, DownloaderSettings, FilterSettings, Log, LogLevel, Metadata, Platform,
+    PrioritySettings, Rss, RssEntry, Settings, SourceType, TorrentSearchResult, TorrentSource,
+    UpdateBangumiRequest, UpdateDownloaderSettings, UpdateFilterSettings, UpdatePrioritySettings,
+    UpdateSettings, Weekday,
 };
 use crate::services::{Task, TaskStatus};
 
@@ -26,14 +27,12 @@ use crate::services::{Task, TaskStatus};
     components(schemas(
         bgmtv::SearchSubjectsResponse,
         bgmtv::Subject,
-        bgmtv::CalendarDay,
-        bgmtv::CalendarSubject,
-        bgmtv::CalendarRating,
-        bgmtv::CalendarCollection,
-        bgmtv::Weekday,
         bgmtv::SubjectImages,
         bgmtv::SubjectType,
         mikan::Season,
+        CalendarDay,
+        CalendarSubject,
+        Weekday,
         Metadata,
         CreateMetadata,
         Bangumi,

@@ -1,7 +1,6 @@
 import { cn } from "@/lib/utils";
 import { IconDeviceTv } from "@tabler/icons-react";
 import { YearBadge } from "../year-badge";
-import { StatusBadge } from "../status-badge";
 import { PlatformBadge } from "../platform-badge";
 
 interface BangumiInfoCardProps {
@@ -16,7 +15,6 @@ interface BangumiInfoCardProps {
   /** Season number of the show (e.g., Season 2) */
   seasonNumber?: number | null;
   platform?: string | null;
-  isFinished?: boolean;
   /** BGM.tv ID for linking to https://bgm.tv/subject/{id} */
   bgmtvId?: number | null;
   className?: string;
@@ -31,19 +29,18 @@ export function BangumiInfoCard({
   totalEpisodes,
   seasonNumber,
   platform,
-  isFinished,
   bgmtvId,
   className,
 }: BangumiInfoCardProps) {
-  const hasTags = (year && broadcastSeason) || totalEpisodes || seasonNumber || platform || isFinished !== undefined;
+  const hasTags = (year && broadcastSeason) || totalEpisodes || seasonNumber || platform;
 
   const Wrapper = bgmtvId ? "a" : "div";
   const wrapperProps = bgmtvId
     ? {
-        href: `https://bgm.tv/subject/${bgmtvId}`,
-        target: "_blank",
-        rel: "noopener noreferrer",
-      }
+      href: `https://bgm.tv/subject/${bgmtvId}`,
+      target: "_blank",
+      rel: "noopener noreferrer",
+    }
     : {};
 
   return (
@@ -109,9 +106,6 @@ export function BangumiInfoCard({
                 <YearBadge season={broadcastSeason} year={year} />
               )}
               <PlatformBadge platform={platform} className="rounded-md" />
-              {isFinished !== undefined && (
-                <StatusBadge finished={isFinished} />
-              )}
             </div>
           )}
         </div>

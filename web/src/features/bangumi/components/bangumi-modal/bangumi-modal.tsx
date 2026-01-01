@@ -283,7 +283,6 @@ export function BangumiModal({
                 totalEpisodes={data.totalEpisodes}
                 seasonNumber={data.season}
                 platform={data.platform}
-                isFinished={calculatedIsFinished}
                 bgmtvId={data.bgmtvId}
                 className={isEdit ? "animate-modal-content [animation-delay:0.2s]" : undefined}
               />

@@ -1,5 +1,7 @@
 use sqlx::SqlitePool;
 
+use crate::models::{CalendarSubject, Platform};
+
 /// Calendar entry for batch insert
 #[derive(Debug, Clone)]
 pub struct CalendarEntry {
@@ -188,34 +190,24 @@ impl CalendarWithMetadata {
         }
     }
 
-    /// Convert to BGM.tv CalendarSubject for API response
-    pub fn to_calendar_subject(&self) -> bgmtv::CalendarSubject {
-        // Use single clone for all image sizes
-        let poster = self.poster_url.clone().unwrap_or_default();
-        let images = bgmtv::SubjectImages {
-            small: poster.clone(),
-            grid: poster.clone(),
-            large: poster.clone(),
-            medium: poster.clone(),
-            common: poster,
+    /// Convert to CalendarSubject for API response
+    pub fn to_calendar_subject(&self) -> CalendarSubject {
+        let platform = match self.platform.as_str() {
+            "movie" => Platform::Movie,
+            "ova" => Platform::Ova,
+            _ => Platform::Tv,
         };
 
-        let collection = Some(bgmtv::CalendarCollection {
-            doing: self.priority,
-        });
-
-        bgmtv::CalendarSubject {
-            id: self.bgmtv_id.unwrap_or(0),
-            subject_type: bgmtv::SubjectType::Anime,
-            name: self.title_japanese.clone().unwrap_or_default(),
-            name_cn: self.title_chinese.clone(),
-            summary: String::new(),
-            air_date: self.air_date.clone().unwrap_or_default(),
-            air_weekday: self.air_weekday(),
-            rating: None,
-            rank: None,
-            images,
-            collection,
+        CalendarSubject {
+            bgmtv_id: self.bgmtv_id,
+            mikan_id: self.mikan_id.clone(),
+            title_chinese: self.title_chinese.clone(),
+            title_japanese: self.title_japanese.clone(),
+            air_date: self.air_date.clone(),
+            air_week: self.air_week,
+            poster_url: self.poster_url.clone(),
+            platform,
+            total_episodes: self.total_episodes,
         }
     }
 }

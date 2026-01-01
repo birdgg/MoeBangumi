@@ -30,22 +30,24 @@ export function subjectToModalData(subject: Subject): BangumiModalData {
 export function calendarSubjectToModalData(
   subject: CalendarSubject
 ): BangumiModalData {
-  const parsedChinese = parseBgmtvName(subject.name_cn || subject.name || "");
-  const parsedJapanese = parseBgmtvName(subject.name || "");
+  const parsedChinese = parseBgmtvName(
+    subject.title_chinese || subject.title_japanese || ""
+  );
+  const parsedJapanese = parseBgmtvName(subject.title_japanese || "");
   const season = parsedChinese.season ?? parsedJapanese.season ?? 1;
 
   return {
-    bgmtvId: subject.id,
+    bgmtvId: subject.bgmtv_id ?? 0,
     titleChinese: parsedChinese.name,
-    titleJapanese: subject.name_cn ? parsedJapanese.name : null,
-    posterUrl: subject.images.large || subject.images.common,
+    titleJapanese: subject.title_chinese ? parsedJapanese.name : null,
+    posterUrl: subject.poster_url,
     year: subject.air_date
       ? parseInt(subject.air_date.split("-")[0], 10) || null
       : null,
     season,
-    totalEpisodes: 0,
-    platform: "",
+    totalEpisodes: subject.total_episodes,
+    platform: subject.platform,
     airDate: subject.air_date,
-    airWeek: subject.air_weekday,
+    airWeek: subject.air_week,
   };
 }
