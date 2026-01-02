@@ -200,6 +200,150 @@ impl MetadataService {
     pub fn pool(&self) -> &SqlitePool {
         &self.db
     }
+
+    /// Check if an anime has finished airing via BGM.tv episodes API
+    ///
+    /// Returns `Ok(Some(true))` if finished, `Ok(Some(false))` if still airing,
+    /// `Ok(None)` if cannot determine (no episodes or airdate), or `Err` on failure.
+    pub async fn check_finished_status(&self, bgmtv_id: i64) -> Result<Option<bool>, MetadataError> {
+        use chrono::Utc;
+
+        // Fetch all episodes
+        let response = self.bgmtv.get_episodes(bgmtv_id).await?;
+
+        // Find last main episode (type = 0)
+        let last_main_episode = response
+            .data
+            .iter()
+            .filter(|ep| matches!(ep.episode_type, bgmtv::EpisodeType::Main))
+            .max_by(|a, b| {
+                match (a.ep, b.ep) {
+                    (Some(a_ep), Some(b_ep)) => {
+                        a_ep.partial_cmp(&b_ep).unwrap_or(std::cmp::Ordering::Equal)
+                    }
+                    _ => a.sort.partial_cmp(&b.sort).unwrap_or(std::cmp::Ordering::Equal),
+                }
+            });
+
+        // No main episodes = cannot determine
+        let Some(last_episode) = last_main_episode else {
+            return Ok(None);
+        };
+
+        // No airdate = cannot determine
+        if last_episode.airdate.is_empty() {
+            return Ok(None);
+        }
+
+        // Parse and compare with today
+        let airdate = match chrono::NaiveDate::parse_from_str(&last_episode.airdate, "%Y-%m-%d") {
+            Ok(date) => date,
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to parse airdate '{}' for bgmtv_id {}: {}",
+                    last_episode.airdate,
+                    bgmtv_id,
+                    e
+                );
+                return Ok(None);
+            }
+        };
+
+        let today = Utc::now().date_naive();
+
+        Ok(Some(airdate <= today))
+    }
+
+    /// Batch check and update finish status for all unfinished metadata
+    ///
+    /// Returns (updated_count, total_checked, error_count)
+    pub async fn batch_check_finish_status(&self) -> Result<(usize, usize, usize), MetadataError> {
+        use std::time::Duration;
+
+        // Get all unfinished metadata with bgmtv_id
+        let metadata_list = MetadataRepository::get_unfinished_with_bgmtv_id(&self.db).await?;
+
+        let total = metadata_list.len();
+        let mut updated_count = 0;
+        let mut error_count = 0;
+
+        for metadata in metadata_list {
+            let bgmtv_id = match metadata.bgmtv_id {
+                Some(id) => id,
+                None => continue,
+            };
+
+            // Check finish status
+            match self.check_finished_status(bgmtv_id).await {
+                Ok(Some(true)) => {
+                    // Mark as finished
+                    match MetadataRepository::mark_as_finished(&self.db, metadata.id).await {
+                        Ok(true) => {
+                            updated_count += 1;
+                            tracing::info!(
+                                "Marked metadata {} (bgmtv_id={}, title='{}') as finished",
+                                metadata.id,
+                                bgmtv_id,
+                                metadata.title_chinese
+                            );
+                        }
+                        Ok(false) => {
+                            // Record may have been deleted during batch processing, skip silently
+                            tracing::debug!(
+                                "Metadata {} (bgmtv_id={}, title='{}') not found during update, skipping",
+                                metadata.id,
+                                bgmtv_id,
+                                metadata.title_chinese
+                            );
+                        }
+                        Err(e) => {
+                            error_count += 1;
+                            tracing::error!(
+                                "Failed to update metadata {} (bgmtv_id={}, title='{}'): {}",
+                                metadata.id,
+                                bgmtv_id,
+                                metadata.title_chinese,
+                                e
+                            );
+                        }
+                    }
+                }
+                Ok(Some(false)) => {
+                    // Still airing
+                    tracing::debug!(
+                        "Metadata {} (bgmtv_id={}, title='{}') is still airing",
+                        metadata.id,
+                        bgmtv_id,
+                        metadata.title_chinese
+                    );
+                }
+                Ok(None) => {
+                    // Cannot determine (no episodes or airdate)
+                    tracing::debug!(
+                        "Cannot determine finish status for metadata {} (bgmtv_id={}, title='{}')",
+                        metadata.id,
+                        bgmtv_id,
+                        metadata.title_chinese
+                    );
+                }
+                Err(e) => {
+                    error_count += 1;
+                    tracing::error!(
+                        "Failed to check metadata {} (bgmtv_id={}, title='{}'): {}",
+                        metadata.id,
+                        bgmtv_id,
+                        metadata.title_chinese,
+                        e
+                    );
+                }
+            }
+
+            // Rate limiting: avoid hitting BGM.tv API rate limits
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+
+        Ok((updated_count, total, error_count))
+    }
 }
 
 fn parse_year(date_str: &str) -> Option<i32> {

@@ -94,7 +94,7 @@ pub struct RssEntry {
     pub include_filters: Vec<String>,
     /// Optional subtitle group name
     #[serde(default)]
-    pub group: Option<String>,
+    pub subtitle_group: Option<String>,
 }
 
 /// Request body for creating a new bangumi

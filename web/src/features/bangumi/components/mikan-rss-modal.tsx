@@ -19,7 +19,7 @@ import { useDebouncedValue } from "@tanstack/react-pacer";
 
 interface RssSelectionEntry {
   url: string;
-  group: string | null;
+  subtitle_group: string | null;
   filters: string[];
   include_filters: string[];
 }
@@ -92,7 +92,7 @@ export function MikanRssModal({
       .filter((sg) => selectedSubgroups.has(sg.id))
       .map((sg) => ({
         url: sg.rss_url,
-        group: sg.name || null,
+        subtitle_group: sg.name || null,
         filters: [],
         include_filters: [],
       }));

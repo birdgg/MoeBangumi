@@ -7,7 +7,7 @@ use crate::models::{CreateRss, Rss, UpdateRss};
 const SELECT_RSS: &str = r#"
     SELECT
         id, created_at, updated_at,
-        bangumi_id, title, url, enabled, exclude_filters, include_filters, "group",
+        bangumi_id, title, url, enabled, exclude_filters, include_filters, "subtitle_group",
         etag, last_modified, last_pub_date
     FROM rss
 "#;
@@ -24,7 +24,7 @@ impl RssRepository {
 
         let result = sqlx::query(
             r#"
-            INSERT INTO rss (bangumi_id, title, url, enabled, exclude_filters, include_filters, "group")
+            INSERT INTO rss (bangumi_id, title, url, enabled, exclude_filters, include_filters, "subtitle_group")
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
             "#,
@@ -35,7 +35,7 @@ impl RssRepository {
         .bind(data.enabled)
         .bind(&exclude_filters_json)
         .bind(&include_filters_json)
-        .bind(&data.group)
+        .bind(&data.subtitle_group)
         .fetch_one(pool)
         .await?;
 
@@ -136,7 +136,7 @@ impl RssRepository {
         let include_filters = data.include_filters.unwrap_or(existing.include_filters);
         let include_filters_json = serde_json::to_string(&include_filters)
             .unwrap_or_else(|_| "[]".to_string());
-        let group = data.group.or(existing.group);
+        let subtitle_group = data.subtitle_group.or(existing.subtitle_group);
 
         sqlx::query(
             r#"
@@ -145,7 +145,7 @@ impl RssRepository {
                 enabled = $2,
                 exclude_filters = $3,
                 include_filters = $4,
-                "group" = $5
+                "subtitle_group" = $5
             WHERE id = $6
             "#,
         )
@@ -153,7 +153,7 @@ impl RssRepository {
         .bind(enabled)
         .bind(&exclude_filters_json)
         .bind(&include_filters_json)
-        .bind(&group)
+        .bind(&subtitle_group)
         .bind(id)
         .execute(pool)
         .await?;
@@ -222,7 +222,7 @@ struct RssRow {
     enabled: bool,
     exclude_filters: String,
     include_filters: String,
-    group: Option<String>,
+    subtitle_group: Option<String>,
     etag: Option<String>,
     last_modified: Option<String>,
     last_pub_date: Option<String>,
@@ -245,7 +245,7 @@ impl From<RssRow> for Rss {
             enabled: row.enabled,
             exclude_filters,
             include_filters,
-            group: row.group,
+            subtitle_group: row.subtitle_group,
             etag: row.etag,
             last_modified: row.last_modified,
             last_pub_date: row.last_pub_date,

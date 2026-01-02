@@ -517,15 +517,15 @@ export type Rss = {
    * Regex patterns to exclude from matching
    */
   exclude_filters: Array<string>;
-  /**
-   * Optional subtitle group name
-   */
-  group?: string | null;
   id: number;
   /**
    * Regex patterns to include in matching
    */
   include_filters: Array<string>;
+  /**
+   * Optional subtitle group name
+   */
+  subtitle_group?: string | null;
   /**
    * RSS subscription title: [group] {bangumi} S{season}
    */
@@ -546,13 +546,13 @@ export type RssEntry = {
    */
   filters?: Array<string>;
   /**
-   * Optional subtitle group name
-   */
-  group?: string | null;
-  /**
    * Regex patterns to include in matching
    */
   include_filters?: Array<string>;
+  /**
+   * Optional subtitle group name
+   */
+  subtitle_group?: string | null;
   /**
    * RSS feed URL
    */

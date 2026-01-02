@@ -8,9 +8,9 @@ use tmdb::TmdbClient;
 use crate::config::Config;
 use crate::services::{
     BangumiService, CacheService, CalendarService, DownloaderService, HttpClientService,
-    LogCleanupJob, LogService, MetadataService, NotificationService, PosterService, RenameJob,
-    RenameService, RssFetchJob, RssProcessingService, SchedulerService, SettingsService,
-    TorrentSearchService, WashingService,
+    LogCleanupJob, LogService, MetadataFinishCheckJob, MetadataService, NotificationService,
+    PosterService, RenameJob, RenameService, RssFetchJob, RssProcessingService, SchedulerService,
+    SettingsService, TorrentSearchService, WashingService,
 };
 
 #[derive(Clone)]
@@ -167,7 +167,8 @@ impl AppState {
         let scheduler = SchedulerService::new()
             .with_arc_job(Arc::clone(&rss_fetch_job))
             .with_job(LogCleanupJob::new(Arc::clone(&logs)))
-            .with_job(RenameJob::new(Arc::clone(&rename)));
+            .with_job(RenameJob::new(Arc::clone(&rename)))
+            .with_job(MetadataFinishCheckJob::new(Arc::clone(&metadata)));
         scheduler.start();
 
         Self {

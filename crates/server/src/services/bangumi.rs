@@ -8,6 +8,7 @@ use crate::models::{
     UpdateBangumi, UpdateBangumiRequest,
 };
 use crate::repositories::{BangumiRepository, CreateBangumiData, RssRepository};
+use crate::repositories::MetadataRepository;
 use crate::services::{MetadataError, MetadataService, PosterService, RssProcessingService, SettingsService};
 
 #[derive(Debug, Error)]
@@ -57,7 +58,7 @@ impl BangumiService {
         let rss_entries = data.rss_entries.clone();
 
         // Get or create/update metadata
-        let metadata = if let Some(metadata_id) = data.metadata_id {
+        let mut metadata = if let Some(metadata_id) = data.metadata_id {
             // Use existing metadata
             self.metadata.get_by_id(metadata_id).await?
         } else if let Some(create_metadata) = data.metadata {
@@ -66,6 +67,54 @@ impl BangumiService {
         } else {
             return Err(BangumiError::MissingMetadata);
         };
+
+        // Check finished status if metadata has bgmtv_id and is not finished yet
+        if let Some(bgmtv_id) = metadata.bgmtv_id {
+            if !metadata.finished {
+                match self.metadata.check_finished_status(bgmtv_id).await {
+                    Ok(Some(true)) => {
+                        // Mark as finished in database and refresh metadata to ensure consistency
+                        if MetadataRepository::mark_as_finished(&self.db, metadata.id).await.is_ok() {
+                            tracing::info!(
+                                "Marked metadata {} (bgmtv_id={}, title='{}') as finished during bangumi creation",
+                                metadata.id,
+                                bgmtv_id,
+                                metadata.title_chinese
+                            );
+                            // Refresh metadata from database to ensure consistency
+                            if let Ok(updated) = self.metadata.get_by_id(metadata.id).await {
+                                metadata = updated;
+                            }
+                        }
+                    }
+                    Ok(Some(false)) => {
+                        tracing::debug!(
+                            "Metadata {} (bgmtv_id={}, title='{}') is still airing",
+                            metadata.id,
+                            bgmtv_id,
+                            metadata.title_chinese
+                        );
+                    }
+                    Ok(None) => {
+                        tracing::debug!(
+                            "Cannot determine finish status for metadata {} (bgmtv_id={}, title='{}')",
+                            metadata.id,
+                            bgmtv_id,
+                            metadata.title_chinese
+                        );
+                    }
+                    Err(e) => {
+                        // Log error but don't fail the creation
+                        tracing::warn!(
+                            "Failed to check finish status for metadata {} (bgmtv_id={}): {}",
+                            metadata.id,
+                            bgmtv_id,
+                            e
+                        );
+                    }
+                }
+            }
+        }
 
         // Generate save_path using pathgen with metadata
         let settings = self.settings.get();
@@ -95,11 +144,11 @@ impl BangumiService {
 
         // Create RSS subscriptions
         for entry in rss_entries {
-            // Generate title: [group] {bangumi} S{season} or {bangumi} S{season}
+            // Generate title: [subtitle_group] {bangumi} S{season} or {bangumi} S{season}
             let title = format_rss_title(
                 &metadata.title_chinese,
                 metadata.season,
-                entry.group.as_deref(),
+                entry.subtitle_group.as_deref(),
             );
 
             let create_rss = CreateRss {
@@ -109,7 +158,7 @@ impl BangumiService {
                 enabled: true,
                 exclude_filters: entry.filters,
                 include_filters: entry.include_filters,
-                group: entry.group,
+                subtitle_group: entry.subtitle_group,
             };
 
             match RssRepository::create(&self.db, create_rss).await {
@@ -234,11 +283,11 @@ impl BangumiService {
         for entry in entries {
             let is_new = !existing_urls.contains(entry.url.as_str());
 
-            // Generate title: [group] {bangumi} S{season} or {bangumi} S{season}
+            // Generate title: [subtitle_group] {bangumi} S{season} or {bangumi} S{season}
             let title = format_rss_title(
                 &metadata.title_chinese,
                 metadata.season,
-                entry.group.as_deref(),
+                entry.subtitle_group.as_deref(),
             );
 
             let create_rss = CreateRss {
@@ -248,7 +297,7 @@ impl BangumiService {
                 enabled: true,
                 exclude_filters: entry.filters,
                 include_filters: entry.include_filters,
-                group: entry.group,
+                subtitle_group: entry.subtitle_group,
             };
 
             match RssRepository::create(&self.db, create_rss).await {

@@ -39,6 +39,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_mikan_id ON metadata(mikan_id) WH
 CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_bgmtv_id ON metadata(bgmtv_id) WHERE bgmtv_id IS NOT NULL AND bgmtv_id != 0;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_tmdb_id ON metadata(tmdb_id) WHERE tmdb_id IS NOT NULL AND tmdb_id != 0;
 
+-- Partial index for finish status check job query
+CREATE INDEX IF NOT EXISTS idx_metadata_unfinished_with_bgmtv
+    ON metadata(updated_at)
+    WHERE finished = 0 AND bgmtv_id IS NOT NULL;
+
 -- Trigger to update updated_at on row modification
 CREATE TRIGGER IF NOT EXISTS update_metadata_timestamp
 AFTER UPDATE ON metadata
@@ -97,7 +102,7 @@ CREATE TABLE IF NOT EXISTS rss (
     enabled INTEGER NOT NULL DEFAULT 1,             -- Whether subscription is enabled (boolean)
     exclude_filters TEXT NOT NULL DEFAULT '[]',     -- JSON array of regex patterns to exclude
     include_filters TEXT NOT NULL DEFAULT '[]',     -- JSON array of regex patterns to include
-    "group" TEXT,                                   -- Optional subtitle group name
+    "subtitle_group" TEXT,                          -- Optional subtitle group name
 
     -- HTTP caching for incremental updates
     etag TEXT,                                      -- ETag from last HTTP response

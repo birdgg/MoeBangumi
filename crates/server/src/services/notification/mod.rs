@@ -52,9 +52,7 @@ impl NotificationService {
                     Self::create_telegram_notifier(&new_config, http_clone.get_client())
                 {
                     let mut w = worker_clone.write().await;
-                    // Note: Worker doesn't support clearing notifiers, so we just add
-                    // This is a limitation - consider adding clear_notifiers() to Worker
-                    w.add_notifier(notifier);
+                    w.set_notifier(notifier);
                 }
                 tracing::debug!("Notification provider updated due to settings change");
             }

@@ -721,10 +721,6 @@ export const RssSchema = {
       },
       description: "Regex patterns to exclude from matching",
     },
-    group: {
-      type: ["string", "null"],
-      description: "Optional subtitle group name",
-    },
     id: {
       type: "integer",
       format: "int64",
@@ -735,6 +731,10 @@ export const RssSchema = {
         type: "string",
       },
       description: "Regex patterns to include in matching",
+    },
+    subtitle_group: {
+      type: ["string", "null"],
+      description: "Optional subtitle group name",
     },
     title: {
       type: "string",
@@ -763,16 +763,16 @@ export const RssEntrySchema = {
       },
       description: "Regex patterns to exclude from matching",
     },
-    group: {
-      type: ["string", "null"],
-      description: "Optional subtitle group name",
-    },
     include_filters: {
       type: "array",
       items: {
         type: "string",
       },
       description: "Regex patterns to include in matching",
+    },
+    subtitle_group: {
+      type: ["string", "null"],
+      description: "Optional subtitle group name",
     },
     url: {
       type: "string",

@@ -55,11 +55,11 @@ export function RssEntryItem({
     >
       {/* Header: Badges */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Group Badge (read-only) */}
-        {entry.group && (
+        {/* Subtitle Group Badge (read-only) */}
+        {entry.subtitle_group && (
           <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-chart-3/20 dark:bg-chart-1/20 text-chart-3 dark:text-chart-1 font-medium">
             <IconUsers className="size-3" />
-            {entry.group}
+            {entry.subtitle_group}
           </span>
         )}
       </div>

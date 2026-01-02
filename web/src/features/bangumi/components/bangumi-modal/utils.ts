@@ -16,7 +16,7 @@ export function rssToFormEntry(rss: Rss): RssFormEntry {
     url: rss.url,
     filters: rss.exclude_filters,
     include_filters: rss.include_filters,
-    group: rss.group,
+    subtitle_group: rss.subtitle_group,
   };
 }
 
@@ -26,6 +26,6 @@ export function formEntryToApiEntry(entry: RssFormEntry): ApiRssEntry {
     url: entry.url,
     filters: entry.filters,
     include_filters: entry.include_filters,
-    group: entry.group,
+    subtitle_group: entry.subtitle_group,
   };
 }

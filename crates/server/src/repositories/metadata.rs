@@ -260,6 +260,39 @@ impl MetadataRepository {
             .await?;
         Ok(count.0)
     }
+
+    /// Get all unfinished metadata with bgmtv_id
+    pub async fn get_unfinished_with_bgmtv_id(
+        pool: &SqlitePool,
+    ) -> Result<Vec<Metadata>, sqlx::Error> {
+        const QUERY: &str = r#"
+            SELECT
+                id, created_at, updated_at,
+                mikan_id, bgmtv_id, tmdb_id,
+                title_chinese, title_japanese,
+                season, year, platform,
+                total_episodes, poster_url, air_date, air_week, finished
+            FROM metadata
+            WHERE finished = 0 AND bgmtv_id IS NOT NULL
+            ORDER BY updated_at ASC
+        "#;
+
+        let rows = sqlx::query_as::<_, MetadataRow>(QUERY)
+            .fetch_all(pool)
+            .await?;
+
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// Mark metadata as finished
+    pub async fn mark_as_finished(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("UPDATE metadata SET finished = 1 WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }
 
 /// Internal row type for mapping SQLite results

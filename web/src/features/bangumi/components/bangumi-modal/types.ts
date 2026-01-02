@@ -35,7 +35,7 @@ export interface RssFormEntry {
   url: string;
   filters: string[];
   include_filters: string[];
-  group?: string | null;
+  subtitle_group?: string | null;
 }
 
 export interface BangumiModalProps {

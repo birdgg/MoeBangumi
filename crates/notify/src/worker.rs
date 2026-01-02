@@ -210,6 +210,14 @@ impl Worker {
         }
     }
 
+    /// Replace all notifiers with a single one
+    pub fn set_notifier(&mut self, notifier: Box<dyn Notifier>) {
+        if let Ok(mut notifiers) = self.notifiers.try_lock() {
+            notifiers.clear();
+            notifiers.push(notifier);
+        }
+    }
+
     pub fn set_topic_config(&mut self, topic: Topic, config: TopicConfig) {
         self.topic_configs.insert(topic.clone(), config.clone());
         self.message_caches.insert(

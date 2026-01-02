@@ -21,7 +21,7 @@ pub struct Rss {
     /// Regex patterns to include in matching
     pub include_filters: Vec<String>,
     /// Optional subtitle group name
-    pub group: Option<String>,
+    pub subtitle_group: Option<String>,
 
     /// HTTP caching: ETag from last response
     #[serde(skip_serializing)]
@@ -54,7 +54,7 @@ pub struct CreateRss {
     pub include_filters: Vec<String>,
     /// Optional subtitle group name
     #[serde(default)]
-    pub group: Option<String>,
+    pub subtitle_group: Option<String>,
 }
 
 fn default_enabled() -> bool {
@@ -74,13 +74,13 @@ pub struct UpdateRss {
     pub include_filters: Option<Vec<String>>,
     /// Optional subtitle group name
     #[serde(default)]
-    pub group: Option<String>,
+    pub subtitle_group: Option<String>,
 }
 
 /// Format RSS subscription title
-/// Format: `[group] {bangumi_title} S{season:02}` or `{bangumi_title} S{season:02}` if group is None
-pub fn format_rss_title(bangumi_title: &str, season: i32, group: Option<&str>) -> String {
-    match group {
+/// Format: `[subtitle_group] {bangumi_title} S{season:02}` or `{bangumi_title} S{season:02}` if subtitle_group is None
+pub fn format_rss_title(bangumi_title: &str, season: i32, subtitle_group: Option<&str>) -> String {
+    match subtitle_group {
         Some(g) => format!("[{}] {} S{:02}", g, bangumi_title, season),
         None => format!("{} S{:02}", bangumi_title, season),
     }

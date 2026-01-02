@@ -30,7 +30,8 @@ pub use poster::{PosterError, PosterService};
 pub use rename::{RenameError, RenameService};
 pub use rss_processing::RssProcessingService;
 pub use scheduler::{
-    JobResult, LogCleanupJob, RenameJob, RssFetchJob, SchedulerJob, SchedulerService,
+    JobResult, LogCleanupJob, MetadataFinishCheckJob, RenameJob, RssFetchJob, SchedulerJob,
+    SchedulerService,
 };
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};
 pub use torrent_search::{TorrentSearchError, TorrentSearchService};
