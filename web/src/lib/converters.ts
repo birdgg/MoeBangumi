@@ -49,5 +49,6 @@ export function calendarSubjectToModalData(
     platform: subject.platform,
     airDate: subject.air_date,
     airWeek: subject.air_week,
+    mikanId: subject.mikan_id,
   };
 }

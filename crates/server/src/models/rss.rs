@@ -18,6 +18,8 @@ pub struct Rss {
     pub enabled: bool,
     /// Regex patterns to exclude from matching
     pub exclude_filters: Vec<String>,
+    /// Regex patterns to include in matching
+    pub include_filters: Vec<String>,
     /// Optional subtitle group name
     pub group: Option<String>,
 
@@ -47,6 +49,9 @@ pub struct CreateRss {
     /// Regex patterns to exclude from matching
     #[serde(default)]
     pub exclude_filters: Vec<String>,
+    /// Regex patterns to include in matching
+    #[serde(default)]
+    pub include_filters: Vec<String>,
     /// Optional subtitle group name
     #[serde(default)]
     pub group: Option<String>,
@@ -65,6 +70,8 @@ pub struct UpdateRss {
     pub enabled: Option<bool>,
     #[serde(default)]
     pub exclude_filters: Option<Vec<String>>,
+    #[serde(default)]
+    pub include_filters: Option<Vec<String>>,
     /// Optional subtitle group name
     #[serde(default)]
     pub group: Option<String>,

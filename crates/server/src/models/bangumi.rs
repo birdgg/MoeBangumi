@@ -76,6 +76,9 @@ pub struct RssEntry {
     /// Regex patterns to exclude from matching
     #[serde(default)]
     pub filters: Vec<String>,
+    /// Regex patterns to include in matching
+    #[serde(default)]
+    pub include_filters: Vec<String>,
     /// Optional subtitle group name
     #[serde(default)]
     pub group: Option<String>,

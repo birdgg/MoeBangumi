@@ -21,6 +21,7 @@ interface RssSelectionEntry {
   url: string;
   group: string | null;
   filters: string[];
+  include_filters: string[];
 }
 
 interface MikanRssModalProps {
@@ -28,6 +29,7 @@ interface MikanRssModalProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (entries: RssSelectionEntry[]) => void;
   initialKeyword?: string;
+  mikanId?: string;
 }
 
 export function MikanRssModal({
@@ -35,7 +37,10 @@ export function MikanRssModal({
   onOpenChange,
   onSelect,
   initialKeyword = "",
+  mikanId,
 }: MikanRssModalProps) {
+  // Direct mode: when mikanId is provided, skip search and show subgroups directly
+  const isDirectMode = !!mikanId;
   const [inputValue, setInputValue] = React.useState(initialKeyword);
   const [debouncedKeyword] = useDebouncedValue(inputValue, { wait: 400 });
   const [selectedBangumi, setSelectedBangumi] = React.useState<SearchResult | null>(null);
@@ -43,8 +48,8 @@ export function MikanRssModal({
   const [selectedSubgroups, setSelectedSubgroups] = React.useState<Set<string>>(new Set());
   const hasAutoSelected = React.useRef(false);
 
-  const { data: searchResults, isLoading: isSearching, isFetching: isSearchFetching } = useSearchMikan(debouncedKeyword);
-  const { data: bangumiDetail, isLoading: isLoadingDetail, isFetching: isFetchingDetail } = useMikanRss(selectedBangumi?.id ?? "");
+  const { data: searchResults, isLoading: isSearching, isFetching: isSearchFetching } = useSearchMikan(isDirectMode ? "" : debouncedKeyword);
+  const { data: bangumiDetail, isLoading: isLoadingDetail, isFetching: isFetchingDetail } = useMikanRss(isDirectMode ? mikanId : (selectedBangumi?.id ?? ""));
 
   const isSearchingAny = isSearching || isSearchFetching;
   const isLoadingDetailAny = isLoadingDetail || isFetchingDetail;
@@ -89,6 +94,7 @@ export function MikanRssModal({
         url: sg.rss_url,
         group: sg.name || null,
         filters: [],
+        include_filters: [],
       }));
     onSelect(selectedEntries);
     onOpenChange(false);
@@ -145,7 +151,7 @@ export function MikanRssModal({
           {/* Header */}
           <div className="relative border-b border-chart-1/30 dark:border-chart-3/20 p-4">
             <div className="flex items-center gap-3">
-              {selectedBangumi ? (
+              {selectedBangumi && !isDirectMode ? (
                 <button
                   type="button"
                   onClick={handleBack}
@@ -165,10 +171,10 @@ export function MikanRssModal({
               )}
               <div className="flex-1 min-w-0">
                 <DialogPrimitive.Title className="text-lg font-bold bg-linear-to-r from-chart-1 via-chart-3 to-chart-5 bg-clip-text text-transparent truncate">
-                  {selectedBangumi ? selectedBangumi.name : "Mikan RSS 搜索"}
+                  {isDirectMode ? initialKeyword || "选择字幕组" : (selectedBangumi ? selectedBangumi.name : "Mikan RSS 搜索")}
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Description className="text-xs text-muted-foreground">
-                  {selectedBangumi ? "选择字幕组，点击标签添加排除过滤器" : "搜索番剧并选择字幕组 RSS"}
+                  {isDirectMode || selectedBangumi ? "选择字幕组" : "搜索番剧并选择字幕组 RSS"}
                 </DialogPrimitive.Description>
               </div>
               <DialogPrimitive.Close
@@ -187,7 +193,7 @@ export function MikanRssModal({
 
           {/* Content */}
           <div className="relative flex flex-col max-h-[calc(80vh-80px)]">
-            {!selectedBangumi ? (
+            {!isDirectMode && !selectedBangumi ? (
               <>
                 {/* Search Input */}
                 <div className="p-4 border-b border-chart-1/20 dark:border-chart-3/20">

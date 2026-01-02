@@ -74,7 +74,11 @@ impl WashingService {
         // New torrent's comparable info
         let new_comparable = ComparableTorrent {
             subtitle_group: new_parse_result.subtitle_group.clone(),
-            subtitle_language: new_parse_result.sub_type.clone(),
+            subtitle_language: if new_parse_result.sub_type.is_empty() {
+                None
+            } else {
+                Some(new_parse_result.sub_type.join(" "))
+            },
             resolution: new_parse_result.resolution.clone(),
         };
 
@@ -143,7 +147,11 @@ impl WashingService {
             torrent_url: params.torrent_url.to_string(),
             episode_number: Some(params.episode),
             subtitle_group: params.parse_result.subtitle_group.clone(),
-            subtitle_language: params.parse_result.sub_type.clone(),
+            subtitle_language: if params.parse_result.sub_type.is_empty() {
+                None
+            } else {
+                Some(params.parse_result.sub_type.join(" "))
+            },
             resolution: params.parse_result.resolution.clone(),
         };
 

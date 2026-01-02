@@ -22,6 +22,9 @@ export interface BangumiModalData {
   finished?: boolean;
   sourceType?: "webrip" | "bdrip";
 
+  // Mikan
+  mikanId?: string | null;
+
   // Form data (for edit mode prefill)
   episodeOffset?: number;
   autoComplete?: boolean;
@@ -31,6 +34,7 @@ export interface BangumiModalData {
 export interface RssFormEntry {
   url: string;
   filters: string[];
+  include_filters: string[];
   group?: string | null;
 }
 

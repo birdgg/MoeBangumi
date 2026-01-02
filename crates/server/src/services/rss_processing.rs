@@ -172,8 +172,8 @@ impl RssProcessingService {
             .cloned()
             .collect();
 
-        // Filter items by exclude patterns
-        let filtered_items = filter_rss_items(items, &all_exclude_filters);
+        // Filter items by include/exclude patterns
+        let filtered_items = filter_rss_items(items, &rss.include_filters, &all_exclude_filters);
 
         // Parse all items upfront to extract episode numbers and metadata
         let mut parsed_items: Vec<_> = filtered_items
@@ -338,7 +338,11 @@ impl RssProcessingService {
                 torrent_url: torrent_url.to_string(),
                 episode_number: Some(episode),
                 subtitle_group: parse_result.subtitle_group.clone(),
-                subtitle_language: parse_result.sub_type.clone(),
+                subtitle_language: if parse_result.sub_type.is_empty() {
+                    None
+                } else {
+                    Some(parse_result.sub_type.join(" "))
+                },
                 resolution: parse_result.resolution.clone(),
             },
         )
@@ -500,16 +504,33 @@ fn matches_any_filter(title: &str, filters: &[Regex]) -> bool {
     filters.iter().any(|re| re.is_match(title))
 }
 
-/// Filter RSS items by exclude filters
-fn filter_rss_items(items: Vec<rss::RssItem>, exclude_patterns: &[String]) -> Vec<rss::RssItem> {
+/// Filter RSS items by include and exclude filters
+///
+/// Filtering logic (both conditions must be satisfied):
+/// 1. Include filter: If include_patterns is empty, all items pass;
+///    otherwise item must match at least one include pattern (OR logic)
+/// 2. Exclude filter: Item must NOT match any exclude pattern
+///
+/// Returns items that satisfy BOTH conditions (AND logic)
+fn filter_rss_items(
+    items: Vec<rss::RssItem>,
+    include_patterns: &[String],
+    exclude_patterns: &[String],
+) -> Vec<rss::RssItem> {
+    let include_filters = compile_filters(include_patterns);
     let exclude_filters = compile_filters(exclude_patterns);
 
     items
         .into_iter()
         .filter(|item| {
             let title = item.title();
+            // Must match ANY include filter (if include is not empty)
+            let include_ok =
+                include_filters.is_empty() || matches_any_filter(title, &include_filters);
             // Must NOT match ANY exclude filter
-            !matches_any_filter(title, &exclude_filters)
+            let exclude_ok = !matches_any_filter(title, &exclude_filters);
+
+            include_ok && exclude_ok
         })
         .collect()
 }

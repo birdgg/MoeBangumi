@@ -108,6 +108,7 @@ impl BangumiService {
                 url: entry.url,
                 enabled: true,
                 exclude_filters: entry.filters,
+                include_filters: entry.include_filters,
                 group: entry.group,
             };
 
@@ -246,6 +247,7 @@ impl BangumiService {
                 url: entry.url,
                 enabled: true,
                 exclude_filters: entry.filters,
+                include_filters: entry.include_filters,
                 group: entry.group,
             };
 

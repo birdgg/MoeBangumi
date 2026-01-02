@@ -18,8 +18,8 @@ use crate::SeasonIterator;
 const CALENDAR_SEED_BASE_URL: &str =
     "https://cdn.jsdelivr.net/gh/birdgg/moe-bangumi@main/assets/seed";
 
-/// End year for seed data (earliest season available)
-const SEED_END_YEAR: i32 = 2013;
+/// Number of seasons to import on first startup (12 seasons = 3 years)
+const SEED_SEASONS_COUNT: u32 = 12;
 
 /// Mikan data passed through the calendar refresh pipeline
 struct MikanData {
@@ -195,8 +195,11 @@ impl CalendarService {
     }
 
     /// Import all seasons from seed data (full import)
+    /// Only imports the most recent SEED_SEASONS_COUNT seasons (default: 12 = 3 years)
     async fn import_all_seasons(&self) -> Result<usize> {
-        let iterator = SeasonIterator::from_current_to(SEED_END_YEAR, Season::Winter);
+        let (current_year, current_season) = Self::current_season();
+        let (end_year, end_season) = Self::season_n_ago(current_year, current_season, SEED_SEASONS_COUNT);
+        let iterator = SeasonIterator::new(current_year, current_season, end_year, end_season);
         let seasons: Vec<_> = iterator.collect();
         let total = seasons.len();
 
@@ -347,6 +350,15 @@ impl CalendarService {
             Season::Summer => (year, Season::Spring),
             Season::Fall => (year, Season::Summer),
         }
+    }
+
+    /// Get the season N seasons ago
+    fn season_n_ago(year: i32, season: Season, n: u32) -> (i32, Season) {
+        let mut result = (year, season);
+        for _ in 0..n {
+            result = Self::prev_season(result.0, result.1);
+        }
+        result
     }
 
     /// Build CreateMetadata from seed entry

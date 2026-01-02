@@ -413,7 +413,7 @@ export function BangumiModal({
                           onClick={() =>
                             field.handleChange([
                               ...field.state.value,
-                              { url: "", filters: [], group: null },
+                              { url: "", filters: [], include_filters: [], group: null },
                             ])
                           }
                           className="w-full gap-2 border-dashed border-chart-3/30 dark:border-chart-1/30 hover:bg-chart-3/10 dark:hover:bg-chart-1/20"
@@ -436,6 +436,7 @@ export function BangumiModal({
                               url: entry.url,
                               group: entry.group,
                               filters: entry.filters,
+                              include_filters: entry.include_filters,
                             }));
                           if (newEntries.length > 0) {
                             field.handleChange([
@@ -445,6 +446,7 @@ export function BangumiModal({
                           }
                         }}
                         initialKeyword={searchKeyword}
+                        mikanId={data.mikanId ?? undefined}
                       />
                     </Field>
                   )}

@@ -1,5 +1,9 @@
+pub mod bgmtv;
 pub mod models;
 pub mod parser;
+
+pub use models::ParseResult;
+pub use parser::Parser;
 
 #[cfg(test)]
 mod tests {

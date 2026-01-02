@@ -154,7 +154,7 @@ export const getCalendar = <ThrowOnError extends boolean = false>(
 /**
  * Refresh calendar data
  *
- * Forces a refresh of the calendar data from Mikan/BGM.tv API.
+ * Re-imports calendar data from GitHub seed file.
  * Returns the updated calendar data.
  * Defaults to current season if year/season not specified.
  */

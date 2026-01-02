@@ -478,6 +478,10 @@ export type Rss = {
   group?: string | null;
   id: number;
   /**
+   * Regex patterns to include in matching
+   */
+  include_filters: Array<string>;
+  /**
    * RSS subscription title: [group] {bangumi} S{season}
    */
   title: string;
@@ -500,6 +504,10 @@ export type RssEntry = {
    * Optional subtitle group name
    */
   group?: string | null;
+  /**
+   * Regex patterns to include in matching
+   */
+  include_filters?: Array<string>;
   /**
    * RSS feed URL
    */

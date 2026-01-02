@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS rss (
     url TEXT NOT NULL,                              -- RSS feed URL
     enabled INTEGER NOT NULL DEFAULT 1,             -- Whether subscription is enabled (boolean)
     exclude_filters TEXT NOT NULL DEFAULT '[]',     -- JSON array of regex patterns to exclude
+    include_filters TEXT NOT NULL DEFAULT '[]',     -- JSON array of regex patterns to include
     "group" TEXT,                                   -- Optional subtitle group name
 
     -- HTTP caching for incremental updates

@@ -633,6 +633,7 @@ export const RssSchema = {
     "url",
     "enabled",
     "exclude_filters",
+    "include_filters",
   ],
   properties: {
     bangumi_id: {
@@ -662,6 +663,13 @@ export const RssSchema = {
     id: {
       type: "integer",
       format: "int64",
+    },
+    include_filters: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "Regex patterns to include in matching",
     },
     title: {
       type: "string",
@@ -693,6 +701,13 @@ export const RssEntrySchema = {
     group: {
       type: ["string", "null"],
       description: "Optional subtitle group name",
+    },
+    include_filters: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      description: "Regex patterns to include in matching",
     },
     url: {
       type: "string",

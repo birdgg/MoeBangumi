@@ -7,7 +7,7 @@ use crate::models::{CreateRss, Rss, UpdateRss};
 const SELECT_RSS: &str = r#"
     SELECT
         id, created_at, updated_at,
-        bangumi_id, title, url, enabled, exclude_filters, "group",
+        bangumi_id, title, url, enabled, exclude_filters, include_filters, "group",
         etag, last_modified, last_pub_date
     FROM rss
 "#;
@@ -19,11 +19,13 @@ impl RssRepository {
     pub async fn create(pool: &SqlitePool, data: CreateRss) -> Result<Rss, sqlx::Error> {
         let exclude_filters_json = serde_json::to_string(&data.exclude_filters)
             .unwrap_or_else(|_| "[]".to_string());
+        let include_filters_json = serde_json::to_string(&data.include_filters)
+            .unwrap_or_else(|_| "[]".to_string());
 
         let result = sqlx::query(
             r#"
-            INSERT INTO rss (bangumi_id, title, url, enabled, exclude_filters, "group")
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO rss (bangumi_id, title, url, enabled, exclude_filters, include_filters, "group")
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
             "#,
         )
@@ -32,6 +34,7 @@ impl RssRepository {
         .bind(&data.url)
         .bind(data.enabled)
         .bind(&exclude_filters_json)
+        .bind(&include_filters_json)
         .bind(&data.group)
         .fetch_one(pool)
         .await?;
@@ -130,6 +133,9 @@ impl RssRepository {
         let exclude_filters = data.exclude_filters.unwrap_or(existing.exclude_filters);
         let exclude_filters_json = serde_json::to_string(&exclude_filters)
             .unwrap_or_else(|_| "[]".to_string());
+        let include_filters = data.include_filters.unwrap_or(existing.include_filters);
+        let include_filters_json = serde_json::to_string(&include_filters)
+            .unwrap_or_else(|_| "[]".to_string());
         let group = data.group.or(existing.group);
 
         sqlx::query(
@@ -138,13 +144,15 @@ impl RssRepository {
                 url = $1,
                 enabled = $2,
                 exclude_filters = $3,
-                "group" = $4
-            WHERE id = $5
+                include_filters = $4,
+                "group" = $5
+            WHERE id = $6
             "#,
         )
         .bind(&url)
         .bind(enabled)
         .bind(&exclude_filters_json)
+        .bind(&include_filters_json)
         .bind(&group)
         .bind(id)
         .execute(pool)
@@ -213,6 +221,7 @@ struct RssRow {
     url: String,
     enabled: bool,
     exclude_filters: String,
+    include_filters: String,
     group: Option<String>,
     etag: Option<String>,
     last_modified: Option<String>,
@@ -222,6 +231,8 @@ struct RssRow {
 impl From<RssRow> for Rss {
     fn from(row: RssRow) -> Self {
         let exclude_filters: Vec<String> = serde_json::from_str(&row.exclude_filters)
+            .unwrap_or_default();
+        let include_filters: Vec<String> = serde_json::from_str(&row.include_filters)
             .unwrap_or_default();
 
         Self {
@@ -233,6 +244,7 @@ impl From<RssRow> for Rss {
             url: row.url,
             enabled: row.enabled,
             exclude_filters,
+            include_filters,
             group: row.group,
             etag: row.etag,
             last_modified: row.last_modified,
