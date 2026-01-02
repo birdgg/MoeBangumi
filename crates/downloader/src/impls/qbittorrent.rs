@@ -38,12 +38,19 @@ impl QBittorrentDownloader {
 /// Convert qBittorrent state string to TaskStatus enum
 fn parse_status(state: &str) -> TaskStatus {
     match state.to_lowercase().as_str() {
-        "downloading" | "metadl" | "forceddl" => TaskStatus::Downloading,
+        // Downloading states
+        "downloading" | "metadl" | "forceddl" | "allocating" => TaskStatus::Downloading,
+        // Seeding states (upload-related)
         "uploading" | "stalledup" | "forcedup" => TaskStatus::Seeding,
-        "pauseddl" | "pausedup" => TaskStatus::Paused,
+        // Paused states (qBittorrent 4.x: paused*, 5.0+: stopped*)
+        "pauseddl" | "pausedup" | "stoppeddl" | "stoppedup" => TaskStatus::Paused,
+        // Queued states
         "queueddl" | "queuedup" => TaskStatus::Queued,
-        "checkingdl" | "checkingup" | "checkingresumedata" => TaskStatus::Checking,
+        // Checking states
+        "checkingdl" | "checkingup" | "checkingresumedata" | "moving" => TaskStatus::Checking,
+        // Stalled download
         "stalleddl" => TaskStatus::Stalled,
+        // Error states
         "error" | "missingfiles" => TaskStatus::Error,
         _ => TaskStatus::Unknown,
     }
