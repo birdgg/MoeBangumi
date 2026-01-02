@@ -2,14 +2,9 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  IconPlus,
-  IconTrash,
-  IconGripVertical,
-  IconArrowUp,
-  IconArrowDown,
-} from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconGripVertical } from "@tabler/icons-react";
 import { type SettingsFormInstance } from "../hooks";
+import { Reorder, useDragControls } from "framer-motion";
 
 export interface PrioritySectionProps {
   form: SettingsFormInstance;
@@ -24,7 +19,65 @@ interface PriorityListProps {
   suggestions?: string[];
   onAdd: (item: string) => void;
   onRemove: (index: number) => void;
-  onMove: (from: number, to: number) => void;
+  onReorder: (items: string[]) => void;
+}
+
+interface ReorderItemProps {
+  item: string;
+  index: number;
+  onRemove: () => void;
+}
+
+function ReorderItem({ item, index, onRemove }: ReorderItemProps) {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={item}
+      dragListener={false}
+      dragControls={controls}
+      className="group flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2 py-1.5 data-[dragging]:z-50 data-[dragging]:border-chart-1/50 data-[dragging]:bg-muted/80 data-[dragging]:shadow-lg"
+    >
+      {/* Rank badge */}
+      <span
+        className={cn(
+          "flex size-5 shrink-0 items-center justify-center rounded text-xs font-medium",
+          index === 0
+            ? "bg-chart-1/20 text-chart-1"
+            : index === 1
+              ? "bg-chart-3/20 text-chart-3"
+              : index === 2
+                ? "bg-chart-5/20 text-chart-5"
+                : "bg-muted text-muted-foreground"
+        )}
+      >
+        {index + 1}
+      </span>
+
+      {/* Drag handle */}
+      <button
+        type="button"
+        className="cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+        onPointerDown={(e) => controls.start(e)}
+      >
+        <IconGripVertical className="size-4 shrink-0" />
+      </button>
+
+      {/* Item text */}
+      <span className="flex-1 truncate text-sm">{item}</span>
+
+      {/* Delete button */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={onRemove}
+        className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+      >
+        <IconTrash className="size-3.5" />
+      </Button>
+    </Reorder.Item>
+  );
 }
 
 function PriorityList({
@@ -36,9 +89,20 @@ function PriorityList({
   suggestions,
   onAdd,
   onRemove,
-  onMove,
+  onReorder,
 }: PriorityListProps) {
   const [newItem, setNewItem] = React.useState("");
+  const [localItems, setLocalItems] = React.useState(items);
+
+  // Sync local state with props when items change externally
+  React.useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
+  const handleReorder = (newItems: string[]) => {
+    setLocalItems(newItems); // Update local state immediately for smooth animation
+    onReorder(newItems); // Update form state
+  };
 
   const handleAdd = () => {
     const trimmed = newItem.trim();
@@ -112,72 +176,22 @@ function PriorityList({
       )}
 
       {/* Item List */}
-      {items.length > 0 && (
-        <div className="space-y-1">
-          {items.map((item, index) => (
-            <div
+      {localItems.length > 0 && (
+        <Reorder.Group
+          axis="y"
+          values={localItems}
+          onReorder={handleReorder}
+          className="space-y-1"
+        >
+          {localItems.map((item, index) => (
+            <ReorderItem
               key={item}
-              className="group flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2 py-1.5"
-            >
-              {/* Rank badge */}
-              <span
-                className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded text-xs font-medium",
-                  index === 0
-                    ? "bg-chart-1/20 text-chart-1"
-                    : index === 1
-                      ? "bg-chart-3/20 text-chart-3"
-                      : index === 2
-                        ? "bg-chart-5/20 text-chart-5"
-                        : "bg-muted text-muted-foreground"
-                )}
-              >
-                {index + 1}
-              </span>
-
-              {/* Drag handle visual */}
-              <IconGripVertical className="size-4 shrink-0 text-muted-foreground/50" />
-
-              {/* Item text */}
-              <span className="flex-1 truncate text-sm">{item}</span>
-
-              {/* Move buttons */}
-              <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onMove(index, index - 1)}
-                  disabled={index === 0}
-                  className="size-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                >
-                  <IconArrowUp className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => onMove(index, index + 1)}
-                  disabled={index === items.length - 1}
-                  className="size-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                >
-                  <IconArrowDown className="size-3.5" />
-                </Button>
-              </div>
-
-              {/* Delete button */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => onRemove(index)}
-                className="size-6 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-              >
-                <IconTrash className="size-3.5" />
-              </Button>
-            </div>
+              item={item}
+              index={index}
+              onRemove={() => onRemove(index)}
+            />
           ))}
-        </div>
+        </Reorder.Group>
       )}
     </div>
   );
@@ -212,11 +226,7 @@ export function PrioritySection({ form }: PrioritySectionProps) {
           items.filter((_, i) => i !== index)
         );
       },
-      onMove: (from: number, to: number) => {
-        if (to < 0 || to >= items.length) return;
-        const newItems = [...items];
-        const [removed] = newItems.splice(from, 1);
-        newItems.splice(to, 0, removed);
+      onReorder: (newItems: string[]) => {
         form.setFieldValue(fieldName, newItems);
       },
     };
