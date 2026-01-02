@@ -59,6 +59,19 @@ pub struct Bangumi {
     pub source_type: SourceType,
 }
 
+impl Bangumi {
+    /// Convert RSS episode number to season-relative episode number.
+    ///
+    /// RSS feeds typically use absolute episode numbers (e.g., episode 13 for a split-cour anime),
+    /// but media servers expect season-relative numbers (e.g., S02E01).
+    ///
+    /// The offset is calculated as `sort - ep` from BGM.tv episode data.
+    #[inline]
+    pub fn adjust_episode(&self, episode: i32) -> i32 {
+        episode - self.episode_offset
+    }
+}
+
 /// Bangumi with its associated metadata
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BangumiWithMetadata {

@@ -13,7 +13,9 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::models::{BangumiWithMetadata, Torrent};
 use crate::repositories::{BangumiRepository, TorrentRepository};
-use crate::services::{DownloaderService, NotificationService, Task, TaskFile, TaskFilter, TaskStatus};
+use crate::services::{
+    DownloaderService, NotificationService, Task, TaskFile, TaskFilter, TaskStatus,
+};
 
 /// Error type for rename operations
 #[derive(Debug, thiserror::Error)]
@@ -134,9 +136,13 @@ impl RenameService {
             if result.renamed_episodes.is_empty() {
                 continue;
             }
-            let entry = grouped
-                .entry(result.bangumi_id)
-                .or_insert_with(|| (result.bangumi_title.clone(), result.poster_url.clone(), Vec::new()));
+            let entry = grouped.entry(result.bangumi_id).or_insert_with(|| {
+                (
+                    result.bangumi_title.clone(),
+                    result.poster_url.clone(),
+                    Vec::new(),
+                )
+            });
             entry.2.extend(result.renamed_episodes);
         }
 
@@ -155,8 +161,12 @@ impl RenameService {
             };
 
             // Update current_episode (only if greater than current value)
-            if let Err(e) =
-                BangumiRepository::update_current_episode_if_greater(&self.db, bangumi_id, max_episode).await
+            if let Err(e) = BangumiRepository::update_current_episode_if_greater(
+                &self.db,
+                bangumi_id,
+                max_episode,
+            )
+            .await
             {
                 tracing::warn!(
                     "Failed to update current_episode for bangumi {}: {}",
@@ -168,7 +178,7 @@ impl RenameService {
             // Send notification with poster if available
             let episode_str = Self::format_episode_range(&episodes);
             let notification_title = format!("{} 第{}话", title, episode_str);
-            let notification_content = "下载完成并已重命名";
+            let notification_content = "已更新";
 
             // Try to load poster and send with image
             let notification_result = if let Some(ref poster_path) = poster_url {
@@ -336,7 +346,10 @@ impl RenameService {
                     renamed_episodes.push(ep);
                 }
             } else {
-                tracing::warn!("Could not determine episode number for: {}", video_file.path);
+                tracing::warn!(
+                    "Could not determine episode number for: {}",
+                    video_file.path
+                );
             }
         }
 
@@ -366,11 +379,14 @@ impl RenameService {
         // Get file extension
         let ext = file.extension().unwrap_or("mkv");
 
+        // Apply episode offset to convert RSS episode number to season-relative episode
+        let adjusted_episode = bangumi.bangumi.adjust_episode(episode);
+
         // Generate new filename using pathgen
         let new_filename_base = pathgen::generate_filename(
             &bangumi.metadata.title_chinese,
             bangumi.metadata.season,
-            episode,
+            adjusted_episode,
             Some(bangumi.metadata.platform.as_str()),
         );
 
@@ -405,7 +421,7 @@ impl RenameService {
                 &nfo_dir.to_string_lossy(),
                 &new_filename_base,
                 bangumi,
-                episode,
+                adjusted_episode,
                 old_path,
             )
             .await
@@ -505,7 +521,11 @@ impl RenameService {
     }
 
     /// Generate NFO content in XML format
-    fn generate_nfo(bangumi: &BangumiWithMetadata, episode: i32, original_filename: &str) -> String {
+    fn generate_nfo(
+        bangumi: &BangumiWithMetadata,
+        episode: i32,
+        original_filename: &str,
+    ) -> String {
         let mut nfo =
             String::from("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n");
         nfo.push_str("<episodedetails>\n");
@@ -609,7 +629,11 @@ impl RenameService {
                     .map_err(|e| e.to_string())
             }
             Err(e) => {
-                tracing::debug!("Could not read poster file {:?}: {}, falling back to text", poster_file, e);
+                tracing::debug!(
+                    "Could not read poster file {:?}: {}, falling back to text",
+                    poster_file,
+                    e
+                );
                 self.notification
                     .notify_download(title, content)
                     .await
@@ -702,10 +726,16 @@ mod tests {
 
         // Consecutive range
         assert_eq!(RenameService::format_episode_range(&[1, 2, 3]), "01-03");
-        assert_eq!(RenameService::format_episode_range(&[8, 9, 10, 11, 12]), "08-12");
+        assert_eq!(
+            RenameService::format_episode_range(&[8, 9, 10, 11, 12]),
+            "08-12"
+        );
 
         // Non-consecutive
-        assert_eq!(RenameService::format_episode_range(&[1, 3, 5]), "01, 03, 05");
+        assert_eq!(
+            RenameService::format_episode_range(&[1, 3, 5]),
+            "01, 03, 05"
+        );
 
         // Mixed ranges
         assert_eq!(

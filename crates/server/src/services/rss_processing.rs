@@ -424,11 +424,14 @@ impl RssProcessingService {
         torrent_url: &str,
         episode: i32,
     ) {
+        // Apply episode offset to convert RSS episode number to season-relative episode
+        let adjusted_episode = ctx.bangumi.bangumi.adjust_episode(episode);
+
         // Generate filename for this specific episode
         let filename = pathgen::generate_filename(
             &ctx.bangumi.metadata.title_chinese,
             ctx.bangumi.metadata.season,
-            episode,
+            adjusted_episode,
             Some(ctx.bangumi.metadata.platform.as_str()),
         );
 

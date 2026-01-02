@@ -59,9 +59,12 @@ export function BangumiModal({
   );
 
   // Calculate episode offset from episodes data (add mode only)
+  // offset = sort - ep, used to convert RSS episode number to season-relative episode
   const calculatedEpisodeOffset = React.useMemo(() => {
     if (isEdit || !episodes || episodes.length === 0) return data.episodeOffset ?? 0;
-    return episodes[0].sort;
+    const first = episodes[0];
+    const ep = first.ep ?? first.sort;
+    return Math.floor(first.sort - ep);
   }, [isEdit, episodes, data.episodeOffset]);
 
   // Calculate if bangumi has finished airing (add mode only)
