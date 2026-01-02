@@ -1,21 +1,19 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useCalendar, useRefreshCalendar } from "./hooks/use-calendar";
-import { CalendarCard, CalendarCardSkeleton } from "./components";
+import {
+  useCalendar,
+  useRefreshCalendar,
+  useSeasonSelection,
+} from "./hooks";
+import { CalendarCard, CalendarCardSkeleton, SeasonSelector } from "./components";
 import { BangumiModal } from "@/features/bangumi/components";
-import type { CalendarSubject, Season } from "@/lib/api";
+import type { CalendarSubject } from "@/lib/api";
 import {
   IconAlertCircle,
   IconCalendarWeek,
   IconRefresh,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
 import { calendarSubjectToModalData } from "@/lib/converters";
 
 // Get today's weekday (1-7, Monday-Sunday)
@@ -36,95 +34,17 @@ const WEEKDAY_LABELS: Record<number, string> = {
   7: "周日",
 };
 
-// Season order and labels
-const SEASONS: Season[] = ["winter", "spring", "summer", "fall"];
-const SEASON_LABELS: Record<Season, string> = {
-  winter: "冬",
-  spring: "春",
-  summer: "夏",
-  fall: "秋",
-};
-
-// Year range
-const MIN_YEAR = 2012;
-const MAX_YEAR = new Date().getFullYear();
-
-// LocalStorage key for persisting season selection
-const CALENDAR_SEASON_KEY = "moe-calendar-season";
-
-// Get stored season selection from localStorage
-function getStoredSeasonSelection(): { year: number; season: Season } | null {
-  if (typeof window === "undefined") return null;
-  const stored = localStorage.getItem(CALENDAR_SEASON_KEY);
-  if (!stored) return null;
-  try {
-    const parsed = JSON.parse(stored);
-    if (
-      typeof parsed.year === "number" &&
-      parsed.year >= MIN_YEAR &&
-      parsed.year <= MAX_YEAR &&
-      SEASONS.includes(parsed.season)
-    ) {
-      return parsed;
-    }
-  } catch {
-    // Invalid JSON, ignore
-  }
-  return null;
-}
-
-// Save season selection to localStorage
-function setStoredSeasonSelection(year: number, season: Season): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(CALENDAR_SEASON_KEY, JSON.stringify({ year, season }));
-}
-
-// Season option type
-interface SeasonOption {
-  value: string; // "2025-winter"
-  label: string; // "2025 冬"
-  year: number;
-  season: Season;
-}
-
-// Generate all season options (newest first)
-function getSeasonOptions(): SeasonOption[] {
-  const options: SeasonOption[] = [];
-  for (let year = MAX_YEAR; year >= MIN_YEAR; year--) {
-    // Reverse order within year: fall -> summer -> spring -> winter
-    for (const season of [...SEASONS].reverse()) {
-      options.push({
-        value: `${year}-${season}`,
-        label: `${year} ${SEASON_LABELS[season]}`,
-        year,
-        season,
-      });
-    }
-  }
-  return options;
-}
-
-// Get current season based on month
-function getCurrentSeason(): Season {
-  const month = new Date().getMonth() + 1;
-  if (month >= 1 && month <= 3) return "winter";
-  if (month >= 4 && month <= 6) return "spring";
-  if (month >= 7 && month <= 9) return "summer";
-  return "fall";
-}
-
 export function SchedulePage() {
-  // Season selection state - combined year and season (persisted to localStorage)
-  const [selectedYear, setSelectedYear] = useState(() => {
-    const stored = getStoredSeasonSelection();
-    return stored?.year ?? new Date().getFullYear();
-  });
-  const [selectedSeason, setSelectedSeason] = useState<Season>(() => {
-    const stored = getStoredSeasonSelection();
-    return stored?.season ?? getCurrentSeason();
-  });
+  // Season selection with localStorage persistence
+  const {
+    year,
+    season,
+    options,
+    selectedValue,
+    handleValueChange,
+  } = useSeasonSelection();
 
-  const calendarParams = { year: selectedYear, season: selectedSeason };
+  const calendarParams = { year, season };
   const { data: calendar, isLoading, error } = useCalendar(calendarParams);
   const refreshMutation = useRefreshCalendar(calendarParams);
 
@@ -133,19 +53,6 @@ export function SchedulePage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const isRefreshing = refreshMutation.isPending;
-
-  const seasonOptions = useMemo(() => getSeasonOptions(), []);
-  const selectedValue = `${selectedYear}-${selectedSeason}`;
-
-  const handleSeasonChange = (value: string | null) => {
-    if (!value) return;
-    const option = seasonOptions.find((o) => o.value === value);
-    if (option) {
-      setSelectedYear(option.year);
-      setSelectedSeason(option.season);
-      setStoredSeasonSelection(option.year, option.season);
-    }
-  };
 
   // Sort calendar by weekday, starting from today
   const todayWeekday = getTodayWeekday();
@@ -193,22 +100,14 @@ export function SchedulePage() {
 
           {/* Season Selector */}
           <div className="flex items-center gap-2">
-            <Select
-              value={selectedValue}
-              onValueChange={handleSeasonChange}
+            <SeasonSelector
+              year={year}
+              season={season}
+              options={options}
+              selectedValue={selectedValue}
+              onValueChange={handleValueChange}
               disabled={isLoading}
-            >
-              <SelectTrigger size="sm">
-                <span>{selectedYear} {SEASON_LABELS[selectedSeason]}</span>
-              </SelectTrigger>
-              <SelectContent>
-                {seasonOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
 
             <Button
               variant="ghost"
