@@ -90,22 +90,10 @@ function PriorityList({
   onReorder,
 }: PriorityListProps) {
   const [newItem, setNewItem] = React.useState("");
-  const [localItems, setLocalItems] = React.useState(items);
-
-  // Sync local state with props when items change externally
-  React.useEffect(() => {
-    setLocalItems(items);
-  }, [items]);
-
-  const handleReorder = (newItems: string[]) => {
-    setLocalItems(newItems); // Update local state immediately for smooth animation
-    onReorder(newItems); // Update form state
-  };
 
   const handleAdd = () => {
     const trimmed = newItem.trim();
-    if (!trimmed || localItems.includes(trimmed)) return;
-    setLocalItems([...localItems, trimmed]);
+    if (!trimmed || items.includes(trimmed)) return;
     onAdd(trimmed);
     setNewItem("");
   };
@@ -115,11 +103,6 @@ function PriorityList({
       e.preventDefault();
       handleAdd();
     }
-  };
-
-  const handleRemove = (item: string) => {
-    setLocalItems(localItems.filter((i) => i !== item));
-    onRemove(item);
   };
 
   return (
@@ -147,7 +130,7 @@ function PriorityList({
           type="button"
           size="sm"
           onClick={handleAdd}
-          disabled={!newItem.trim() || localItems.includes(newItem.trim())}
+          disabled={!newItem.trim() || items.includes(newItem.trim())}
           className="gap-1"
         >
           <IconPlus className="size-3.5" />
@@ -156,19 +139,19 @@ function PriorityList({
       </div>
 
       {/* Item List */}
-      {localItems.length > 0 && (
+      {items.length > 0 && (
         <Reorder.Group
           axis="y"
-          values={localItems}
-          onReorder={handleReorder}
+          values={items}
+          onReorder={onReorder}
           className="space-y-1"
         >
-          {localItems.map((item, index) => (
+          {items.map((item, index) => (
             <ReorderItem
               key={item}
               item={item}
               index={index}
-              onRemove={() => handleRemove(item)}
+              onRemove={() => onRemove(item)}
             />
           ))}
         </Reorder.Group>
@@ -178,9 +161,6 @@ function PriorityList({
 }
 
 export function PrioritySection({ form }: PrioritySectionProps) {
-  const subtitleGroups = form.state.values.priority.subtitle_groups;
-  const subtitleLanguages = form.state.values.priority.subtitle_languages;
-
   // Helper to create handlers for each list
   const createHandlers = (
     fieldName: "priority.subtitle_groups" | "priority.subtitle_languages"
@@ -216,25 +196,37 @@ export function PrioritySection({ form }: PrioritySectionProps) {
         </p>
       </div>
 
-      {/* Subtitle Groups */}
-      <PriorityList
-        title="字幕组优先级"
-        description="越靠前优先级越高"
-        icon="♡"
-        items={subtitleGroups}
-        placeholder="输入字幕组名称..."
-        {...createHandlers("priority.subtitle_groups")}
-      />
+      {/* Subscribe to priority values for reactivity */}
+      <form.Subscribe
+        selector={(state) => ({
+          subtitleGroups: state.values.priority.subtitle_groups,
+          subtitleLanguages: state.values.priority.subtitle_languages,
+        })}
+      >
+        {({ subtitleGroups, subtitleLanguages }) => (
+          <>
+            {/* Subtitle Groups */}
+            <PriorityList
+              title="字幕组优先级"
+              description="越靠前优先级越高"
+              icon="♡"
+              items={subtitleGroups}
+              placeholder="输入字幕组名称..."
+              {...createHandlers("priority.subtitle_groups")}
+            />
 
-      {/* Subtitle Languages */}
-      <PriorityList
-        title="字幕语种优先级"
-        description="越靠前优先级越高"
-        icon="✨"
-        items={subtitleLanguages}
-        placeholder="输入字幕语种..."
-        {...createHandlers("priority.subtitle_languages")}
-      />
+            {/* Subtitle Languages */}
+            <PriorityList
+              title="字幕语种优先级"
+              description="越靠前优先级越高"
+              icon="✨"
+              items={subtitleLanguages}
+              placeholder="输入字幕语种..."
+              {...createHandlers("priority.subtitle_languages")}
+            />
+          </>
+        )}
+      </form.Subscribe>
     </section>
   );
 }

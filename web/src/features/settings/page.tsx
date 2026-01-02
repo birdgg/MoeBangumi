@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconLoader2, IconDeviceFloppy } from "@tabler/icons-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearch, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   getSettingsOptions,
@@ -20,9 +20,10 @@ import {
 import { useSettingsForm, formDataToUpdateSettings } from "./hooks";
 
 export function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>("downloader");
+  const { section: activeSection } = useSearch({ from: "/settings" });
+  const navigate = useNavigate({ from: "/settings" });
   const queryClient = useQueryClient();
-  const { data: settings } = useQuery(getSettingsOptions());
+  const { data: settings, isLoading } = useQuery(getSettingsOptions());
 
   // Create form instance with server data
   const form = useSettingsForm(settings);
@@ -40,12 +41,24 @@ export function SettingsPage() {
     },
   });
 
+  const setActiveSection = (section: SettingsSection) => {
+    navigate({ search: { section } });
+  };
+
   const handleSave = () => {
     const values = form.state.values;
     saveSettings({
       body: formDataToUpdateSettings(values),
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-full flex items-center justify-center">
+        <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (activeSection) {

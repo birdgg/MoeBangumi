@@ -111,30 +111,7 @@ export function useSettingsForm(initialSettings?: Settings) {
   // Sync form values when settings data loads/updates
   React.useEffect(() => {
     if (initialSettings) {
-      const formData = settingsToFormData(initialSettings);
-      // Downloader settings
-      form.setFieldValue("downloader.type", formData.downloader.type);
-      form.setFieldValue("downloader.save_path", formData.downloader.save_path);
-      // qBittorrent configs
-      form.setFieldValue("downloader.configs.qbittorrent.url", formData.downloader.configs.qbittorrent.url);
-      form.setFieldValue("downloader.configs.qbittorrent.username", formData.downloader.configs.qbittorrent.username);
-      form.setFieldValue("downloader.configs.qbittorrent.password", formData.downloader.configs.qbittorrent.password);
-      // Transmission configs
-      form.setFieldValue("downloader.configs.transmission.url", formData.downloader.configs.transmission.url);
-      form.setFieldValue("downloader.configs.transmission.username", formData.downloader.configs.transmission.username);
-      form.setFieldValue("downloader.configs.transmission.password", formData.downloader.configs.transmission.password);
-      // Filter settings
-      form.setFieldValue("filter.global_rss_filters", formData.filter.global_rss_filters);
-      // Proxy settings
-      form.setFieldValue("proxy.url", formData.proxy.url);
-      form.setFieldValue("proxy.username", formData.proxy.username);
-      form.setFieldValue("proxy.password", formData.proxy.password);
-      // Notification settings
-      form.setFieldValue("notification.telegram.bot_token", formData.notification.telegram.bot_token);
-      form.setFieldValue("notification.telegram.chat_id", formData.notification.telegram.chat_id);
-      // Priority settings
-      form.setFieldValue("priority.subtitle_groups", formData.priority.subtitle_groups);
-      form.setFieldValue("priority.subtitle_languages", formData.priority.subtitle_languages);
+      form.reset(settingsToFormData(initialSettings));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSettings]);
