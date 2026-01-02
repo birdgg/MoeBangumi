@@ -10,6 +10,7 @@ use crate::models::{BangumiWithMetadata, CreateTorrent, Rss, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
 use crate::services::washing::{WashParams, WashingService};
 use crate::services::{DownloaderService, SettingsService};
+use washing::{ComparableTorrent, PriorityCalculator};
 
 /// Context for RSS processing, avoiding repeated parameter passing
 struct ProcessingContext {
@@ -208,6 +209,11 @@ impl RssProcessingService {
             }
         }
 
+        // Pre-filter by priority: keep only highest priority item per episode
+        // This prevents multiple items for the same episode from being added
+        // when the RSS feed contains multiple subtitle groups or languages
+        let parsed_items = self.filter_by_priority(parsed_items);
+
         // Update cache info in database (after successful fetch)
         // Use latest pub_date from the ORIGINAL feed (before filtering)
         // This ensures we don't re-process old items on next fetch
@@ -226,6 +232,63 @@ impl RssProcessingService {
         }
 
         Some(parsed_items)
+    }
+
+    /// Filter parsed items to keep only the highest priority item per episode.
+    ///
+    /// This pre-filters items before processing to avoid unnecessary database operations
+    /// and download tasks for lower priority resources. Uses the same priority calculation
+    /// logic as washing (subtitle group > language combination).
+    fn filter_by_priority(
+        &self,
+        parsed_items: Vec<(RssItem, i32, ParseResult)>,
+    ) -> Vec<(RssItem, i32, ParseResult)> {
+        if parsed_items.is_empty() {
+            return parsed_items;
+        }
+
+        // Build priority calculator from current settings
+        let settings = self.settings.get();
+        let priority_config = settings.priority.to_config();
+        let calculator = PriorityCalculator::new(priority_config);
+
+        // Group items by episode number
+        let mut episodes_map: HashMap<i32, Vec<(RssItem, i32, ParseResult)>> = HashMap::new();
+        for item in parsed_items {
+            episodes_map.entry(item.1).or_default().push(item);
+        }
+
+        // For each episode, keep only the highest priority item
+        let mut result = Vec::new();
+        for (episode, items) in episodes_map {
+            let item_count = items.len();
+
+            // Find the best item by priority score (lowest score = highest priority)
+            let best_item = items
+                .into_iter()
+                .min_by_key(|(_, _, parse_result)| {
+                    let comparable = ComparableTorrent {
+                        subtitle_group: parse_result.subtitle_group.clone(),
+                        subtitle_languages: parse_result.sub_type.clone(),
+                    };
+                    calculator.calculate_score(&comparable)
+                });
+
+            if let Some(item) = best_item {
+                if item_count > 1 {
+                    tracing::debug!(
+                        "E{}: kept highest priority item (group={:?}, lang={:?}) from {} candidates",
+                        episode,
+                        item.2.subtitle_group,
+                        item.2.sub_type,
+                        item_count
+                    );
+                }
+                result.push(item);
+            }
+        }
+
+        result
     }
 
     /// Build lookup structures for existing torrents (batch fetch to avoid N+1)
