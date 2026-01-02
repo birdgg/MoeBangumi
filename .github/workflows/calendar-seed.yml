@@ -7,8 +7,15 @@ on:
   # Allow manual trigger
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'Update mode'
+        type: choice
+        options:
+          - recent
+          - all
+        default: 'recent'
       recent_count:
-        description: 'Number of recent seasons to fetch (default: 2)'
+        description: 'Seasons to fetch (only for recent mode, default: 2)'
         required: false
         default: '2'
 
@@ -39,11 +46,17 @@ jobs:
       - name: Build calendar_seed
         run: cargo build --release --bin calendar_seed
 
-      - name: Fetch recent calendar data
+      - name: Fetch calendar data
         run: |
-          RECENT_COUNT="${{ github.event.inputs.recent_count || '2' }}"
-          echo "Fetching recent $RECENT_COUNT seasons..."
-          ./target/release/calendar_seed --recent $RECENT_COUNT
+          MODE="${{ github.event.inputs.mode || 'recent' }}"
+          if [ "$MODE" = "all" ]; then
+            echo "Fetching all seasons..."
+            ./target/release/calendar_seed
+          else
+            RECENT_COUNT="${{ github.event.inputs.recent_count || '2' }}"
+            echo "Fetching recent $RECENT_COUNT seasons..."
+            ./target/release/calendar_seed --recent $RECENT_COUNT
+          fi
 
       - name: Check for changes
         id: changes
