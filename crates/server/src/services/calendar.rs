@@ -14,9 +14,9 @@ use crate::models::{
 use crate::repositories::{CalendarEntry, CalendarRepository, MetadataRepository};
 use crate::SeasonIterator;
 
-/// Base URL for downloading calendar seed data from GitHub
+/// Base URL for downloading calendar seed data from jsDelivr CDN
 const CALENDAR_SEED_BASE_URL: &str =
-    "https://raw.githubusercontent.com/birdgg/moe-bangumi/main/assets/seed";
+    "https://cdn.jsdelivr.net/gh/birdgg/moe-bangumi@main/assets/seed";
 
 /// End year for seed data (earliest season available)
 const SEED_END_YEAR: i32 = 2013;
