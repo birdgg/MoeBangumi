@@ -257,36 +257,14 @@ impl MetadataRepository {
         Ok(count.0)
     }
 
-    /// Get metadata records with remote poster URLs (not starting with /posters/)
-    pub async fn get_remote_poster_metadata(
-        pool: &SqlitePool,
-    ) -> Result<Vec<(i64, String)>, sqlx::Error> {
-        let rows: Vec<(i64, String)> = sqlx::query_as(
+    /// Get metadata records that need syncing (remote poster URL or missing TMDB ID)
+    pub async fn get_metadata_to_sync(pool: &SqlitePool) -> Result<Vec<MetadataToSync>, sqlx::Error> {
+        let rows: Vec<MetadataToSync> = sqlx::query_as(
             r#"
-            SELECT id, poster_url
+            SELECT id, poster_url, tmdb_id, title_japanese
             FROM metadata
-            WHERE poster_url IS NOT NULL
-              AND poster_url != ''
-              AND poster_url NOT LIKE '/posters/%'
-            "#,
-        )
-        .fetch_all(pool)
-        .await?;
-
-        Ok(rows)
-    }
-
-    /// Get metadata records without TMDB ID but with Japanese title
-    pub async fn get_metadata_without_tmdb_id(
-        pool: &SqlitePool,
-    ) -> Result<Vec<(i64, String)>, sqlx::Error> {
-        let rows: Vec<(i64, String)> = sqlx::query_as(
-            r#"
-            SELECT id, title_japanese
-            FROM metadata
-            WHERE tmdb_id IS NULL
-              AND title_japanese IS NOT NULL
-              AND title_japanese != ''
+            WHERE (poster_url IS NOT NULL AND poster_url != '' AND poster_url NOT LIKE '/posters/%')
+               OR (tmdb_id IS NULL AND title_japanese IS NOT NULL AND title_japanese != '')
             "#,
         )
         .fetch_all(pool)
@@ -308,6 +286,35 @@ impl MetadataRepository {
             .await?;
 
         Ok(result.rows_affected() > 0)
+    }
+}
+
+/// Metadata record that needs syncing
+#[derive(Debug, sqlx::FromRow)]
+pub struct MetadataToSync {
+    pub id: i64,
+    pub poster_url: Option<String>,
+    pub tmdb_id: Option<i64>,
+    pub title_japanese: Option<String>,
+}
+
+impl MetadataToSync {
+    /// Check if poster needs to be downloaded (remote URL)
+    pub fn needs_poster_sync(&self) -> bool {
+        self.poster_url
+            .as_ref()
+            .map(|url| !url.is_empty() && !url.starts_with("/posters/"))
+            .unwrap_or(false)
+    }
+
+    /// Check if TMDB ID needs to be searched
+    pub fn needs_tmdb_sync(&self) -> bool {
+        self.tmdb_id.is_none()
+            && self
+                .title_japanese
+                .as_ref()
+                .map(|t| !t.is_empty())
+                .unwrap_or(false)
     }
 }
 

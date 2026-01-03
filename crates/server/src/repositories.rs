@@ -10,6 +10,6 @@ pub use bangumi::{BangumiRepository, CreateBangumiData};
 pub use cache::CacheRepository;
 pub use calendar::{CalendarEntry, CalendarRepository, CalendarWithMetadata};
 pub use log::LogRepository;
-pub use metadata::MetadataRepository;
+pub use metadata::{MetadataRepository, MetadataToSync};
 pub use rss::RssRepository;
 pub use torrent::{TorrentRepository, TorrentSyncInfo};
