@@ -162,7 +162,7 @@ pub async fn test_notification(
     // Send test message
     use notify::Notifier;
     notifier
-        .send_message("🔔 MoeBangumi 通知测试成功！")
+        .send_message("🔔 moe-bangumi 通知测试成功！")
         .await
         .map_err(|e| crate::error::AppError::Internal(format!("发送失败: {}", e)))?;
 
