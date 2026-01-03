@@ -1,3 +1,5 @@
+mod actor;
+
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -7,8 +9,10 @@ use reqwest::Client;
 use sha2::{Digest, Sha256};
 use sqlx::SqlitePool;
 use thiserror::Error;
+use tokio::sync::mpsc;
 
-use crate::repositories::MetadataRepository;
+pub use actor::PosterDownloadHandle;
+use actor::PosterDownloadActor;
 
 /// A function that asynchronously provides an HTTP client.
 /// Used for dynamic proxy configuration support.
@@ -236,69 +240,6 @@ impl PosterService {
         }
     }
 
-    /// Spawn a background task to download poster and update database.
-    ///
-    /// This method returns immediately without blocking. The actual download
-    /// happens in a background tokio task. If download succeeds, the database
-    /// is updated with the local path. If it fails, the original URL is kept.
-    ///
-    /// # Arguments
-    /// * `metadata_id` - The ID of the metadata to update
-    /// * `poster_url` - The URL of the poster to download
-    /// * `db` - Database connection pool
-    pub fn spawn_download_and_update(self: &Arc<Self>, metadata_id: i64, poster_url: String, db: SqlitePool) {
-        // Skip if already a local path
-        if poster_url.starts_with("/posters/") {
-            return;
-        }
-
-        let poster_service = Arc::clone(self);
-
-        tokio::spawn(async move {
-            tracing::info!(
-                "Starting background poster download for metadata {} from {}",
-                metadata_id,
-                poster_url
-            );
-
-            match poster_service.try_download(&poster_url).await {
-                Some(local_path) => {
-                    match MetadataRepository::update_poster_url(&db, metadata_id, &local_path).await {
-                        Ok(true) => {
-                            tracing::info!(
-                                "Successfully updated poster for metadata {}: {}",
-                                metadata_id,
-                                local_path
-                            );
-                        }
-                        Ok(false) => {
-                            tracing::warn!(
-                                "Metadata {} not found when updating poster",
-                                metadata_id
-                            );
-                        }
-                        Err(e) => {
-                            tracing::error!(
-                                "Failed to update poster URL for metadata {}: {}",
-                                metadata_id,
-                                e
-                            );
-                        }
-                    }
-                }
-                None => {
-                    tracing::warn!(
-                        "Failed to download poster for metadata {}, keeping original URL: {}",
-                        metadata_id,
-                        poster_url
-                    );
-                }
-            }
-
-            tracing::debug!("Background poster download for metadata {} completed", metadata_id);
-        });
-    }
-
     /// Generate a filename from URL using SHA256 hash.
     ///
     /// Extracts the extension from the URL and appends it to the hash.
@@ -353,6 +294,23 @@ impl PosterService {
         let filename = Self::hash_url_to_filename(url);
         self.download_poster(url, &filename).await
     }
+}
+
+/// Create the PosterDownload actor service.
+///
+/// Returns a `PosterDownloadHandle` that can be used to submit download tasks.
+/// The actor runs in the background and processes downloads asynchronously
+/// with a fixed concurrency limit of 5.
+pub fn create_poster_download_service(
+    db: SqlitePool,
+    poster: Arc<PosterService>,
+) -> PosterDownloadHandle {
+    let (sender, receiver) = mpsc::channel(100);
+
+    let actor = PosterDownloadActor::new(db, poster, receiver);
+    tokio::spawn(actor.run());
+
+    PosterDownloadHandle::new(sender)
 }
 
 #[cfg(test)]
