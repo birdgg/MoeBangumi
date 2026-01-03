@@ -23,8 +23,7 @@ CREATE TABLE IF NOT EXISTS metadata (
     total_episodes INTEGER NOT NULL DEFAULT 0,      -- Total episodes (0=unknown)
     poster_url TEXT,                                -- Poster image URL
     air_date DATE,                                  -- First air date
-    air_week INTEGER NOT NULL,                      -- Air weekday (0=Sunday ~ 6=Saturday)
-    finished INTEGER NOT NULL DEFAULT 0             -- Whether the anime has finished airing
+    air_week INTEGER NOT NULL                       -- Air weekday (0=Sunday ~ 6=Saturday)
 );
 
 -- Metadata indexes
@@ -38,11 +37,6 @@ CREATE INDEX IF NOT EXISTS idx_metadata_air_week ON metadata(air_week);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_mikan_id ON metadata(mikan_id) WHERE mikan_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_bgmtv_id ON metadata(bgmtv_id) WHERE bgmtv_id IS NOT NULL AND bgmtv_id != 0;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_tmdb_id ON metadata(tmdb_id) WHERE tmdb_id IS NOT NULL AND tmdb_id != 0;
-
--- Partial index for finish status check job query
-CREATE INDEX IF NOT EXISTS idx_metadata_unfinished_with_bgmtv
-    ON metadata(updated_at)
-    WHERE finished = 0 AND bgmtv_id IS NOT NULL;
 
 -- Trigger to update updated_at on row modification
 CREATE TRIGGER IF NOT EXISTS update_metadata_timestamp

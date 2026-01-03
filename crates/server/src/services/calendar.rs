@@ -573,7 +573,6 @@ impl CalendarService {
             poster_url: Some(subject.poster_url.clone()),
             air_date: subject.air_date.clone(),
             air_week: mikan_data.air_week,
-            finished: false,
         }
     }
 }

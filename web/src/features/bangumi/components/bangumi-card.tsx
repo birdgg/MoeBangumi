@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { IconPlayerPlay, IconCheck } from "@tabler/icons-react";
 import type { BangumiWithMetadata } from "@/lib/api";
 
 interface BangumiCardProps {
@@ -55,23 +54,6 @@ export function BangumiCard({ bangumi, className, style, animate = true, onClick
 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
-
-          {/* Status badge - top right */}
-          <div className="absolute top-2 right-2">
-            <span className="glass-badge inline-flex items-center gap-1 text-[10px]">
-              {metadata.finished ? (
-                <>
-                  <IconCheck className="size-3" strokeWidth={3} />
-                  完结
-                </>
-              ) : (
-                <>
-                  <IconPlayerPlay className="size-3" strokeWidth={3} />
-                  放送中
-                </>
-              )}
-            </span>
-          </div>
 
           {/* Bottom info */}
           <div className="absolute inset-x-0 bottom-0 p-3 space-y-2">

@@ -262,10 +262,6 @@ export const CreateMetadataSchema = {
       format: "int64",
       description: "BGM.tv subject ID",
     },
-    finished: {
-      type: "boolean",
-      description: "Whether the anime has finished airing",
-    },
     mikan_id: {
       type: ["string", "null"],
       description: "Mikan bangumi ID",
@@ -471,7 +467,6 @@ export const MetadataSchema = {
     "platform",
     "total_episodes",
     "air_week",
-    "finished",
   ],
   properties: {
     air_date: {
@@ -491,10 +486,6 @@ export const MetadataSchema = {
     created_at: {
       type: "string",
       format: "date-time",
-    },
-    finished: {
-      type: "boolean",
-      description: "Whether the anime has finished airing",
     },
     id: {
       type: "integer",
@@ -564,56 +555,48 @@ export const NotificationSettingsSchema = {
 
 export const ParsedSubjectSchema = {
   type: "object",
-  description: "Parsed BGM.tv subject with extracted season info",
-  required: [
-    "id",
-    "name",
-    "name_cn",
-    "parsed_name",
-    "season",
-    "date",
-    "platform",
-    "image",
-    "eps",
-  ],
+  description: "解析后的 BGM.tv Subject",
+  required: ["bgmtv_id", "season", "platform", "total_episodes", "poster_url"],
   properties: {
-    date: {
-      type: "string",
-      description: "Release date",
+    air_date: {
+      type: ["string", "null"],
+      description: "放送日期",
     },
-    eps: {
+    bgmtv_id: {
       type: "integer",
       format: "int64",
-      description: "Total episodes",
-    },
-    id: {
-      type: "integer",
-      format: "int64",
-    },
-    image: {
-      type: "string",
-      description: "Poster image URL",
-    },
-    name: {
-      type: "string",
-      description: "Original name (Japanese)",
-    },
-    name_cn: {
-      type: "string",
-      description: "Chinese name",
-    },
-    parsed_name: {
-      type: "string",
-      description: "Parsed Chinese name (without season info)",
+      description: "BGM.tv ID",
     },
     platform: {
       type: "string",
-      description: "Platform (TV, Movie, OVA)",
+      description: "平台 (TV, Movie, OVA)",
+    },
+    poster_url: {
+      type: "string",
+      description: "海报 URL",
     },
     season: {
       type: "integer",
       format: "int32",
-      description: "Parsed season number (defaults to 1)",
+      description: "季度 (默认为 1)",
+    },
+    title_chinese: {
+      type: ["string", "null"],
+      description: "中文标题 (清理后，不含季度信息)",
+    },
+    title_japanese: {
+      type: ["string", "null"],
+      description: "日文标题 (清理后，不含季度信息)",
+    },
+    total_episodes: {
+      type: "integer",
+      format: "int64",
+      description: "总集数",
+    },
+    year: {
+      type: ["integer", "null"],
+      format: "int32",
+      description: "年份 (从 air_date 解析)",
     },
   },
 } as const;
@@ -1336,10 +1319,6 @@ export const UpdateMetadataSchema = {
       type: ["integer", "null"],
       format: "int64",
       description: "BGM.tv subject ID (null to clear)",
-    },
-    finished: {
-      type: ["boolean", "null"],
-      description: "Whether the anime has finished airing",
     },
     mikan_id: {
       type: ["string", "null"],

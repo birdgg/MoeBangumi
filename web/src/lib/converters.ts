@@ -6,16 +6,16 @@ import type { BangumiModalData } from "@/features/bangumi/components";
  */
 export function subjectToModalData(subject: ParsedSubject): BangumiModalData {
   return {
-    bgmtvId: subject.id,
-    titleChinese: subject.parsed_name,
-    titleJapanese: subject.name_cn ? subject.name : null,
-    posterUrl: subject.image,
-    year: subject.date ? parseInt(subject.date.split("-")[0], 10) || null : null,
+    bgmtvId: subject.bgmtv_id,
+    titleChinese: subject.title_chinese || subject.title_japanese || "",
+    titleJapanese: subject.title_chinese ? subject.title_japanese : null,
+    posterUrl: subject.poster_url,
+    year: subject.air_date ? parseInt(subject.air_date.split("-")[0], 10) || null : null,
     season: subject.season,
-    totalEpisodes: subject.eps,
+    totalEpisodes: subject.total_episodes,
     platform: subject.platform,
-    airDate: subject.date,
-    airWeek: subject.date ? new Date(subject.date).getDay() : null,
+    airDate: subject.air_date,
+    airWeek: subject.air_date ? new Date(subject.air_date).getDay() : null,
   };
 }
 

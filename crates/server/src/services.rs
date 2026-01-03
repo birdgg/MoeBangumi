@@ -30,7 +30,7 @@ pub use poster::{PosterError, PosterService};
 pub use rename::{RenameError, RenameService};
 pub use rss_processing::RssProcessingService;
 pub use scheduler::{
-    JobResult, LogCleanupJob, MetadataFinishCheckJob, RenameJob, RssFetchJob, SchedulerJob,
+    JobResult, LogCleanupJob, RenameJob, RssFetchJob, SchedulerJob,
     SchedulerService,
 };
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};

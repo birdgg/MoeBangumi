@@ -76,8 +76,6 @@ pub struct Metadata {
     pub air_date: Option<String>,
     /// Day of week when new episodes air (0=Sunday ~ 6=Saturday)
     pub air_week: i32,
-    /// Whether the anime has finished airing
-    pub finished: bool,
 }
 
 /// Request body for creating new metadata
@@ -113,9 +111,6 @@ pub struct CreateMetadata {
     pub air_date: Option<String>,
     /// Day of week when new episodes air (0=Sunday ~ 6=Saturday)
     pub air_week: i32,
-    /// Whether the anime has finished airing
-    #[serde(default)]
-    pub finished: bool,
 }
 
 fn default_season() -> i32 {
@@ -170,7 +165,6 @@ impl CreateMetadata {
                 None => Clearable::Unchanged,
             },
             air_week: Some(self.air_week),
-            finished: Some(self.finished),
         }
     }
 }
@@ -224,7 +218,4 @@ pub struct UpdateMetadata {
     /// Day of week when new episodes air (0=Sunday ~ 6=Saturday)
     #[serde(default)]
     pub air_week: Option<i32>,
-    /// Whether the anime has finished airing
-    #[serde(default)]
-    pub finished: Option<bool>,
 }

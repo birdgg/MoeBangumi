@@ -169,10 +169,6 @@ export type CreateMetadata = {
    */
   bgmtv_id?: number | null;
   /**
-   * Whether the anime has finished airing
-   */
-  finished?: boolean;
-  /**
    * Mikan bangumi ID
    */
   mikan_id?: string | null;
@@ -346,10 +342,6 @@ export type Metadata = {
    */
   bgmtv_id?: number | null;
   created_at: string;
-  /**
-   * Whether the anime has finished airing
-   */
-  finished: boolean;
   id: number;
   /**
    * Mikan bangumi ID
@@ -405,42 +397,45 @@ export type NotificationSettings = {
 };
 
 /**
- * Parsed BGM.tv subject with extracted season info
+ * 解析后的 BGM.tv Subject
  */
 export type ParsedSubject = {
   /**
-   * Release date
+   * 放送日期
    */
-  date: string;
+  air_date?: string | null;
   /**
-   * Total episodes
+   * BGM.tv ID
    */
-  eps: number;
-  id: number;
+  bgmtv_id: number;
   /**
-   * Poster image URL
-   */
-  image: string;
-  /**
-   * Original name (Japanese)
-   */
-  name: string;
-  /**
-   * Chinese name
-   */
-  name_cn: string;
-  /**
-   * Parsed Chinese name (without season info)
-   */
-  parsed_name: string;
-  /**
-   * Platform (TV, Movie, OVA)
+   * 平台 (TV, Movie, OVA)
    */
   platform: string;
   /**
-   * Parsed season number (defaults to 1)
+   * 海报 URL
+   */
+  poster_url: string;
+  /**
+   * 季度 (默认为 1)
    */
   season: number;
+  /**
+   * 中文标题 (清理后，不含季度信息)
+   */
+  title_chinese?: string | null;
+  /**
+   * 日文标题 (清理后，不含季度信息)
+   */
+  title_japanese?: string | null;
+  /**
+   * 总集数
+   */
+  total_episodes: number;
+  /**
+   * 年份 (从 air_date 解析)
+   */
+  year?: number | null;
 };
 
 /**
@@ -897,10 +892,6 @@ export type UpdateMetadata = {
    * BGM.tv subject ID (null to clear)
    */
   bgmtv_id?: number | null;
-  /**
-   * Whether the anime has finished airing
-   */
-  finished?: boolean | null;
   /**
    * Mikan bangumi ID (null to clear)
    */

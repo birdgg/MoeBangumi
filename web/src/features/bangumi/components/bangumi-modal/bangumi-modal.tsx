@@ -67,13 +67,6 @@ export function BangumiModal({
     return Math.floor(first.sort - ep);
   }, [isEdit, episodes, data.episodeOffset]);
 
-  // Calculate if bangumi has finished airing (add mode only)
-  const calculatedIsFinished = React.useMemo(() => {
-    if (isEdit) return data.finished ?? false;
-    if (!episodes || !data.totalEpisodes) return false;
-    return episodes.length >= data.totalEpisodes;
-  }, [isEdit, episodes, data.totalEpisodes, data.finished]);
-
   const [selectedTmdbId, setSelectedTmdbId] = React.useState<number | null>(null);
   const [mikanModalOpen, setMikanModalOpen] = React.useState(false);
 
@@ -120,7 +113,6 @@ export function BangumiModal({
                 air_date: data.airDate,
                 air_week: data.airWeek,
                 total_episodes: data.totalEpisodes || 0,
-                finished: calculatedIsFinished,
                 platform: normalizePlatform(data.platform),
                 season: data.season ?? 1,
               },

@@ -83,8 +83,7 @@ CREATE TABLE metadata (
     total_episodes INTEGER NOT NULL DEFAULT 0,  -- 总集数（0=未知）
     poster_url TEXT,                            -- 海报 URL
     air_date DATE,                              -- 首播日期
-    air_week INTEGER NOT NULL,                  -- 播出星期（0=周日 ~ 6=周六）
-    finished INTEGER NOT NULL DEFAULT 0         -- 是否已完结
+    air_week INTEGER NOT NULL                   -- 播出星期（0=周日 ~ 6=周六）
 );
 ```
 
@@ -150,7 +149,6 @@ pub struct Metadata {
     pub poster_url: Option<String>,
     pub air_date: Option<String>,
     pub air_week: i32,
-    pub finished: bool,
 }
 ```
 
@@ -268,10 +266,6 @@ impl MetadataService {
     pub async fn get_by_external_id(...) -> Result<Option<Metadata>, MetadataError>;
     pub async fn find_or_create(&self, data: CreateMetadata) -> Result<Metadata, MetadataError>;
     pub async fn find_or_update(&self, data: CreateMetadata) -> Result<Metadata, MetadataError>;
-
-    // 完结状态检查
-    pub async fn check_finished_status(&self, bgmtv_id: i64) -> Result<Option<bool>, MetadataError>;
-    pub async fn batch_check_finish_status(&self) -> Result<(usize, usize, usize), MetadataError>;
 }
 ```
 
@@ -295,10 +289,6 @@ impl MetadataRepository {
     pub async fn get_by_mikan_id(pool: &SqlitePool, mikan_id: &str) -> Result<Option<Metadata>, sqlx::Error>;
     pub async fn get_by_bgmtv_id(pool: &SqlitePool, bgmtv_id: i64) -> Result<Option<Metadata>, sqlx::Error>;
     pub async fn get_by_tmdb_id(pool: &SqlitePool, tmdb_id: i64) -> Result<Option<Metadata>, sqlx::Error>;
-
-    // 完结状态相关
-    pub async fn get_unfinished_with_bgmtv_id(pool: &SqlitePool) -> Result<Vec<Metadata>, sqlx::Error>;
-    pub async fn mark_as_finished(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error>;
 }
 ```
 
@@ -433,141 +423,6 @@ Ok(FetchedMetadata {
     platform: parse_platform(&detail.platform),
 })
 ```
-
----
-
-## 自动完结检测
-
-### 功能概述
-
-系统通过 BGM.tv Episodes API 自动检测番剧是否已完结播出，并更新 `metadata.finished` 字段。
-
-### 判定逻辑
-
-```rust
-// MetadataService::check_finished_status()
-
-// 1. 获取所有剧集
-let response = self.bgmtv.get_episodes(bgmtv_id).await?;
-
-// 2. 筛选本篇类型剧集 (episode_type = Main)
-let main_episodes = response.data.iter()
-    .filter(|ep| matches!(ep.episode_type, EpisodeType::Main));
-
-// 3. 找到集数最大的一集（最后一集）
-let last_episode = main_episodes.max_by(|a, b| {
-    match (a.ep, b.ep) {
-        (Some(a_ep), Some(b_ep)) => a_ep.partial_cmp(&b_ep),
-        _ => a.sort.partial_cmp(&b.sort),
-    }
-});
-
-// 4. 比较 airdate 与当前日期
-let airdate = NaiveDate::parse_from_str(&last_episode.airdate, "%Y-%m-%d")?;
-let today = Utc::now().date_naive();
-
-Ok(Some(airdate <= today))  // airdate <= 今天 → 已完结
-```
-
-### 返回值语义
-
-| 返回值 | 含义 |
-|--------|------|
-| `Ok(Some(true))` | 已完结（最后一集已播出） |
-| `Ok(Some(false))` | 仍在播出（最后一集尚未播出） |
-| `Ok(None)` | 无法判定（无本篇剧集或无 airdate） |
-| `Err(...)` | API 请求失败 |
-
-### 触发时机
-
-#### 1. 创建 Bangumi 时（即时检查）
-
-```rust
-// BangumiService::create()
-
-// 获取或创建 metadata 后...
-if let Some(bgmtv_id) = metadata.bgmtv_id {
-    if !metadata.finished {
-        match self.metadata.check_finished_status(bgmtv_id).await {
-            Ok(Some(true)) => {
-                // 标记为已完结
-                MetadataRepository::mark_as_finished(&self.db, metadata.id).await?;
-                // 刷新 metadata 确保数据一致性
-                metadata = self.metadata.get_by_id(metadata.id).await?;
-            }
-            // 其他情况：记录日志但不阻塞创建流程
-        }
-    }
-}
-```
-
-#### 2. 定时任务（批量检查）
-
-```rust
-// MetadataFinishCheckJob - 每 24 小时执行一次
-
-pub struct MetadataFinishCheckJob {
-    metadata_service: Arc<MetadataService>,
-}
-
-#[async_trait]
-impl SchedulerJob for MetadataFinishCheckJob {
-    fn name(&self) -> &'static str { "MetadataFinishCheck" }
-
-    fn interval(&self) -> Duration {
-        Duration::from_secs(24 * 60 * 60)  // 24 小时
-    }
-
-    async fn execute(&self) -> JobResult {
-        let (updated, total, errors) = self.metadata_service
-            .batch_check_finish_status()
-            .await?;
-
-        tracing::info!(
-            "Finish check completed: {}/{} updated, {} errors",
-            updated, total, errors
-        );
-        Ok(())
-    }
-}
-```
-
-### 批量检查流程
-
-```rust
-// MetadataService::batch_check_finish_status()
-
-// 1. 查询所有未完结且有 bgmtv_id 的 metadata
-let metadata_list = MetadataRepository::get_unfinished_with_bgmtv_id(&self.db).await?;
-
-for metadata in metadata_list {
-    // 2. 检查每个 metadata 的完结状态
-    match self.check_finished_status(bgmtv_id).await {
-        Ok(Some(true)) => {
-            MetadataRepository::mark_as_finished(&self.db, metadata.id).await?;
-        }
-        // ...
-    }
-
-    // 3. 速率限制：避免触发 BGM.tv API 限制
-    tokio::time::sleep(Duration::from_millis(200)).await;
-}
-```
-
-### 数据库索引优化
-
-为批量查询添加部分索引：
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_metadata_unfinished_with_bgmtv
-    ON metadata(updated_at)
-    WHERE finished = 0 AND bgmtv_id IS NOT NULL;
-```
-
-**索引设计说明：**
-- 使用 `WHERE` 子句创建部分索引，仅索引需要检查的记录
-- 按 `updated_at` 排序，优先处理较旧的记录
-- 当番剧完结后，记录自动从索引中移除（因为 `finished` 变为 1）
 
 ---
 

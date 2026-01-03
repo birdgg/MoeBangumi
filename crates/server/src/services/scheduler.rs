@@ -1,11 +1,9 @@
 mod log_cleanup_job;
-mod metadata_finish_check_job;
 mod rename_job;
 mod rss_fetch_job;
 mod traits;
 
 pub use log_cleanup_job::LogCleanupJob;
-pub use metadata_finish_check_job::MetadataFinishCheckJob;
 pub use rename_job::RenameJob;
 pub use rss_fetch_job::RssFetchJob;
 pub use traits::{JobResult, SchedulerJob};

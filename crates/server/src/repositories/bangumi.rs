@@ -22,7 +22,7 @@ const SELECT_BANGUMI_WITH_METADATA: &str = r#"
         m.mikan_id, m.bgmtv_id, m.tmdb_id,
         m.title_chinese, m.title_japanese,
         m.season, m.year, m.platform,
-        m.total_episodes, m.poster_url, m.air_date, m.air_week, m.finished
+        m.total_episodes, m.poster_url, m.air_date, m.air_week
     FROM bangumi b
     INNER JOIN metadata m ON b.metadata_id = m.id
 "#;
@@ -267,7 +267,6 @@ struct BangumiWithMetadataRow {
     poster_url: Option<String>,
     air_date: Option<String>,
     air_week: i32,
-    finished: bool,
 }
 
 impl From<BangumiWithMetadataRow> for BangumiWithMetadata {
@@ -300,7 +299,6 @@ impl From<BangumiWithMetadataRow> for BangumiWithMetadata {
                 poster_url: row.poster_url,
                 air_date: row.air_date,
                 air_week: row.air_week,
-                finished: row.finished,
             },
         }
     }

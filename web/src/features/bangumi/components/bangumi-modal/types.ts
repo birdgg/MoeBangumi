@@ -19,7 +19,6 @@ export interface BangumiModalData {
   platform?: string | null;
   airDate?: string | null;
   airWeek?: number | null;
-  finished?: boolean;
   sourceType?: "webrip" | "bdrip";
 
   // Mikan

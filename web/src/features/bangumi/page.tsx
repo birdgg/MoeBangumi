@@ -27,7 +27,6 @@ function bangumiToModalData(bangumi: BangumiWithMetadata): BangumiModalData {
     platform: metadata.platform,
     airDate: metadata.air_date,
     airWeek: metadata.air_week,
-    finished: metadata.finished,
     sourceType: bangumi.source_type,
     episodeOffset: bangumi.episode_offset,
     autoComplete: bangumi.auto_complete,

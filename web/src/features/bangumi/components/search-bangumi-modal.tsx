@@ -43,7 +43,7 @@ export function SearchBangumiModal({
   const { data: results, isLoading, isError } = useSearchBangumi(debouncedQuery);
 
   const handleSelect = (subject: ParsedSubject) => {
-    setSelectedId(subject.id);
+    setSelectedId(subject.bgmtv_id);
     onSelect?.(subject);
     // Close after brief delay to show selection
     setTimeout(() => {
@@ -190,7 +190,7 @@ export function SearchBangumiModal({
               <div className="grid gap-3">
                 {results.map((subject, index) => (
                   <button
-                    key={subject.id}
+                    key={subject.bgmtv_id}
                     onClick={() => handleSelect(subject)}
                     className={cn(
                       "group relative flex gap-4 p-3 rounded-xl text-left",
@@ -202,20 +202,20 @@ export function SearchBangumiModal({
                       "transition-all duration-200",
                       "outline-none focus-visible:ring-2 focus-visible:ring-chart-1 dark:focus-visible:ring-chart-3",
                       "animate-in fade-in slide-in-from-bottom-2",
-                      selectedId === subject.id && "ring-2 ring-chart-1 dark:ring-chart-3 bg-chart-1/10 dark:bg-chart-3/20"
+                      selectedId === subject.bgmtv_id && "ring-2 ring-chart-1 dark:ring-chart-3 bg-chart-1/10 dark:bg-chart-3/20"
                     )}
                     style={{ animationDelay: `${index * 50}ms`, animationFillMode: "both" }}
                   >
                     {/* Poster */}
                     <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-chart-1/20 to-chart-3/20 dark:from-chart-1/30 dark:to-chart-3/30">
                       <img
-                        src={subject.image}
-                        alt={subject.name_cn || subject.name}
+                        src={subject.poster_url}
+                        alt={subject.title_chinese || subject.title_japanese || ""}
                         className="size-full object-cover transition-transform duration-300 group-hover:scale-110"
                       />
 
                       {/* Selection indicator */}
-                      {selectedId === subject.id && (
+                      {selectedId === subject.bgmtv_id && (
                         <div className="absolute inset-0 flex items-center justify-center bg-chart-1/80 dark:bg-chart-3/80">
                           <IconCheck className="size-6 text-white" />
                         </div>
@@ -225,27 +225,27 @@ export function SearchBangumiModal({
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-chart-1 dark:group-hover:text-chart-1 transition-colors">
-                        {subject.name_cn || subject.name}
+                        {subject.title_chinese || subject.title_japanese}
                       </h4>
-                      {subject.name_cn && (
+                      {subject.title_chinese && subject.title_japanese && (
                         <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                          {subject.name}
+                          {subject.title_japanese}
                         </p>
                       )}
                       <div className="flex flex-wrap items-center gap-2 mt-2">
                         {/* Date */}
-                        {subject.date && (
+                        {subject.air_date && (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <IconCalendar className="size-3" />
-                            {subject.date}
+                            {subject.air_date}
                           </span>
                         )}
                         {/* Platform */}
                         <PlatformBadge platform={subject.platform} />
                         {/* Episodes */}
-                        {subject.eps > 0 && (
+                        {subject.total_episodes > 0 && (
                           <span className="text-xs text-muted-foreground">
-                            共 {subject.eps} 集
+                            共 {subject.total_episodes} 集
                           </span>
                         )}
                       </div>

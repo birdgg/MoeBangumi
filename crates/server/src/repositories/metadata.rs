@@ -10,7 +10,7 @@ const SELECT_METADATA: &str = r#"
         mikan_id, bgmtv_id, tmdb_id,
         title_chinese, title_japanese,
         season, year, platform,
-        total_episodes, poster_url, air_date, air_week, finished
+        total_episodes, poster_url, air_date, air_week
     FROM metadata
 "#;
 
@@ -25,9 +25,9 @@ impl MetadataRepository {
                 mikan_id, bgmtv_id, tmdb_id,
                 title_chinese, title_japanese,
                 season, year, platform,
-                total_episodes, poster_url, air_date, air_week, finished
+                total_episodes, poster_url, air_date, air_week
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id
             "#,
         )
@@ -43,7 +43,6 @@ impl MetadataRepository {
         .bind(&data.poster_url)
         .bind(&data.air_date)
         .bind(data.air_week)
-        .bind(data.finished)
         .fetch_one(pool)
         .await?;
 
@@ -139,7 +138,6 @@ impl MetadataRepository {
         let poster_url = data.poster_url.resolve(existing.poster_url);
         let air_date = data.air_date.resolve(existing.air_date);
         let air_week = data.air_week.unwrap_or(existing.air_week);
-        let finished = data.finished.unwrap_or(existing.finished);
 
         sqlx::query(
             r#"
@@ -155,9 +153,8 @@ impl MetadataRepository {
                 total_episodes = $9,
                 poster_url = $10,
                 air_date = $11,
-                air_week = $12,
-                finished = $13
-            WHERE id = $14
+                air_week = $12
+            WHERE id = $13
             "#,
         )
         .bind(&mikan_id)
@@ -172,7 +169,6 @@ impl MetadataRepository {
         .bind(&poster_url)
         .bind(&air_date)
         .bind(air_week)
-        .bind(finished)
         .bind(id)
         .execute(pool)
         .await?;
@@ -261,38 +257,6 @@ impl MetadataRepository {
         Ok(count.0)
     }
 
-    /// Get all unfinished metadata with bgmtv_id
-    pub async fn get_unfinished_with_bgmtv_id(
-        pool: &SqlitePool,
-    ) -> Result<Vec<Metadata>, sqlx::Error> {
-        const QUERY: &str = r#"
-            SELECT
-                id, created_at, updated_at,
-                mikan_id, bgmtv_id, tmdb_id,
-                title_chinese, title_japanese,
-                season, year, platform,
-                total_episodes, poster_url, air_date, air_week, finished
-            FROM metadata
-            WHERE finished = 0 AND bgmtv_id IS NOT NULL
-            ORDER BY updated_at ASC
-        "#;
-
-        let rows = sqlx::query_as::<_, MetadataRow>(QUERY)
-            .fetch_all(pool)
-            .await?;
-
-        Ok(rows.into_iter().map(Into::into).collect())
-    }
-
-    /// Mark metadata as finished
-    pub async fn mark_as_finished(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query("UPDATE metadata SET finished = 1 WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-        Ok(result.rows_affected() > 0)
-    }
 }
 
 /// Internal row type for mapping SQLite results
@@ -313,7 +277,6 @@ struct MetadataRow {
     poster_url: Option<String>,
     air_date: Option<String>,
     air_week: i32,
-    finished: bool,
 }
 
 impl From<MetadataRow> for Metadata {
@@ -334,7 +297,6 @@ impl From<MetadataRow> for Metadata {
             poster_url: row.poster_url,
             air_date: row.air_date,
             air_week: row.air_week,
-            finished: row.finished,
         }
     }
 }

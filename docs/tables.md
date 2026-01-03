@@ -57,7 +57,6 @@
 | `kind` | TEXT | - | 'TV' | 类型: TV, Movie, OVA 等 |
 | `current_episode` | INTEGER | NOT NULL | 0 | 当前已下载集数 |
 | `auto_download` | INTEGER | NOT NULL | 1 | 是否自动下载 (布尔值) |
-| `finished` | INTEGER | NOT NULL | 0 | 是否已完结 (布尔值) |
 | `save_path` | TEXT | - | NULL | 自定义保存路径 (空=使用默认) |
 | `source_type` | TEXT | NOT NULL | 'webrip' | 来源类型: 'webrip' 或 'bdrip' |
 
@@ -290,7 +289,6 @@ let data = cache.get_or_fetch(&key, TTL, || async {
                               │     kind                  TEXT              │
                               │     current_episode       INTEGER           │
                               │     auto_download         INTEGER           │
-                              │     finished              INTEGER           │
                               │     save_path             TEXT              │
                               │     source_type           TEXT              │
                               └─────────────────────────────────────────────┘
@@ -356,7 +354,7 @@ SQLite 不支持原生布尔类型，使用 INTEGER 存储:
 - `0` = false
 - `1` = true
 
-相关字段: `auto_download`, `finished`, `enabled`, `is_primary`
+相关字段: `auto_download`, `enabled`, `is_primary`
 
 ### 时间戳维护
 
