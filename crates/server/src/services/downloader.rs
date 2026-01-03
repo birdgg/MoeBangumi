@@ -7,7 +7,8 @@ use crate::services::SettingsService;
 
 mod actor;
 
-use actor::{DownloaderActor, DownloaderHandle, DownloaderMessage};
+use actor::{DownloaderActor, DownloaderMessage};
+pub use actor::DownloaderHandle;
 
 // Re-export types from downloader crate
 pub use downloader::{
@@ -23,13 +24,8 @@ mod tags {
     pub const RENAME: &str = "rename";
 }
 
-/// DownloaderService 类型别名，保持 API 兼容
-pub type DownloaderService = DownloaderHandle;
-
-/// 创建 DownloaderService（Actor 模式）
-///
-/// 返回一个 DownloaderHandle，API 与原 DownloaderService 完全兼容。
-pub fn create_downloader_service(settings: Arc<SettingsService>) -> DownloaderService {
+/// 创建 DownloaderHandle（Actor 模式）
+pub fn create_downloader_service(settings: Arc<SettingsService>) -> DownloaderHandle {
     let (sender, receiver) = mpsc::channel::<DownloaderMessage>(32);
 
     // 启动 Actor

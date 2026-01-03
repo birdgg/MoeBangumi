@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::models::{BangumiWithMetadata, CreateTorrent, Rss, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
 use crate::services::washing::{WashParams, WashingService};
-use crate::services::{AddTaskOptions, DownloaderService, SettingsService};
+use crate::services::{AddTaskOptions, DownloaderHandle, SettingsService};
 use washing::{ComparableTorrent, PriorityCalculator};
 
 /// Context for RSS processing, avoiding repeated parameter passing
@@ -30,7 +30,7 @@ struct TorrentLookup {
 pub struct RssProcessingService {
     db: SqlitePool,
     rss_client: Arc<RssClient>,
-    downloader: Arc<DownloaderService>,
+    downloader: Arc<DownloaderHandle>,
     settings: Arc<SettingsService>,
     washing: Arc<WashingService>,
     parser: Parser,
@@ -41,7 +41,7 @@ impl RssProcessingService {
     pub fn new(
         db: SqlitePool,
         rss_client: Arc<RssClient>,
-        downloader: Arc<DownloaderService>,
+        downloader: Arc<DownloaderHandle>,
         settings: Arc<SettingsService>,
         washing: Arc<WashingService>,
     ) -> Self {

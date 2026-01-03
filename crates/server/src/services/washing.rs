@@ -12,7 +12,7 @@ use washing::{ComparableTorrent, PriorityCalculator};
 
 use crate::models::{CreateTorrent, Torrent};
 use crate::repositories::TorrentRepository;
-use crate::services::{AddTaskOptions, DownloaderService, SettingsService};
+use crate::services::{AddTaskOptions, DownloaderHandle, SettingsService};
 
 /// Error types for washing operations
 #[derive(Debug, thiserror::Error)]
@@ -46,7 +46,7 @@ pub struct WashParams<'a> {
 /// manages the replacement process.
 pub struct WashingService {
     db: SqlitePool,
-    downloader: Arc<DownloaderService>,
+    downloader: Arc<DownloaderHandle>,
     settings: Arc<SettingsService>,
 }
 
@@ -54,7 +54,7 @@ impl WashingService {
     /// Create a new washing service
     pub fn new(
         db: SqlitePool,
-        downloader: Arc<DownloaderService>,
+        downloader: Arc<DownloaderHandle>,
         settings: Arc<SettingsService>,
     ) -> Self {
         Self {

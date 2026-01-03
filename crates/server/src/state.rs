@@ -8,7 +8,7 @@ use tmdb::TmdbClient;
 use crate::config::Config;
 use crate::services::{
     create_downloader_service, create_notification_service, BangumiService, CacheService,
-    CalendarService, DownloaderService, HttpClientService, LogCleanupJob, LogService,
+    CalendarService, DownloaderHandle, HttpClientService, LogCleanupJob, LogService,
     MetadataService, NotificationService, PosterService, PosterSyncJob, RenameJob, RenameService,
     RssFetchJob, RssProcessingService, SchedulerService, SettingsService, WashingService,
 };
@@ -23,7 +23,7 @@ pub struct AppState {
     pub mikan: Arc<MikanClient>,
     pub rss: Arc<RssClient>,
     pub settings: Arc<SettingsService>,
-    pub downloader: Arc<DownloaderService>,
+    pub downloader: Arc<DownloaderHandle>,
     pub poster: Arc<PosterService>,
     pub scheduler: Arc<SchedulerService>,
     pub rss_fetch_job: Arc<RssFetchJob>,

@@ -20,7 +20,7 @@ pub use metadata::{MetadataError, MetadataService};
 pub use calendar::{CalendarError, CalendarService};
 pub use downloader::{
     create_downloader_service, AddTaskOptions, Downloader, DownloaderClient, DownloaderConfig,
-    DownloaderError, DownloaderService, DownloaderType, Task, TaskFile, TaskFilter, TaskStatus,
+    DownloaderError, DownloaderHandle, DownloaderType, Task, TaskFile, TaskFilter, TaskStatus,
 };
 pub use http_client::{HttpClientError, HttpClientService};
 pub use log::{LogError, LogService};

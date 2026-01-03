@@ -13,7 +13,7 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::models::{BangumiWithMetadata, Torrent};
 use crate::repositories::{BangumiRepository, TorrentRepository};
-use crate::services::{DownloaderService, NotificationService, Task, TaskFile};
+use crate::services::{DownloaderHandle, NotificationService, Task, TaskFile};
 
 /// Error type for rename operations
 #[derive(Debug, thiserror::Error)]
@@ -60,7 +60,7 @@ pub struct RenameTaskResult {
 /// 6. Marks tasks as rename complete
 pub struct RenameService {
     db: SqlitePool,
-    downloader: Arc<DownloaderService>,
+    downloader: Arc<DownloaderHandle>,
     notification: Arc<NotificationService>,
     config: Arc<Config>,
     parser: Parser,
@@ -72,7 +72,7 @@ impl RenameService {
     /// Create a new RenameService with default concurrency of 4
     pub fn new(
         db: SqlitePool,
-        downloader: Arc<DownloaderService>,
+        downloader: Arc<DownloaderHandle>,
         notification: Arc<NotificationService>,
         config: Arc<Config>,
     ) -> Self {
