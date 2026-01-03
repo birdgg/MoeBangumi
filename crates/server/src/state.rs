@@ -9,7 +9,7 @@ use crate::config::Config;
 use crate::services::{
     create_downloader_service, create_notification_service, BangumiService, CacheService,
     CalendarService, DownloaderHandle, HttpClientService, LogCleanupJob, LogService,
-    MetadataService, NotificationService, PosterService, PosterSyncJob, RenameJob, RenameService,
+    MetadataService, MetadataSyncJob, NotificationService, PosterService, RenameJob, RenameService,
     RssFetchJob, RssProcessingService, SchedulerService, SettingsService, WashingService,
 };
 
@@ -164,7 +164,11 @@ impl AppState {
             .with_arc_job(Arc::clone(&rss_fetch_job))
             .with_job(LogCleanupJob::new(Arc::clone(&logs)))
             .with_job(RenameJob::new(Arc::clone(&rename)))
-            .with_job(PosterSyncJob::new(db.clone(), Arc::clone(&poster)));
+            .with_job(MetadataSyncJob::new(
+                db.clone(),
+                Arc::clone(&poster),
+                Arc::clone(&metadata),
+            ));
         scheduler.start();
 
         Self {

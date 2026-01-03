@@ -1,11 +1,11 @@
 mod log_cleanup_job;
-mod poster_sync_job;
+mod metadata_sync_job;
 mod rename_job;
 mod rss_fetch_job;
 mod traits;
 
 pub use log_cleanup_job::LogCleanupJob;
-pub use poster_sync_job::PosterSyncJob;
+pub use metadata_sync_job::MetadataSyncJob;
 pub use rename_job::RenameJob;
 pub use rss_fetch_job::RssFetchJob;
 pub use traits::{JobResult, SchedulerJob};

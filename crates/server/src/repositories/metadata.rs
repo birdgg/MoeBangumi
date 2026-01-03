@@ -275,6 +275,40 @@ impl MetadataRepository {
 
         Ok(rows)
     }
+
+    /// Get metadata records without TMDB ID but with Japanese title
+    pub async fn get_metadata_without_tmdb_id(
+        pool: &SqlitePool,
+    ) -> Result<Vec<(i64, String)>, sqlx::Error> {
+        let rows: Vec<(i64, String)> = sqlx::query_as(
+            r#"
+            SELECT id, title_japanese
+            FROM metadata
+            WHERE tmdb_id IS NULL
+              AND title_japanese IS NOT NULL
+              AND title_japanese != ''
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    /// Update TMDB ID for metadata
+    pub async fn update_tmdb_id(
+        pool: &SqlitePool,
+        id: i64,
+        tmdb_id: i64,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("UPDATE metadata SET tmdb_id = $1 WHERE id = $2")
+            .bind(tmdb_id)
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }
 
 /// Internal row type for mapping SQLite results
