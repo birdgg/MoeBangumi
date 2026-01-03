@@ -386,13 +386,16 @@ impl CalendarService {
             _ => Platform::Tv,
         };
 
+        // Parse Chinese title to extract season info
+        let parsed = bgmtv::parse_name(&entry.title_chinese);
+
         CreateMetadata {
             mikan_id: Some(entry.mikan_id.clone()),
             bgmtv_id: Some(entry.bgmtv_id),
             tmdb_id: None,
             title_chinese: entry.title_chinese.clone(),
             title_japanese: entry.title_japanese.clone(),
-            season: 1,
+            season: parsed.season,
             year: entry.year,
             platform,
             total_episodes: entry.total_episodes,
@@ -445,11 +448,11 @@ impl CalendarService {
     }
 
     /// Concurrently fetch BGM.tv subject details
-    /// Returns (MikanData, bgmtv_id, SubjectDetail) tuples, skipping failures
+    /// Returns (MikanData, bgmtv_id, ParsedSubject) tuples, skipping failures
     async fn fetch_subjects(
         &self,
         mappings: &[(MikanData, i64)],
-    ) -> Vec<(MikanData, i64, bgmtv::SubjectDetail)> {
+    ) -> Vec<(MikanData, i64, bgmtv::ParsedSubject)> {
         // Clone data upfront to avoid lifetime issues
         let items: Vec<_> = mappings
             .iter()
@@ -488,7 +491,7 @@ impl CalendarService {
     /// Ensure metadata exists for each subject and build calendar entries
     async fn ensure_metadata_and_build_entries(
         &self,
-        subjects: &[(MikanData, i64, bgmtv::SubjectDetail)],
+        subjects: &[(MikanData, i64, bgmtv::ParsedSubject)],
         year: i32,
         season_str: &str,
     ) -> Result<Vec<CalendarEntry>> {
@@ -498,7 +501,7 @@ impl CalendarService {
             // Check if metadata already exists
             let existing = MetadataRepository::get_by_bgmtv_id(&self.db, *bgmtv_id).await?;
 
-            let bgm_poster_url = &subject.images.large;
+            let bgm_poster_url = &subject.poster_url;
             let metadata_id = if let Some(metadata) = existing {
                 // Trigger background poster update if needed
                 self.trigger_poster_update_if_needed(&metadata, bgm_poster_url);
@@ -510,7 +513,7 @@ impl CalendarService {
                 metadata.id
             };
 
-            // Priority defaults to 0 (SubjectDetail doesn't have collection info)
+            // Priority defaults to 0 (ParsedSubject doesn't have collection info)
             let priority = 0;
 
             entries.push(CalendarEntry {
@@ -560,51 +563,41 @@ impl CalendarService {
         }
     }
 
-    /// Build CreateMetadata from Mikan data and BGM.tv SubjectDetail
+    /// Build CreateMetadata from Mikan data and BGM.tv ParsedSubject
     fn build_create_metadata(
         &self,
         mikan_data: &MikanData,
         bgmtv_id: i64,
-        subject: &bgmtv::SubjectDetail,
+        subject: &bgmtv::ParsedSubject,
     ) -> CreateMetadata {
-        // Parse year from date
+        // Use year from parsed subject or fallback to current year
         let year = subject
-            .date
-            .as_ref()
-            .and_then(|date| date.get(0..4))
-            .and_then(|s| s.parse().ok())
+            .year
             .unwrap_or_else(|| chrono::Utc::now().year());
 
         // Parse platform
-        let platform = subject
-            .platform
-            .as_ref()
-            .map(|p| match p.to_lowercase().as_str() {
-                "movie" | "劇場版" => Platform::Movie,
-                "ova" => Platform::Ova,
-                _ => Platform::Tv,
-            })
-            .unwrap_or(Platform::Tv);
-
-        // Use BGM.tv poster_url (preferred for better quality)
-        let poster_url = Some(subject.images.large.clone());
+        let platform = match subject.platform.to_lowercase().as_str() {
+            "movie" | "劇場版" => Platform::Movie,
+            "ova" => Platform::Ova,
+            _ => Platform::Tv,
+        };
 
         CreateMetadata {
             mikan_id: Some(mikan_data.mikan_id.clone()),
             bgmtv_id: Some(bgmtv_id),
             tmdb_id: None,
-            title_chinese: if subject.name_cn.is_empty() {
-                subject.name.clone()
-            } else {
-                subject.name_cn.clone()
-            },
-            title_japanese: Some(subject.name.clone()).filter(|s| !s.is_empty()),
-            season: 1, // Default to season 1
+            title_chinese: subject
+                .title_chinese
+                .clone()
+                .or_else(|| subject.title_japanese.clone())
+                .unwrap_or_default(),
+            title_japanese: subject.title_japanese.clone(),
+            season: subject.season,
             year,
             platform,
             total_episodes: subject.total_episodes as i32,
-            poster_url,
-            air_date: subject.date.clone(),
+            poster_url: Some(subject.poster_url.clone()),
+            air_date: subject.air_date.clone(),
             air_week: mikan_data.air_week,
             finished: false,
         }

@@ -177,7 +177,7 @@ impl CalendarWithMetadata {
     /// Convert air_week (0=Sunday, 1-6=Mon-Sat) to BGM.tv air_weekday (1-7=Mon-Sun)
     pub fn air_weekday(&self) -> i32 {
         match self.air_week {
-            0 => 7,        // Sunday -> 7
+            0 => 7,                 // Sunday -> 7
             1..=6 => self.air_week, // Monday-Saturday -> 1-6
             invalid => {
                 tracing::warn!(
@@ -199,14 +199,14 @@ impl CalendarWithMetadata {
         };
 
         // Parse the Chinese title to extract clean name and season
-        let parsed = parser::bgmtv::parse_bgmtv_name(&self.title_chinese);
+        let parsed = bgmtv::parse_name(&self.title_chinese);
 
         CalendarSubject {
             bgmtv_id: self.bgmtv_id,
             mikan_id: self.mikan_id.clone(),
             title_chinese: self.title_chinese.clone(),
             title_japanese: self.title_japanese.clone(),
-            parsed_name: parsed.name,
+            parsed_name: parsed.title,
             season: parsed.season,
             air_date: self.air_date.clone(),
             air_week: self.air_week,

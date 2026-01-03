@@ -219,45 +219,33 @@ async fn fetch_season_data(
         .map(
             |(mikan_id, bgmtv_id, air_week, _poster_url, _name, bgmtv)| async move {
                 match bgmtv.get_subject(bgmtv_id).await {
-                    Ok(subject) => {
-                        // Parse year from date
-                        let subject_year = subject
-                            .date
-                            .as_ref()
-                            .and_then(|date| date.get(0..4))
-                            .and_then(|s| s.parse().ok())
-                            .unwrap_or(year);
+                    Ok(parsed) => {
+                        // Use year from parsed subject or fallback
+                        let subject_year = parsed.year.unwrap_or(year);
 
                         // Parse platform
-                        let platform = subject
-                            .platform
-                            .as_ref()
-                            .map(|p| match p.to_lowercase().as_str() {
-                                "movie" | "劇場版" => "movie",
-                                "ova" => "ova",
-                                _ => "tv",
-                            })
-                            .unwrap_or("tv")
-                            .to_string();
-
-                        // Use BGM.tv poster_url (preferred for better quality)
-                        let final_poster_url = Some(subject.images.large.clone());
+                        let platform = match parsed.platform.to_lowercase().as_str() {
+                            "movie" | "劇場版" => "movie",
+                            "ova" => "ova",
+                            _ => "tv",
+                        }
+                        .to_string();
 
                         Some(CalendarSeedEntry {
                             mikan_id,
                             bgmtv_id,
-                            title_chinese: if subject.name_cn.is_empty() {
-                                subject.name.clone()
-                            } else {
-                                subject.name_cn.clone()
-                            },
-                            title_japanese: Some(subject.name).filter(|s| !s.is_empty()),
+                            title_chinese: parsed
+                                .title_chinese
+                                .clone()
+                                .or_else(|| parsed.title_japanese.clone())
+                                .unwrap_or_default(),
+                            title_japanese: parsed.title_japanese,
                             air_week,
-                            poster_url: final_poster_url,
+                            poster_url: Some(parsed.poster_url),
                             year: subject_year,
                             platform,
-                            total_episodes: subject.total_episodes as i32,
-                            air_date: subject.date,
+                            total_episodes: parsed.total_episodes as i32,
+                            air_date: parsed.air_date,
                         })
                     }
                     Err(e) => {

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use bgmtv::BgmtvClient;
-use parser::bgmtv::parse_bgmtv_name;
 use sqlx::SqlitePool;
 use thiserror::Error;
 use tmdb::{DiscoverBangumiParams, TmdbClient};
@@ -50,26 +49,19 @@ impl MetadataService {
 
     /// Fetch metadata from BGM.tv by ID (does not persist)
     pub async fn fetch_from_bgmtv(&self, id: i64) -> Result<FetchedMetadata, MetadataError> {
-        let detail = self.bgmtv.get_subject(id).await?;
-
-        // Parse Chinese title to extract clean name and season
-        let parsed_cn = parse_bgmtv_name(&detail.name_cn);
-        // Parse Japanese title to extract clean name
-        let parsed_jp = parse_bgmtv_name(&detail.name);
-
-        // Use parsed season from Chinese title (defaults to 1)
-        let season = Some(parsed_cn.season);
+        // get_subject now returns ParsedSubject directly
+        let parsed = self.bgmtv.get_subject(id).await?;
 
         Ok(FetchedMetadata {
-            bgmtv_id: detail.id,
-            title_chinese: Some(parsed_cn.name).filter(|s| !s.is_empty()),
-            title_japanese: Some(parsed_jp.name).filter(|s| !s.is_empty()),
-            year: detail.date.as_deref().and_then(parse_year),
-            season,
-            total_episodes: detail.total_episodes as i32,
-            poster_url: Some(detail.images.large),
-            air_date: detail.date,
-            platform: detail.platform.as_deref().and_then(parse_platform),
+            bgmtv_id: parsed.bgmtv_id,
+            title_chinese: parsed.title_chinese,
+            title_japanese: parsed.title_japanese,
+            year: parsed.year,
+            season: Some(parsed.season),
+            total_episodes: parsed.total_episodes as i32,
+            poster_url: Some(parsed.poster_url),
+            air_date: parsed.air_date,
+            platform: parse_platform(&parsed.platform),
         })
     }
 
@@ -344,10 +336,6 @@ impl MetadataService {
 
         Ok((updated_count, total, error_count))
     }
-}
-
-fn parse_year(date_str: &str) -> Option<i32> {
-    date_str.get(0..4).and_then(|s| s.parse().ok())
 }
 
 fn parse_platform(platform: &str) -> Option<Platform> {

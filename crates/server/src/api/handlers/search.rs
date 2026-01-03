@@ -4,7 +4,6 @@ use axum::{
 };
 
 use crate::error::AppResult;
-use crate::models::ParsedSubject;
 use crate::state::AppState;
 use tmdb::DiscoverBangumiParams;
 
@@ -17,20 +16,15 @@ use super::{SearchQuery, TmdbSearchQuery, MIKAN_SEARCH_CACHE_TTL};
     tag = "search",
     params(SearchQuery),
     responses(
-        (status = 200, description = "Search results", body = Vec<ParsedSubject>)
+        (status = 200, description = "Search results", body = Vec<bgmtv::ParsedSubject>)
     )
 )]
 pub async fn search_bgmtv(
     State(state): State<AppState>,
     Query(query): Query<SearchQuery>,
-) -> AppResult<Json<Vec<ParsedSubject>>> {
-    let response = state.bgmtv.search_bangumi(&query.keyword).await?;
-    let parsed: Vec<ParsedSubject> = response
-        .data
-        .into_iter()
-        .map(ParsedSubject::from_bgmtv)
-        .collect();
-    Ok(Json(parsed))
+) -> AppResult<Json<Vec<bgmtv::ParsedSubject>>> {
+    let results = state.bgmtv.search_bangumi(&query.keyword).await?;
+    Ok(Json(results))
 }
 
 /// Search for anime on TMDB using discover API
