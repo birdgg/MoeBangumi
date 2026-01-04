@@ -46,21 +46,18 @@ commit_preprocessors = [
   { pattern = "^[🎨🐛📝🚀💄✨🔧🔥➕➖🎉✅🔒💚👷📦🔨♻️📌🚧⬆️⬇️🔀🔃🔇🔊💩🗑️🏗️💡📄🙈📱🤡🥚💫🔍🚨🩹🧪🔐🚸💥🍱♿🏷️🧵🦺🧹🛠️🧪💬🗃️📸🏁]\\s*", replace = "" },
 ]
 # regex for parsing and grouping commits
+# Only include features and bug fixes in changelog
 commit_parsers = [
   { message = "^feat", group = "<!-- 0 -->🚀 Features" },
   { message = "^fix", group = "<!-- 1 -->🐛 Bug Fixes" },
-  { message = "^doc", group = "<!-- 3 -->📚 Documentation" },
-  { message = "^perf", group = "<!-- 4 -->⚡ Performance" },
-  { message = "^refactor", group = "<!-- 2 -->🔨 Refactoring" },
-  { message = "^style", group = "<!-- 5 -->🎨 Styling" },
-  { message = "^test", group = "<!-- 6 -->🧪 Testing" },
-  { message = "^chore\\(release\\)", skip = true },
-  { message = "^chore\\(deps.*\\)", skip = true },
-  { message = "^chore\\(pr\\)", skip = true },
-  { message = "^chore\\(pull\\)", skip = true },
-  { message = "^chore|^ci", group = "<!-- 7 -->⚙️ Miscellaneous" },
-  { body = ".*security", group = "<!-- 8 -->🔐 Security" },
-  { message = "^revert", group = "<!-- 9 -->◀️ Revert" },
+  { message = "^doc", skip = true },
+  { message = "^perf", skip = true },
+  { message = "^refactor", skip = true },
+  { message = "^style", skip = true },
+  { message = "^test", skip = true },
+  { message = "^chore", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^revert", skip = true },
 ]
 # protect breaking changes from being skipped due to matching a skipping commit_parser
 protect_breaking_commits = false
