@@ -19,10 +19,17 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 # Stage 4: Build Rust binary
 FROM chef AS builder
+ARG TARGETARCH
 COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        rustup target add aarch64-unknown-linux-musl; \
+    fi
+RUN RUST_TARGET=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") && \
+    cargo chef cook --release --target $RUST_TARGET --recipe-path recipe.json
 COPY . .
-RUN cargo build --release --target x86_64-unknown-linux-musl -p cli
+RUN RUST_TARGET=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64-unknown-linux-musl" || echo "x86_64-unknown-linux-musl") && \
+    cargo build --release --target $RUST_TARGET -p cli && \
+    cp /app/target/$RUST_TARGET/release/moe /app/moe
 
 # Stage 5: Runtime image
 FROM alpine:3.21 AS runtime
@@ -33,7 +40,7 @@ RUN apk add --no-cache ca-certificates curl tzdata \
     && addgroup -S moe && adduser -S moe -G moe
 
 # Copy binary from builder
-COPY --from=builder --chown=moe:moe /app/target/x86_64-unknown-linux-musl/release/moe /app/moe
+COPY --from=builder --chown=moe:moe /app/moe /app/moe
 
 # Copy frontend dist
 COPY --from=frontend --chown=moe:moe /app/web/dist /app/dist
