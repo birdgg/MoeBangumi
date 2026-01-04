@@ -2,6 +2,7 @@
 
 export {
   cleanupLogs,
+  clearAllLogs,
   createBangumi,
   deleteTorrents,
   getBangumi,
@@ -38,6 +39,9 @@ export type {
   CleanupLogsData,
   CleanupLogsResponse,
   CleanupLogsResponses,
+  ClearAllLogsData,
+  ClearAllLogsResponse,
+  ClearAllLogsResponses,
   ClientOptions,
   CreateBangumi,
   CreateBangumiData,

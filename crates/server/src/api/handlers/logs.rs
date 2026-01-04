@@ -87,3 +87,17 @@ pub async fn cleanup_logs(State(state): State<AppState>) -> AppResult<Json<u64>>
     let deleted = state.logs.cleanup(30).await?;
     Ok(Json(deleted))
 }
+
+/// Clear all logs
+#[utoipa::path(
+    delete,
+    path = "/api/logs/all",
+    tag = "logs",
+    responses(
+        (status = 200, description = "All logs cleared", body = u64)
+    )
+)]
+pub async fn clear_all_logs(State(state): State<AppState>) -> AppResult<Json<u64>> {
+    let deleted = state.logs.clear_all().await?;
+    Ok(Json(deleted))
+}

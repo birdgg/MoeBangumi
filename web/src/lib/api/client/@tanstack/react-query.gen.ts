@@ -11,6 +11,7 @@ import {
 import { client } from "../client.gen";
 import {
   cleanupLogs,
+  clearAllLogs,
   createBangumi,
   deleteTorrents,
   getBangumi,
@@ -39,6 +40,8 @@ import {
 import type {
   CleanupLogsData,
   CleanupLogsResponse,
+  ClearAllLogsData,
+  ClearAllLogsResponse,
   CreateBangumiData,
   CreateBangumiResponse,
   DeleteTorrentsData,
@@ -472,6 +475,33 @@ export const getLogsInfiniteOptions = (options?: Options<GetLogsData>) =>
       queryKey: getLogsInfiniteQueryKey(options),
     },
   );
+
+/**
+ * Clear all logs
+ */
+export const clearAllLogsMutation = (
+  options?: Partial<Options<ClearAllLogsData>>,
+): UseMutationOptions<
+  ClearAllLogsResponse,
+  DefaultError,
+  Options<ClearAllLogsData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    ClearAllLogsResponse,
+    DefaultError,
+    Options<ClearAllLogsData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await clearAllLogs({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
 
 export const getMetadataQueryKey = (options?: Options<GetMetadataData>) =>
   createQueryKey("getMetadata", options);

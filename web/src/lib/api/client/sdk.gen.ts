@@ -5,6 +5,8 @@ import { client } from "./client.gen";
 import type {
   CleanupLogsData,
   CleanupLogsResponses,
+  ClearAllLogsData,
+  ClearAllLogsResponses,
   CreateBangumiData,
   CreateBangumiResponses,
   DeleteTorrentsData,
@@ -225,6 +227,18 @@ export const getLogs = <ThrowOnError extends boolean = false>(
     url: "/api/logs",
     ...options,
   });
+
+/**
+ * Clear all logs
+ */
+export const clearAllLogs = <ThrowOnError extends boolean = false>(
+  options?: Options<ClearAllLogsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).delete<
+    ClearAllLogsResponses,
+    unknown,
+    ThrowOnError
+  >({ url: "/api/logs/all", ...options });
 
 /**
  * Stream logs via Server-Sent Events (SSE)

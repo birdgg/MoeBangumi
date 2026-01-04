@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconLoader2, IconTrash } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { clearAllLogsMutation } from "@/lib/api";
 import { LogList } from "./components";
 import { useLogs } from "./hooks/use-logs";
 
@@ -13,6 +16,7 @@ const filters = [
 
 export function LogsPage() {
   const [levelFilter, setLevelFilter] = useState<string | undefined>();
+  const queryClient = useQueryClient();
   const {
     data,
     isLoading,
@@ -21,6 +25,17 @@ export function LogsPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useLogs({ level: levelFilter });
+
+  const { mutate: clearLogs, isPending: isClearing } = useMutation({
+    ...clearAllLogsMutation(),
+    onSuccess: (deleted) => {
+      queryClient.invalidateQueries({ queryKey: ["logs"] });
+      toast.success(`已清除 ${deleted} 条日志`);
+    },
+    onError: () => {
+      toast.error("清除日志失败");
+    },
+  });
 
   // Flatten pages into single array
   const logs = useMemo(
@@ -35,22 +50,38 @@ export function LogsPage() {
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-medium text-foreground">日志</h1>
 
-          {/* Filter tabs */}
-          <div className="flex gap-1 text-sm">
-            {filters.map((f) => (
-              <button
-                key={f.key ?? "all"}
-                onClick={() => setLevelFilter(f.key)}
-                className={cn(
-                  "px-3 py-1 rounded-md transition-colors",
-                  levelFilter === f.key
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-4">
+            {/* Filter tabs */}
+            <div className="flex gap-1 text-sm">
+              {filters.map((f) => (
+                <button
+                  key={f.key ?? "all"}
+                  onClick={() => setLevelFilter(f.key)}
+                  className={cn(
+                    "px-3 py-1 rounded-md transition-colors",
+                    levelFilter === f.key
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Clear button */}
+            <button
+              onClick={() => clearLogs({})}
+              disabled={isClearing || logs.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1 text-sm text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isClearing ? (
+                <IconLoader2 className="size-4 animate-spin" />
+              ) : (
+                <IconTrash className="size-4" />
+              )}
+              清除
+            </button>
           </div>
         </div>
 

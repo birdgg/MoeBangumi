@@ -27,6 +27,7 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::test_notification))
         .routes(routes!(handlers::test_downloader_connection))
         .routes(routes!(handlers::get_logs, handlers::cleanup_logs))
+        .routes(routes!(handlers::clear_all_logs))
         .routes(routes!(handlers::stream_logs))
         .routes(routes!(handlers::list_torrents))
         .routes(routes!(handlers::delete_torrents))

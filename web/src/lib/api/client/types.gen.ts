@@ -1307,6 +1307,23 @@ export type GetLogsResponses = {
 
 export type GetLogsResponse = GetLogsResponses[keyof GetLogsResponses];
 
+export type ClearAllLogsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/logs/all";
+};
+
+export type ClearAllLogsResponses = {
+  /**
+   * All logs cleared
+   */
+  200: number;
+};
+
+export type ClearAllLogsResponse =
+  ClearAllLogsResponses[keyof ClearAllLogsResponses];
+
 export type StreamLogsData = {
   body?: never;
   path?: never;

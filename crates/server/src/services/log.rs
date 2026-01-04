@@ -109,6 +109,14 @@ impl LogService {
         }
         Ok(deleted)
     }
+
+    /// Clear all logs from database and buffer
+    pub async fn clear_all(&self) -> Result<u64, LogError> {
+        let deleted = LogRepository::delete_all(&self.db).await?;
+        // Also clear the in-memory buffer
+        self.buffer.write().await.clear();
+        Ok(deleted)
+    }
 }
 
 /// In-memory ring buffer for recent logs
@@ -134,5 +142,9 @@ impl LogBuffer {
 
     fn get_recent(&self, limit: usize) -> Vec<Log> {
         self.logs.iter().rev().take(limit).cloned().collect()
+    }
+
+    fn clear(&mut self) {
+        self.logs.clear();
     }
 }
