@@ -57,10 +57,10 @@ impl SchedulerBuilder {
         let (sender, receiver) = mpsc::channel::<SchedulerMessage>(32);
         let handle = SchedulerHandle::new(sender);
 
-        let actor = SchedulerActor::new(self.jobs, receiver);
+        let actor = SchedulerActor::new(self.jobs, receiver, handle.clone());
 
         // 启动各 Job 的定时任务
-        actor.spawn_timers(handle.clone());
+        actor.spawn_timers();
 
         // 启动 Actor 主循环
         tokio::spawn(actor.run());

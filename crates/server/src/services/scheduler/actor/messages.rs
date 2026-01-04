@@ -36,4 +36,10 @@ pub enum SchedulerMessage {
 
     /// 内部消息：定时器触发
     TimerTick { job_name: &'static str },
+
+    /// 内部消息：Job 执行完成
+    JobCompleted {
+        job_name: &'static str,
+        success: bool,
+    },
 }

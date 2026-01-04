@@ -53,4 +53,12 @@ impl SchedulerHandle {
             .send(SchedulerMessage::TimerTick { job_name })
             .await;
     }
+
+    /// 发送 Job 完成消息（内部使用）
+    pub(super) async fn send_job_completed(&self, job_name: &'static str, success: bool) {
+        let _ = self
+            .sender
+            .send(SchedulerMessage::JobCompleted { job_name, success })
+            .await;
+    }
 }

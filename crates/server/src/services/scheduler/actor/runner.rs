@@ -13,15 +13,22 @@ struct JobEntry {
 }
 
 /// Scheduler Actor
+///
+/// 使用非阻塞方式执行 Job：
+/// - Job 在独立的 tokio 任务中运行
+/// - Actor 主循环保持响应性
+/// - 支持多个 Job 并行执行
 pub struct SchedulerActor {
     jobs: HashMap<&'static str, JobEntry>,
     receiver: mpsc::Receiver<SchedulerMessage>,
+    handle: SchedulerHandle,
 }
 
 impl SchedulerActor {
     pub fn new(
         jobs: Vec<Arc<dyn SchedulerJob>>,
         receiver: mpsc::Receiver<SchedulerMessage>,
+        handle: SchedulerHandle,
     ) -> Self {
         let mut job_map = HashMap::new();
 
@@ -39,13 +46,14 @@ impl SchedulerActor {
         Self {
             jobs: job_map,
             receiver,
+            handle,
         }
     }
 
     /// 启动各 Job 的定时任务
-    pub fn spawn_timers(&self, handle: SchedulerHandle) {
+    pub fn spawn_timers(&self) {
         for (name, entry) in &self.jobs {
-            let handle = handle.clone();
+            let handle = self.handle.clone();
             let interval = entry.job.interval();
             let job_name = *name;
 
@@ -66,17 +74,17 @@ impl SchedulerActor {
         tracing::info!("Scheduler actor started with {} jobs", self.jobs.len());
 
         while let Some(msg) = self.receiver.recv().await {
-            self.handle_message(msg).await;
+            self.handle_message(msg);
         }
 
         tracing::info!("Scheduler actor stopped");
     }
 
     /// 处理消息
-    async fn handle_message(&mut self, msg: SchedulerMessage) {
+    fn handle_message(&mut self, msg: SchedulerMessage) {
         match msg {
             SchedulerMessage::TriggerJob { job_name, reply } => {
-                let result = self.trigger_job_by_name(&job_name).await;
+                let result = self.trigger_job_by_name(&job_name);
                 let _ = reply.send(result);
             }
 
@@ -86,13 +94,30 @@ impl SchedulerActor {
             }
 
             SchedulerMessage::TimerTick { job_name } => {
-                self.execute_job(job_name).await;
+                self.spawn_job(job_name);
+            }
+
+            SchedulerMessage::JobCompleted { job_name, success } => {
+                self.handle_job_completed(job_name, success);
             }
         }
     }
 
+    /// 处理 Job 完成消息
+    fn handle_job_completed(&mut self, job_name: &'static str, success: bool) {
+        if let Some(entry) = self.jobs.get_mut(job_name) {
+            entry.is_running = false;
+        }
+
+        if success {
+            tracing::debug!("Job '{}' completed successfully", job_name);
+        } else {
+            tracing::error!("Job '{}' failed", job_name);
+        }
+    }
+
     /// 按名称触发 Job
-    async fn trigger_job_by_name(&mut self, job_name: &str) -> Result<(), SchedulerError> {
+    fn trigger_job_by_name(&mut self, job_name: &str) -> Result<(), SchedulerError> {
         // 查找 Job
         let entry = self
             .jobs
@@ -106,7 +131,7 @@ impl SchedulerActor {
                 if job_entry.is_running {
                     Err(SchedulerError::JobAlreadyRunning(job_name.to_string()))
                 } else {
-                    self.execute_job(name).await;
+                    self.spawn_job(name);
                     Ok(())
                 }
             }
@@ -114,8 +139,10 @@ impl SchedulerActor {
         }
     }
 
-    /// 执行指定 Job
-    async fn execute_job(&mut self, name: &'static str) {
+    /// 非阻塞地启动 Job 执行
+    ///
+    /// Job 在独立的 tokio 任务中执行，完成后通过 JobCompleted 消息通知 Actor。
+    fn spawn_job(&mut self, name: &'static str) {
         let entry = match self.jobs.get_mut(name) {
             Some(e) => e,
             None => return,
@@ -130,19 +157,20 @@ impl SchedulerActor {
         // 标记为运行中
         entry.is_running = true;
         let job = Arc::clone(&entry.job);
+        let handle = self.handle.clone();
 
-        // 执行 Job
-        let result = job.execute().await;
+        // 在独立任务中执行 Job
+        tokio::spawn(async move {
+            let result = job.execute().await;
+            let success = result.is_ok();
 
-        // 更新状态
-        if let Some(entry) = self.jobs.get_mut(name) {
-            entry.is_running = false;
-        }
+            if let Err(e) = &result {
+                tracing::error!("Job '{}' execution error: {}", name, e);
+            }
 
-        match result {
-            Ok(()) => tracing::debug!("Job '{}' completed successfully", name),
-            Err(e) => tracing::error!("Job '{}' failed: {}", name, e),
-        }
+            // 通知 Actor 执行完成
+            handle.send_job_completed(name, success).await;
+        });
     }
 
     /// 获取所有 Job 状态
