@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -74,7 +75,7 @@ jobs:
         id: changelog
         run: |
           # Generate changelog for this release
-          CHANGELOG=$(git-cliff --unreleased --strip header)
+          CHANGELOG=$(git-cliff --unreleased --tag "${{ needs.validate.outputs.tag }}" --strip header)
 
           # If no changes found, create a default message
           if [ -z "$CHANGELOG" ]; then
@@ -186,11 +187,6 @@ jobs:
             fi
           done
 
-          # Create source code archives
-          VERSION="${{ needs.validate.outputs.version }}"
-          git archive --format=tar.gz --prefix=moe-bangumi-${VERSION}/ -o release/moe-bangumi-${VERSION}.tar.gz HEAD
-          git archive --format=zip --prefix=moe-bangumi-${VERSION}/ -o release/moe-bangumi-${VERSION}.zip HEAD
-
           # Create checksums
           cd release
           sha256sum * > checksums.txt
@@ -251,3 +247,9 @@ jobs:
             release/*
           draft: false
           prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
+
+      - name: Trigger Docker build
+        run: |
+          gh workflow run docker.yml -f tag="${{ needs.validate.outputs.tag }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
