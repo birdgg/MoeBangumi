@@ -29,4 +29,3 @@ docker-compose*.yml
 # Misc
 *.log
 .DS_Store
-todos.db

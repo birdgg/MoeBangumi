@@ -6,25 +6,14 @@ RUN bun install --frozen-lockfile
 COPY web .
 RUN bun run build
 
-# Stage 2: Chef base
-FROM rust:1-alpine AS chef
+# Stage 2: Build Rust binary
+FROM rust:1-alpine AS builder
 RUN apk add --no-cache musl-dev
-RUN cargo install cargo-chef
 WORKDIR /app
-
-# Stage 3: Prepare recipe
-FROM chef AS planner
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
-
-# Stage 4: Build Rust binary
-FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release -p cli
 
-# Stage 5: Runtime image
+# Stage 3: Runtime image
 FROM alpine:3.21 AS runtime
 WORKDIR /app
 
