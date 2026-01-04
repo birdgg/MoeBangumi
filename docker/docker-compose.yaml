@@ -2,12 +2,15 @@ services:
   moe-bangumi:
     image: ghcr.io/birdgg/moe-bangumi:latest
     container_name: moe-bangumi
+    # Use host user to avoid permission issues with mounted volumes
+    # Run `id birdgg` on your NAS to get your UID:GID (e.g., 1000:1000)
+    user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       - TZ=Asia/Shanghai
       - PORT=3000
     volumes:
-      - ./data:/data
-      - /path/to/media:/media  # and copy this to your qb volumes too
+      - /share/CACHEDEV1_DATA/docker/moe/data:/data
+      - /share/CACHEDEV1_DATA/Media:/Media  # and copy this to your qb volumes too
     ports:
       - "3000:3000"
     restart: unless-stopped

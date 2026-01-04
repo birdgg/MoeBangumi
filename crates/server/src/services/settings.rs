@@ -7,8 +7,12 @@ use crate::models::{Settings, UpdateSettings};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
-    #[error("Failed to read settings file: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("{operation} '{path}': {source}")]
+    Io {
+        operation: &'static str,
+        path: String,
+        source: std::io::Error,
+    },
     #[error("Failed to parse TOML: {0}")]
     Parse(#[from] toml::de::Error),
     #[error("Failed to serialize TOML: {0}")]
@@ -52,14 +56,24 @@ impl SettingsService {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 // Ensure parent directory exists
                 if let Some(parent) = path.parent() {
-                    tokio::fs::create_dir_all(parent).await?;
+                    tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                        SettingsError::Io {
+                            operation: "Failed to create settings directory",
+                            path: parent.display().to_string(),
+                            source: e,
+                        }
+                    })?;
                 }
 
                 let default = Settings::default();
                 Self::write_atomically(path, &default).await?;
                 Ok(default)
             }
-            Err(e) => Err(e.into()),
+            Err(e) => Err(SettingsError::Io {
+                operation: "Failed to read settings file",
+                path: path.display().to_string(),
+                source: e,
+            }),
         }
     }
 
@@ -67,8 +81,20 @@ impl SettingsService {
     async fn write_atomically(path: &PathBuf, settings: &Settings) -> Result<(), SettingsError> {
         let toml_str = toml::to_string_pretty(settings)?;
         let tmp_path = path.with_extension("toml.tmp");
-        tokio::fs::write(&tmp_path, &toml_str).await?;
-        tokio::fs::rename(&tmp_path, path).await?;
+        tokio::fs::write(&tmp_path, &toml_str).await.map_err(|e| {
+            SettingsError::Io {
+                operation: "Failed to write settings temp file",
+                path: tmp_path.display().to_string(),
+                source: e,
+            }
+        })?;
+        tokio::fs::rename(&tmp_path, path).await.map_err(|e| {
+            SettingsError::Io {
+                operation: "Failed to rename settings file",
+                path: path.display().to_string(),
+                source: e,
+            }
+        })?;
         Ok(())
     }
 

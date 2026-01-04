@@ -28,8 +28,12 @@ pub enum PosterError {
     #[error("HTTP request failed: {0}")]
     Request(#[from] reqwest::Error),
 
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("{operation} '{path}': {source}")]
+    Io {
+        operation: &'static str,
+        path: String,
+        source: std::io::Error,
+    },
 
     #[error("Invalid poster path: {0}")]
     InvalidPath(String),
@@ -183,7 +187,13 @@ impl PosterService {
 
         // Ensure directory exists
         if let Some(parent) = local_path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                PosterError::Io {
+                    operation: "Failed to create posters directory",
+                    path: parent.display().to_string(),
+                    source: e,
+                }
+            })?;
         }
 
         // Atomic write: use unique temp file to avoid race conditions
@@ -196,14 +206,22 @@ impl PosterService {
         if let Err(e) = tokio::fs::write(&tmp_path, &bytes).await {
             // Clean up temp file on failure
             let _ = tokio::fs::remove_file(&tmp_path).await;
-            return Err(e.into());
+            return Err(PosterError::Io {
+                operation: "Failed to write poster temp file",
+                path: tmp_path.display().to_string(),
+                source: e,
+            });
         }
 
         // Rename to final path (atomic on most filesystems)
         if let Err(e) = tokio::fs::rename(&tmp_path, &local_path).await {
             // Clean up temp file on failure
             let _ = tokio::fs::remove_file(&tmp_path).await;
-            return Err(e.into());
+            return Err(PosterError::Io {
+                operation: "Failed to rename poster file",
+                path: local_path.display().to_string(),
+                source: e,
+            });
         }
 
         tracing::info!("Saved poster: {}", local_path.display());

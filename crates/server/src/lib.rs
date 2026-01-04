@@ -21,7 +21,7 @@ use utoipa_scalar::{Scalar, Servable};
 pub use api::create_router;
 pub use banner::print_banner;
 pub use config::{default_data_path, Config, Environment};
-pub use db::create_pool;
+pub use db::{create_pool, DatabaseError};
 pub use error::{AppError, AppResult};
 pub use services::{
     create_log_channel, start_log_writer, DatabaseLayer, LogReceiver, SettingsService,
@@ -40,8 +40,20 @@ pub async fn run_server(
     let config = Config::new(env, data_path);
 
     // Ensure data directories exist
-    std::fs::create_dir_all(&config.data_path)?;
-    std::fs::create_dir_all(config.posters_path())?;
+    std::fs::create_dir_all(&config.data_path).map_err(|e| {
+        format!(
+            "Failed to create data directory '{}': {} (check directory permissions)",
+            config.data_path.display(),
+            e
+        )
+    })?;
+    std::fs::create_dir_all(config.posters_path()).map_err(|e| {
+        format!(
+            "Failed to create posters directory '{}': {} (check directory permissions)",
+            config.posters_path().display(),
+            e
+        )
+    })?;
 
     let pool = create_pool(&config.database_url).await?;
 

@@ -32,24 +32,21 @@ FROM alpine:3.21 AS runtime
 ARG FRONTEND_DIST
 WORKDIR /app
 
-# Install runtime dependencies and create user
-RUN apk add --no-cache ca-certificates curl tzdata \
-    && addgroup -S moe && adduser -S moe -G moe
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates curl tzdata
 
 # Copy binary from builder
-COPY --from=builder --chown=moe:moe /app/target/release/moe /app/moe
+COPY --from=builder /app/target/release/moe /app/moe
 
 # Copy pre-built frontend dist
-COPY --chown=moe:moe ${FRONTEND_DIST} /app/dist
+COPY ${FRONTEND_DIST} /app/dist
 
-# Create data directory and set permissions
-RUN mkdir -p /data && chown moe:moe /data
+# Create data directory
+RUN mkdir -p /data
 
 # Set environment variables
 ENV APP_ENV=prod
 ENV PORT=3000
-
-USER moe
 
 EXPOSE 3000
 
