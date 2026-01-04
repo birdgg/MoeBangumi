@@ -15,12 +15,49 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  # Build frontend once (platform-independent)
+  build-frontend:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: web
+        run: bun run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist
+          retention-days: 1
+
+  # Build binary for each platform in parallel
+  build-binary:
+    runs-on: ${{ matrix.runner }}
+    needs: build-frontend
     permissions:
       contents: read
       packages: write
-
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,8 +66,11 @@ jobs:
           fetch-tags: true
           fetch-depth: 0
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: ./frontend-dist
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -72,14 +112,92 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.tag }}
             type=semver,pattern={{major}},value=${{ steps.version.outputs.tag }}
             type=raw,value=latest
+          flavor: |
+            suffix=-${{ matrix.arch }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          file: ./crates/cli/Dockerfile
+          platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ hashFiles('Cargo.toml', 'crates/*/Cargo.toml') }}
-          cache-to: type=gha,mode=max,scope=${{ hashFiles('Cargo.toml', 'crates/*/Cargo.toml') }}
+          build-args: |
+            FRONTEND_DIST=./frontend-dist
+          cache-from: type=gha,scope=build-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.arch }}
+
+  # Merge multi-arch images into single manifest
+  merge-manifests:
+    runs-on: ubuntu-latest
+    needs: build-binary
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push manifest for GHCR
+        run: |
+          VERSION=${{ steps.version.outputs.tag }}
+          VERSION_NO_V=${VERSION#v}
+          MAJOR=$(echo $VERSION_NO_V | cut -d. -f1)
+          MINOR=$(echo $VERSION_NO_V | cut -d. -f1-2)
+
+          # Create manifests for each tag pattern
+          for TAG in "$VERSION_NO_V" "$MINOR" "$MAJOR" "latest"; do
+            docker buildx imagetools create -t ghcr.io/${{ env.IMAGE_NAME }}:${TAG} \
+              ghcr.io/${{ env.IMAGE_NAME }}:${VERSION_NO_V}-amd64 \
+              ghcr.io/${{ env.IMAGE_NAME }}:${VERSION_NO_V}-arm64
+          done
+
+      - name: Create and push manifest for Docker Hub
+        run: |
+          VERSION=${{ steps.version.outputs.tag }}
+          VERSION_NO_V=${VERSION#v}
+          MAJOR=$(echo $VERSION_NO_V | cut -d. -f1)
+          MINOR=$(echo $VERSION_NO_V | cut -d. -f1-2)
+
+          DOCKERHUB_REPO=${{ secrets.DOCKERHUB_USERNAME }}/moe-bangumi
+
+          # Create manifests for each tag pattern
+          for TAG in "$VERSION_NO_V" "$MINOR" "$MAJOR" "latest"; do
+            docker buildx imagetools create -t ${DOCKERHUB_REPO}:${TAG} \
+              ${DOCKERHUB_REPO}:${VERSION_NO_V}-amd64 \
+              ${DOCKERHUB_REPO}:${VERSION_NO_V}-arm64
+          done
