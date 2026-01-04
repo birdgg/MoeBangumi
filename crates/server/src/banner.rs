@@ -1,6 +1,4 @@
-pub fn print_banner() {
-    let version = env!("CARGO_PKG_VERSION");
-
+pub fn print_banner(version: &str) {
     let banner = format!(
         r#"
  ███╗   ███╗ ██████╗ ███████╗

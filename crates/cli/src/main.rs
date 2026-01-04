@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(DatabaseLayer::new(log_sender))
         .init();
 
-    print_banner();
+    print_banner(env!("APP_VERSION"));
 
     let app_env = Environment::from_str(&env::var("APP_ENV").unwrap_or_default());
     let port: u16 = env::var("PORT")
