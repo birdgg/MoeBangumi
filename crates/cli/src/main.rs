@@ -6,8 +6,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenvy::dotenv().ok();
-
     // Create log channel for database layer
     let (log_sender, log_receiver) = create_log_channel();
 
