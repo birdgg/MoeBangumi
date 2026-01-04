@@ -109,11 +109,8 @@ jobs:
             os: ubuntu-latest
             name: moe-linux-amd64
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04-arm
             name: moe-linux-arm64
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            name: moe-macos-amd64
           - target: aarch64-apple-darwin
             os: macos-latest
             name: moe-macos-arm64
@@ -133,12 +130,6 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
       - name: Build frontend
         run: |
           cd web
@@ -147,8 +138,6 @@ jobs:
 
       - name: Build binary
         run: cargo build --release --target ${{ matrix.target }} -p cli
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
       - name: Prepare artifact (Unix)
         if: runner.os != 'Windows'
@@ -196,6 +185,11 @@ jobs:
               cp "$dir"/* "release/"
             fi
           done
+
+          # Create source code archives
+          VERSION="${{ needs.validate.outputs.version }}"
+          git archive --format=tar.gz --prefix=moe-bangumi-${VERSION}/ -o release/moe-bangumi-${VERSION}.tar.gz HEAD
+          git archive --format=zip --prefix=moe-bangumi-${VERSION}/ -o release/moe-bangumi-${VERSION}.zip HEAD
 
           # Create checksums
           cd release
