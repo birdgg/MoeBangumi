@@ -23,7 +23,10 @@ CREATE TABLE IF NOT EXISTS metadata (
     total_episodes INTEGER NOT NULL DEFAULT 0,      -- Total episodes (0=unknown)
     poster_url TEXT,                                -- Poster image URL
     air_date DATE,                                  -- First air date
-    air_week INTEGER NOT NULL                       -- Air weekday (0=Sunday ~ 6=Saturday)
+    air_week INTEGER NOT NULL,                      -- Air weekday (0=Sunday ~ 6=Saturday)
+
+    -- Sync tracking
+    tmdb_lookup_at DATETIME                         -- Last TMDB lookup attempt timestamp
 );
 
 -- Metadata indexes

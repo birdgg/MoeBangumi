@@ -35,7 +35,7 @@ pub enum AppError {
 
     /// 海报服务错误
     #[error("海报错误: {0}")]
-    Poster(#[from] crate::services::PosterError),
+    Poster(#[from] metadata::PosterError),
 
     /// Bangumi 服务错误
     #[error("Bangumi 错误: {0}")]
@@ -198,13 +198,15 @@ impl From<crate::services::CalendarError> for AppError {
     }
 }
 
-impl From<crate::services::MetadataError> for AppError {
-    fn from(e: crate::services::MetadataError) -> Self {
+impl From<metadata::MetadataError> for AppError {
+    fn from(e: metadata::MetadataError) -> Self {
         match e {
-            crate::services::MetadataError::Database(e) => AppError::Database(e),
-            crate::services::MetadataError::NotFound => AppError::NotFound("Metadata not found".to_string()),
-            crate::services::MetadataError::Bgmtv(e) => AppError::ExternalApi(e.to_string()),
-            crate::services::MetadataError::Tmdb(e) => AppError::ExternalApi(e.to_string()),
+            metadata::MetadataError::Database(e) => AppError::Database(e),
+            metadata::MetadataError::NotFound(id) => {
+                AppError::NotFound(format!("Metadata not found: id={}", id))
+            }
+            metadata::MetadataError::Bgmtv(e) => AppError::ExternalApi(e.to_string()),
+            metadata::MetadataError::Tmdb(e) => AppError::ExternalApi(e.to_string()),
         }
     }
 }

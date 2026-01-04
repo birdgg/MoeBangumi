@@ -1,4 +1,5 @@
 use bgmtv::BgmtvClient;
+use metadata::{create_metadata_actor, MetadataHandle, MetadataService, PosterService};
 use mikan::MikanClient;
 use parking_lot::RwLock;
 use rss::RssClient;
@@ -8,11 +9,10 @@ use tmdb::TmdbClient;
 
 use crate::config::Config;
 use crate::services::{
-    create_downloader_service, create_notification_service, create_poster_download_service,
-    BangumiService, CacheService, CalendarService, DownloaderHandle, HttpClientService,
-    LogCleanupJob, LogService, MetadataService, MetadataSyncJob, NotificationService,
-    PosterDownloadHandle, PosterService, RenameJob, RenameService, RssFetchJob,
-    RssProcessingService, SchedulerBuilder, SchedulerHandle, SettingsService, WashingService,
+    create_downloader_service, create_notification_service, BangumiService, CacheService,
+    CalendarService, DownloaderHandle, HttpClientService, LogCleanupJob, LogService,
+    NotificationService, RenameJob, RenameService, RssFetchJob, RssProcessingService,
+    SchedulerBuilder, SchedulerHandle, SettingsService, WashingService,
 };
 
 #[derive(Clone)]
@@ -27,7 +27,7 @@ pub struct AppState {
     pub settings: Arc<SettingsService>,
     pub downloader: Arc<DownloaderHandle>,
     pub poster: Arc<PosterService>,
-    pub poster_download: Arc<PosterDownloadHandle>,
+    pub metadata_actor: Arc<MetadataHandle>,
     pub scheduler: Arc<SchedulerHandle>,
     pub logs: Arc<LogService>,
     pub metadata: Arc<MetadataService>,
@@ -113,9 +113,17 @@ impl AppState {
             config.posters_path(),
         ));
 
-        // Create poster download actor (for async poster downloads)
-        let poster_download = Arc::new(create_poster_download_service(
+        // Create metadata service
+        let metadata = Arc::new(MetadataService::new(
             db.clone(),
+            Arc::clone(&bgmtv),
+            Arc::clone(&tmdb),
+        ));
+
+        // Create metadata actor (handles poster downloads + TMDB sync with internal scheduling)
+        let metadata_actor = Arc::new(create_metadata_actor(
+            db.clone(),
+            Arc::clone(&metadata),
             Arc::clone(&poster),
         ));
 
@@ -142,13 +150,6 @@ impl AppState {
             Arc::clone(&washing),
         ));
 
-        // Create metadata service
-        let metadata = Arc::new(MetadataService::new(
-            db.clone(),
-            Arc::clone(&bgmtv),
-            Arc::clone(&tmdb),
-        ));
-
         // Create bangumi service (with MetadataService and RSS processing for immediate fetch)
         let bangumi = Arc::new(BangumiService::new(
             db.clone(),
@@ -156,7 +157,6 @@ impl AppState {
             Arc::clone(&rss_processing),
             Arc::clone(&settings),
         ));
-
 
         // Create notification service (Actor mode)
         let notification = Arc::new(create_notification_service(
@@ -186,15 +186,11 @@ impl AppState {
         ));
 
         // Create and start scheduler service (Actor mode)
+        // Note: MetadataSyncJob is no longer needed - metadata actor has internal scheduling
         let scheduler = SchedulerBuilder::new()
             .with_job(RssFetchJob::new(db.clone(), Arc::clone(&rss_processing)))
             .with_job(LogCleanupJob::new(Arc::clone(&logs)))
             .with_job(RenameJob::new(Arc::clone(&rename)))
-            .with_job(MetadataSyncJob::new(
-                db.clone(),
-                Arc::clone(&poster_download),
-                Arc::clone(&metadata),
-            ))
             .build();
 
         Self {
@@ -208,7 +204,7 @@ impl AppState {
             settings,
             downloader: downloader_arc,
             poster,
-            poster_download,
+            metadata_actor,
             scheduler: Arc::new(scheduler),
             logs,
             metadata,

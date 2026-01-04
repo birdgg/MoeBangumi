@@ -8,7 +8,8 @@ use crate::models::{
     UpdateBangumi, UpdateBangumiRequest,
 };
 use crate::repositories::{BangumiRepository, CreateBangumiData, RssRepository};
-use crate::services::{MetadataError, MetadataService, RssProcessingService, SettingsService};
+use crate::services::{RssProcessingService, SettingsService};
+use metadata::{MetadataError, MetadataService};
 
 #[derive(Debug, Error)]
 pub enum BangumiError {

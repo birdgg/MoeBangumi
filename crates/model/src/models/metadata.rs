@@ -79,6 +79,9 @@ pub struct Metadata {
     pub air_date: Option<String>,
     /// Day of week when new episodes air (0=Sunday ~ 6=Saturday)
     pub air_week: i32,
+
+    /// Last TMDB lookup attempt timestamp
+    pub tmdb_lookup_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Request body for creating new metadata
