@@ -35,7 +35,6 @@ RUN mkdir -p /data
 # Set environment variables
 ENV APP_ENV=prod
 ENV PORT=3000
-ENV DATA_PATH=/data
 
 EXPOSE 3000
 

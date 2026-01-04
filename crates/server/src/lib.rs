@@ -18,7 +18,7 @@ use utoipa_scalar::{Scalar, Servable};
 
 pub use api::create_router;
 pub use banner::print_banner;
-pub use config::{Config, Environment};
+pub use config::{default_data_path, Config, Environment};
 pub use db::create_pool;
 pub use error::{AppError, AppResult};
 pub use services::{

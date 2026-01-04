@@ -17,20 +17,27 @@ impl Environment {
         }
     }
 
-    /// Returns the default data path for this environment
-    pub fn default_data_path(&self) -> PathBuf {
-        match self {
-            Self::Dev => PathBuf::from("./data"),
-            Self::Prod => PathBuf::from("/data"),
-        }
-    }
-
     pub fn is_dev(&self) -> bool {
         matches!(self, Self::Dev)
     }
 
     pub fn is_prod(&self) -> bool {
         matches!(self, Self::Prod)
+    }
+}
+
+/// Returns the default data path based on build profile.
+/// - Debug builds: `./data` (relative to project directory)
+/// - Release builds: `/data` (absolute path for production)
+pub fn default_data_path() -> PathBuf {
+    #[cfg(debug_assertions)]
+    {
+        PathBuf::from("./data")
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        PathBuf::from("/data")
     }
 }
 

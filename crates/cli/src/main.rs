@@ -1,4 +1,4 @@
-use server::{create_log_channel, print_banner, DatabaseLayer, Environment};
+use server::{create_log_channel, default_data_path, print_banner, DatabaseLayer, Environment};
 use std::env;
 use std::net::SocketAddr;
 use tracing_subscriber::layer::SubscriberExt;
@@ -27,10 +27,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let port: u16 = env::var("PORT")
         .unwrap_or_else(|_| "3000".to_string())
         .parse()?;
-    let data_path = env::var("DATA_PATH")
-        .unwrap_or_else(|_| app_env.default_data_path().to_string_lossy().to_string());
+    let data_path = default_data_path();
 
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
 
-    server::run_server(addr, app_env, &data_path, Some(log_receiver)).await
+    server::run_server(addr, app_env, &data_path.to_string_lossy(), Some(log_receiver)).await
 }
