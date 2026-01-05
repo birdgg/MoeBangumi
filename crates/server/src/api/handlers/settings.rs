@@ -154,7 +154,7 @@ pub async fn test_notification(
 
     // Create a temporary Telegram notifier with the provided credentials
     let client = state.http_client_service.get_client();
-    let notifier = notify::telegram::TelegramNotifier::new_with_client(
+    let notifier = crate::notify::telegram::TelegramNotifier::new_with_client(
         client,
         &payload.bot_token,
         &payload.chat_id,
@@ -162,7 +162,7 @@ pub async fn test_notification(
     .map_err(|e| crate::error::AppError::BadRequest(format!("配置无效: {}", e)))?;
 
     // Send test message
-    use notify::Notifier;
+    use crate::notify::Notifier;
     notifier
         .send_message("🔔 moe-bangumi 通知测试成功！")
         .await

@@ -10,8 +10,6 @@ openapi = [
     "dep:utoipa",
     "dep:utoipa-axum",
     "dep:utoipa-scalar",
-    "model/openapi",
-    "metadata/openapi",
     "tmdb/openapi",
     "bgmtv/openapi",
     "mikan/openapi",
@@ -34,27 +32,30 @@ async-trait.workspace = true
 utoipa = { workspace = true, optional = true }
 utoipa-axum = { workspace = true, optional = true }
 utoipa-scalar = { workspace = true, optional = true }
-reqwest.workspace = true
-model = { path = "../model" }
-metadata = { path = "../metadata" }
+reqwest = { workspace = true, features = ["multipart"] }
+# Third-party API clients (kept separate)
 tmdb = { path = "../tmdb" }
 bgmtv = { path = "../bgmtv" }
 mikan = { path = "../mikan" }
 qbittorrent = { path = "../qbittorrent" }
 downloader = { path = "../downloader" }
-rss = { path = "../rss" }
-notify = { path = "../notify" }
+# Tool libraries (kept separate)
 parser = { path = "../parser" }
-pathgen = { path = "../pathgen" }
 washing = { path = "../washing" }
+# Dependencies from merged crates
 chrono.workspace = true
 tower-http.workspace = true
 toml.workspace = true
 regex.workspace = true
-futures = "0.3"
+futures.workspace = true
 tokio-stream = { version = "0.1", features = ["sync"] }
 tracing-subscriber.workspace = true
-parking_lot = "0.12"
+parking_lot.workspace = true
 urlencoding = "2"
 sha2 = "0.10"
 hex = "0.4"
+# From rss crate
+quick-xml.workspace = true
+# From notify crate
+teloxide.workspace = true
+lru.workspace = true

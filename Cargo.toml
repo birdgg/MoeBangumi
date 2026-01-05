@@ -37,7 +37,8 @@ futures = "0.3"
 quick-xml = "0.37"
 serde_path_to_error = "0.1"
 lru = "0.12"
-teloxide = { version = "0.14", default-features = false }
+teloxide = { version = "0.14", default-features = false, features = ["macros", "rustls"] }
+parking_lot = "0.12"
 
 [profile.release]
 lto = "thin"

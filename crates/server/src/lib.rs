@@ -1,15 +1,24 @@
 pub mod api;
-pub mod banner;
-pub mod config;
-pub mod db;
-pub mod error;
-pub mod models;
+pub mod domain;
+pub mod infra;
+
 #[cfg(feature = "openapi")]
 pub mod openapi;
-pub mod repositories;
-pub mod services;
-pub mod state;
-pub mod utils;
+
+// Backwards compatibility aliases - these will be removed after migration
+pub use infra::banner;
+pub use infra::config;
+pub use infra::db;
+pub use infra::error;
+pub use infra::state;
+pub use infra::utils as utils;
+pub use infra::utils::pathgen;
+pub use infra::utils::rss;
+pub use domain::models;
+pub use domain::repositories;
+pub use domain::services;
+pub use domain::services::actors::notification as notify;
+pub use domain::services::actors::metadata as metadata_service;
 
 use std::net::SocketAddr;
 use std::path::Path;
@@ -18,16 +27,19 @@ use tower_http::services::{ServeDir, ServeFile};
 #[cfg(feature = "openapi")]
 use utoipa_scalar::{Scalar, Servable};
 
+// Re-export commonly used types for backwards compatibility
 pub use api::create_router;
-pub use banner::print_banner;
-pub use config::{default_data_path, Config, Environment};
-pub use db::{create_pool, DatabaseError};
-pub use error::{AppError, AppResult};
-pub use services::{
-    create_log_channel, start_log_writer, DatabaseLayer, LogReceiver, SettingsService,
+pub use infra::{
+    print_banner, default_data_path, Config, Environment,
+    create_pool, DatabaseError,
+    AppError, AppResult,
+    AppState,
 };
-pub use state::AppState;
-pub use utils::SeasonIterator;
+pub use infra::utils::{
+    create_log_channel, start_log_writer, DatabaseLayer, LogReceiver, SeasonIterator,
+};
+pub use domain::services::SettingsService;
+
 
 const STATIC_DIR: &str = "/app/dist";
 

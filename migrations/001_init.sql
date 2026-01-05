@@ -26,7 +26,10 @@ CREATE TABLE IF NOT EXISTS metadata (
     air_week INTEGER NOT NULL,                      -- Air weekday (0=Sunday ~ 6=Saturday)
 
     -- Sync tracking
-    tmdb_lookup_at DATETIME                         -- Last TMDB lookup attempt timestamp
+    tmdb_lookup_at DATETIME,                        -- Last TMDB lookup attempt timestamp
+
+    -- Episode offset (for season-relative numbering)
+    episode_offset INTEGER NOT NULL DEFAULT 0       -- Episode offset for download
 );
 
 -- Metadata indexes
@@ -58,9 +61,6 @@ CREATE TABLE IF NOT EXISTS bangumi (
 
     -- Foreign key to metadata (required, one-to-one)
     metadata_id INTEGER NOT NULL REFERENCES metadata(id) ON DELETE RESTRICT,
-
-    -- Download configuration
-    episode_offset INTEGER NOT NULL DEFAULT 0,      -- Episode offset for download
 
     -- Status management
     current_episode INTEGER NOT NULL DEFAULT 0,     -- Current downloaded episode
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS torrent (
 
     -- Parsed metadata for priority comparison (washing)
     subtitle_group TEXT,                            -- Subtitle group name (e.g., "ANi", "喵萌奶茶屋")
-    subtitle_language TEXT,                         -- Subtitle language/type (e.g., "简日", "繁体")
+    subtitle_languages TEXT,                        -- Subtitle languages JSON array (e.g., ["CHS", "JPN"])
     resolution TEXT                                 -- Video resolution (e.g., "1080P", "720P")
 );
 

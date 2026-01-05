@@ -247,6 +247,7 @@ async fn fetch_season_data(
                             poster_url: Some(parsed.poster_url),
                             air_date: parsed.air_date,
                             air_week,
+                            episode_offset: 0,
                         })
                     }
                     Err(e) => {
