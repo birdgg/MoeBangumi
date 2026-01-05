@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
 interface Log {
@@ -9,7 +9,16 @@ interface Log {
 }
 
 export function useLogStream() {
+  // Track whether we've finished receiving initial historical logs
+  // Only show toast for logs that arrive after initialization
+  const isInitializedRef = useRef(false);
+
   const handleLog = useCallback((log: Log) => {
+    // Skip toast for historical logs during initial connection
+    if (!isInitializedRef.current) {
+      return;
+    }
+
     // Only show toast for warning and error levels
     if (log.level === "error") {
       toast.error(log.message, {
@@ -23,7 +32,14 @@ export function useLogStream() {
   }, []);
 
   useEffect(() => {
+    isInitializedRef.current = false;
     const eventSource = new EventSource("/api/logs/stream");
+
+    // Use a small delay to allow initial batch of historical logs to be processed
+    // before enabling toast notifications for new logs
+    const initTimer = setTimeout(() => {
+      isInitializedRef.current = true;
+    }, 1000);
 
     eventSource.onmessage = (e) => {
       try {
@@ -40,6 +56,7 @@ export function useLogStream() {
     };
 
     return () => {
+      clearTimeout(initTimer);
       eventSource.close();
     };
   }, [handleLog]);
