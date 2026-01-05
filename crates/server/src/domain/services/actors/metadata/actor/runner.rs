@@ -397,6 +397,7 @@ async fn process_sync_record(
 ) -> (Option<bool>, Option<(bool, bool)>) {
     let mut poster_result = None;
     let mut tmdb_result = None;
+    let mut any_success = false;
 
     // Queue poster download
     if record.needs_poster_sync() {
@@ -411,6 +412,7 @@ async fn process_sync_record(
         );
         if queued {
             poster_result = Some(true);
+            any_success = true;
         }
     }
 
@@ -421,12 +423,7 @@ async fn process_sync_record(
             Ok(Some(tmdb_id)) => {
                 match MetadataRepository::update_tmdb_id(&db, record.id, tmdb_id).await {
                     Ok(true) => {
-                        tracing::info!(
-                            "Found TMDB ID {} for metadata {} ({})",
-                            tmdb_id,
-                            record.id,
-                            title
-                        );
+                        any_success = true;
                         (true, false)
                     }
                     Ok(false) => {
@@ -471,6 +468,11 @@ async fn process_sync_record(
         }
 
         tmdb_result = Some(result);
+    }
+
+    // Log success message
+    if any_success {
+        tracing::info!("{} metadata refreshed", record.title_chinese);
     }
 
     (poster_result, tmdb_result)

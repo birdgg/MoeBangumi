@@ -281,7 +281,7 @@ impl MetadataRepository {
     ) -> Result<Vec<MetadataToSync>, sqlx::Error> {
         let rows: Vec<MetadataToSync> = sqlx::query_as(
             r#"
-            SELECT id, poster_url, tmdb_id, title_japanese, year
+            SELECT id, title_chinese, poster_url, tmdb_id, title_japanese, year
             FROM metadata
             WHERE id > $2
               AND (
@@ -356,6 +356,7 @@ impl MetadataRepository {
 #[derive(Debug, sqlx::FromRow)]
 pub struct MetadataToSync {
     pub id: i64,
+    pub title_chinese: String,
     pub poster_url: Option<String>,
     pub tmdb_id: Option<i64>,
     pub title_japanese: Option<String>,
