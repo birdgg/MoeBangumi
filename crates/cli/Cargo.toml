@@ -18,6 +18,7 @@ path = "src/bin/calendar_seed.rs"
 
 [dependencies]
 server = { path = "../server", default-features = false }
+metadata = { path = "../metadata" }
 mikan = { path = "../../libs/mikan" }
 bgmtv = { path = "../../libs/bgmtv" }
 tokio.workspace = true

@@ -3,11 +3,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use bgmtv::{BgmtvClient, ParsedSubject};
+use bgmtv::BgmtvClient;
 
 use crate::{
-    Episode, EpisodeType, MetadataProvider, MetadataSource, ProviderError, SearchQuery,
-    SearchedMetadata,
+    parse_subject, parse_subject_detail, Episode, EpisodeType, MetadataProvider, MetadataSource,
+    ParsedSubject, ProviderError, SearchQuery, SearchedMetadata,
 };
 
 /// BGM.tv metadata provider
@@ -25,17 +25,23 @@ impl BgmtvProvider {
 impl MetadataProvider for BgmtvProvider {
     async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchedMetadata>, ProviderError> {
         let results = self.client.search_bangumi(&query.keyword).await?;
-        Ok(results.into_iter().map(SearchedMetadata::from).collect())
+        Ok(results
+            .iter()
+            .map(|s| SearchedMetadata::from(parse_subject(s)))
+            .collect())
     }
 
-    async fn get_detail(&self, external_id: &str) -> Result<Option<SearchedMetadata>, ProviderError> {
+    async fn get_detail(
+        &self,
+        external_id: &str,
+    ) -> Result<Option<SearchedMetadata>, ProviderError> {
         let subject_id: i64 = external_id.parse().unwrap_or(0);
         if subject_id == 0 {
             return Ok(None);
         }
 
         let subject = self.client.get_subject(subject_id).await?;
-        Ok(Some(SearchedMetadata::from(subject)))
+        Ok(Some(SearchedMetadata::from(parse_subject_detail(&subject))))
     }
 
     async fn get_episodes(&self, external_id: &str) -> Result<Vec<Episode>, ProviderError> {

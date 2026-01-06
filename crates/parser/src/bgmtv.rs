@@ -1,26 +1,13 @@
+//! BGM.tv 名称解析模块
+//!
+//! 解析 BGM.tv 风格的番剧名称，提取季度信息并清理标题。
+
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
 
-use crate::models::{Subject, SubjectDetail};
+use crate::models::CHINESE_NUMBER_MAP;
 
-/// 中文数字映射
-static CHINESE_NUMBER_MAP: phf::Map<&'static str, i32> = phf::phf_map! {
-    "一" => 1,
-    "二" => 2,
-    "三" => 3,
-    "四" => 4,
-    "五" => 5,
-    "六" => 6,
-    "七" => 7,
-    "八" => 8,
-    "九" => 9,
-    "十" => 10,
-};
-
-// 匹配真正的季度信息: "第X季"、"第X期"、"S01"、"Season 2"、"SEASON2" (大小写不敏感)
+/// 匹配真正的季度信息: "第X季"、"第X期"、"S01"、"Season 2"、"SEASON2" (大小写不敏感)
 static SEASON_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r"(?i)(?:第(?P<cn_num>[0-9一二三四五六七八九十]+)(?:季|期))|(?:(?:S(?:EASON)?\s*)(?P<en_num>\d{1,2}))",
@@ -28,80 +15,13 @@ static SEASON_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap()
 });
 
-
-/// 解析后的 BGM.tv Subject
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-pub struct ParsedSubject {
-    /// BGM.tv ID
-    pub bgmtv_id: i64,
-    /// 中文标题 (清理后，不含季度信息)
-    pub title_chinese: Option<String>,
-    /// 日文标题 (清理后，不含季度信息)
-    pub title_japanese: Option<String>,
-    /// 季度 (默认为 1)
-    pub season: i32,
-    /// 放送日期
-    pub air_date: Option<String>,
-    /// 年份 (从 air_date 解析)
-    pub year: Option<i32>,
-    /// 平台 (TV, Movie, OVA)
-    pub platform: String,
-    /// 总集数
-    pub total_episodes: i64,
-    /// 海报 URL
-    pub poster_url: String,
-}
-
-/// 从日期字符串解析年份
-fn parse_year(date: Option<&str>) -> Option<i32> {
-    date.and_then(|d| d.get(0..4)).and_then(|s| s.parse().ok())
-}
-
-/// 名称解析结果 (内部使用)
+/// 名称解析结果
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NameParseResult {
     /// 清理后的名称
     pub title: String,
     /// 季度 (默认为 1)
     pub season: i32,
-}
-
-/// 解析 BGM.tv Subject
-pub fn parse_subject(subject: &Subject) -> ParsedSubject {
-    let parsed_cn = parse_name(&subject.name_cn);
-    let parsed_jp = parse_name(&subject.name);
-    let air_date = Some(subject.date.clone()).filter(|s| !s.is_empty());
-
-    ParsedSubject {
-        bgmtv_id: subject.id,
-        title_chinese: Some(parsed_cn.title).filter(|s| !s.is_empty()),
-        title_japanese: Some(parsed_jp.title).filter(|s| !s.is_empty()),
-        season: parsed_cn.season,
-        year: parse_year(air_date.as_deref()),
-        air_date,
-        platform: subject.platform.clone(),
-        total_episodes: subject.eps,
-        poster_url: subject.image.clone(),
-    }
-}
-
-/// 解析 BGM.tv 详情 SubjectDetail
-pub fn parse_subject_detail(detail: &SubjectDetail) -> ParsedSubject {
-    let parsed_cn = parse_name(&detail.name_cn);
-    let parsed_jp = parse_name(&detail.name);
-
-    ParsedSubject {
-        bgmtv_id: detail.id,
-        title_chinese: Some(parsed_cn.title).filter(|s| !s.is_empty()),
-        title_japanese: Some(parsed_jp.title).filter(|s| !s.is_empty()),
-        season: parsed_cn.season,
-        year: parse_year(detail.date.as_deref()),
-        air_date: detail.date.clone(),
-        platform: detail.platform.clone().unwrap_or_default(),
-        total_episodes: detail.total_episodes,
-        poster_url: detail.images.large.clone(),
-    }
 }
 
 /// 解析 BGM.tv 风格的番剧名称

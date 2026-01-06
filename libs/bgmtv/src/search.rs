@@ -1,6 +1,7 @@
 use crate::client::{BgmtvClient, USER_AGENT};
-use crate::models::{SearchFilter, SearchSubjectsRequest, SearchSubjectsResponse, SubjectType};
-use crate::parser::{parse_subject, ParsedSubject};
+use crate::models::{
+    SearchFilter, SearchSubjectsRequest, SearchSubjectsResponse, Subject, SubjectType,
+};
 
 impl BgmtvClient {
     /// Search subjects (returns raw response)
@@ -20,12 +21,9 @@ impl BgmtvClient {
         self.handle_response(response).await
     }
 
-    /// Search for Japanese anime (bangumi) - returns parsed subjects
+    /// Search for Japanese anime (bangumi) - returns raw subjects
     /// Convenience method with preset filter: type=[Anime], meta_tags=["日本"], air_date=[<today]
-    pub async fn search_bangumi(
-        &self,
-        keyword: impl Into<String>,
-    ) -> crate::Result<Vec<ParsedSubject>> {
+    pub async fn search_bangumi(&self, keyword: impl Into<String>) -> crate::Result<Vec<Subject>> {
         // Get today's date in YYYY-MM-DD format
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
 
@@ -38,6 +36,6 @@ impl BgmtvClient {
             }),
         };
         let response = self.search_subjects(request).await?;
-        Ok(response.data.into_iter().map(|s| parse_subject(&s)).collect())
+        Ok(response.data)
     }
 }

@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use bgmtv::BgmtvClient;
 use futures::stream::{self, StreamExt};
+use metadata::parse_subject_detail;
 use mikan::{MikanClient, Season};
 use server::models::{CreateMetadata, Platform, SeasonData};
 use server::SeasonIterator;
@@ -219,16 +220,15 @@ async fn fetch_season_data(
         .map(
             |(mikan_id, bgmtv_id, air_week, _poster_url, _name, bgmtv)| async move {
                 match bgmtv.get_subject(bgmtv_id).await {
-                    Ok(parsed) => {
+                    Ok(detail) => {
+                        // Parse the subject detail
+                        let parsed = parse_subject_detail(&detail);
+
                         // Use year from parsed subject or fallback
                         let subject_year = parsed.year.unwrap_or(year);
 
-                        // Parse platform
-                        let platform = match parsed.platform.to_lowercase().as_str() {
-                            "movie" | "劇場版" => Platform::Movie,
-                            "ova" => Platform::Ova,
-                            _ => Platform::Tv,
-                        };
+                        // Parse platform using FromStr implementation
+                        let platform = parsed.platform.parse().unwrap_or(Platform::Tv);
 
                         Some(CreateMetadata {
                             mikan_id: Some(mikan_id),

@@ -17,5 +17,3 @@ serde_repr.workspace = true
 utoipa = { workspace = true, optional = true }
 serde_path_to_error.workspace = true
 chrono.workspace = true
-regex.workspace = true
-phf.workspace = true

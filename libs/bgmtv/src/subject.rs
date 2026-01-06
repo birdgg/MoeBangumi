@@ -1,11 +1,10 @@
 use crate::client::{BgmtvClient, USER_AGENT};
 use crate::models::SubjectDetail;
-use crate::parser::{parse_subject_detail, ParsedSubject};
 
 impl BgmtvClient {
-    /// Get subject details by ID (returns parsed subject)
+    /// Get subject details by ID (returns raw subject detail)
     /// GET /v0/subjects/{subject_id}
-    pub async fn get_subject(&self, subject_id: i64) -> crate::Result<ParsedSubject> {
+    pub async fn get_subject(&self, subject_id: i64) -> crate::Result<SubjectDetail> {
         let url = self.url(&format!("/v0/subjects/{}", subject_id));
         let response = self
             .client()
@@ -13,7 +12,6 @@ impl BgmtvClient {
             .header("User-Agent", USER_AGENT)
             .send()
             .await?;
-        let detail: SubjectDetail = self.handle_response(response).await?;
-        Ok(parse_subject_detail(&detail))
+        self.handle_response(response).await
     }
 }

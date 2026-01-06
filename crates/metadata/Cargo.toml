@@ -15,6 +15,9 @@ thiserror.workspace = true
 tracing.workspace = true
 utoipa = { workspace = true, optional = true }
 
+# Parser crate for name parsing
+parser = { path = "../parser" }
+
 # Data source clients (in libs/)
 bgmtv = { path = "../../libs/bgmtv" }
 tmdb = { path = "../../libs/tmdb" }
