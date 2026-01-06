@@ -67,6 +67,7 @@ export function CalendarCard({
             {/* Title */}
             <h3 className="line-clamp-2 text-sm font-bold text-white drop-shadow-md">
               {displayName}
+              {subject.season > 1 && ` 第${subject.season}季`}
             </h3>
           </div>
         </div>
