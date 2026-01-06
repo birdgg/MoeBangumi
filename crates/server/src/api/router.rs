@@ -40,6 +40,9 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::stream_logs))
         .routes(routes!(handlers::list_torrents))
         .routes(routes!(handlers::delete_torrents))
+        // Version/update endpoints
+        .routes(routes!(handlers::get_version))
+        .routes(routes!(handlers::check_update))
         .with_state(state)
         .split_for_parts();
 
@@ -113,5 +116,8 @@ pub fn create_router(state: AppState) -> Router {
         // Torrents endpoints
         .route("/api/torrents", get(handlers::list_torrents))
         .route("/api/torrents/delete", post(handlers::delete_torrents))
+        // Version/update endpoints
+        .route("/api/version", get(handlers::get_version))
+        .route("/api/version/check", post(handlers::check_update))
         .with_state(state)
 }

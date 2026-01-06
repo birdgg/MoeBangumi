@@ -47,6 +47,7 @@ pub async fn run_server(
     addr: SocketAddr,
     env: Environment,
     data_path: &str,
+    current_version: &str,
     log_receiver: Option<LogReceiver>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::new(env, data_path);
@@ -71,7 +72,7 @@ pub async fn run_server(
 
     let settings = SettingsService::new(&config).await?;
     let posters_path = config.posters_path();
-    let state = AppState::new(pool, config, settings);
+    let state = AppState::new(pool, config, settings, current_version);
 
     // Import calendar seed data if needed (first startup)
     if state.calendar.needs_seed_import().await.unwrap_or(false) {

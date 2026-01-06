@@ -1406,6 +1406,34 @@ export const UpdateQBittorrentConfigSchema = {
   },
 } as const;
 
+export const UpdateRequestSchema = {
+  type: "object",
+  description: "Request body for update operation",
+  properties: {
+    auto_restart: {
+      type: "boolean",
+      description:
+        "Whether to automatically restart after update (default: true)",
+    },
+  },
+} as const;
+
+export const UpdateResponseSchema = {
+  type: "object",
+  description: "Response for update operation",
+  required: ["success", "message"],
+  properties: {
+    message: {
+      type: "string",
+      description: "Message describing the result",
+    },
+    success: {
+      type: "boolean",
+      description: "Whether the operation was successful",
+    },
+  },
+} as const;
+
 export const UpdateSettingsSchema = {
   type: "object",
   description:
@@ -1480,6 +1508,19 @@ export const UpdateSettingsSchema = {
   },
 } as const;
 
+export const UpdateStatusSchema = {
+  type: "string",
+  description: "Current status of the update process",
+  enum: [
+    "idle",
+    "checking",
+    "available",
+    "downloading",
+    "restart_required",
+    "failed",
+  ],
+} as const;
+
 export const UpdateTelegramConfigSchema = {
   type: "object",
   description: "Request body for updating Telegram settings",
@@ -1525,6 +1566,48 @@ export const UpdateTransmissionConfigSchema = {
     username: {
       type: ["string", "null"],
       description: "Username (send null to clear)",
+    },
+  },
+} as const;
+
+export const VersionInfoSchema = {
+  type: "object",
+  description: "Version information including current and latest versions",
+  required: ["current", "update_available", "status"],
+  properties: {
+    changelog: {
+      type: ["string", "null"],
+      description: "Release changelog/body",
+    },
+    current: {
+      type: "string",
+      description: "Current running version",
+    },
+    last_checked: {
+      type: ["string", "null"],
+      format: "date-time",
+      description: "When we last checked for updates",
+    },
+    latest: {
+      type: ["string", "null"],
+      description: "Latest available version (if checked)",
+    },
+    published_at: {
+      type: ["string", "null"],
+      format: "date-time",
+      description: "When the latest version was published",
+    },
+    release_url: {
+      type: ["string", "null"],
+      description: "URL to the release page",
+    },
+    status: {
+      $ref: "#/components/schemas/UpdateStatus",
+      description: "Current update status",
+    },
+    update_available: {
+      type: "boolean",
+      description: "Whether an update is available",
     },
   },
 } as const;

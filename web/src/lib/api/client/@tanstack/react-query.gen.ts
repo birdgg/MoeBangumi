@@ -10,6 +10,7 @@ import {
 
 import { client } from "../client.gen";
 import {
+  checkUpdate,
   cleanupLogs,
   clearAllLogs,
   createBangumi,
@@ -25,8 +26,10 @@ import {
   getMetadataDetail,
   getMikanRss,
   getSettings,
+  getVersion,
   listTorrents,
   type Options,
+  performUpdate,
   refreshCalendar,
   resetSettings,
   searchBgmtv,
@@ -41,6 +44,8 @@ import {
   updateSettings,
 } from "../sdk.gen";
 import type {
+  CheckUpdateData,
+  CheckUpdateResponse,
   CleanupLogsData,
   CleanupLogsResponse,
   ClearAllLogsData,
@@ -70,8 +75,12 @@ import type {
   GetMikanRssResponse,
   GetSettingsData,
   GetSettingsResponse,
+  GetVersionData,
+  GetVersionResponse,
   ListTorrentsData,
   ListTorrentsResponse,
+  PerformUpdateData,
+  PerformUpdateResponse,
   RefreshCalendarData,
   RefreshCalendarResponse,
   ResetSettingsData,
@@ -937,6 +946,85 @@ export const deleteTorrentsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await deleteTorrents({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const getVersionQueryKey = (options?: Options<GetVersionData>) =>
+  createQueryKey("getVersion", options);
+
+/**
+ * Get current version information
+ */
+export const getVersionOptions = (options?: Options<GetVersionData>) =>
+  queryOptions<
+    GetVersionResponse,
+    DefaultError,
+    GetVersionResponse,
+    ReturnType<typeof getVersionQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getVersion({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getVersionQueryKey(options),
+  });
+
+/**
+ * Check for updates
+ */
+export const checkUpdateMutation = (
+  options?: Partial<Options<CheckUpdateData>>,
+): UseMutationOptions<
+  CheckUpdateResponse,
+  DefaultError,
+  Options<CheckUpdateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    CheckUpdateResponse,
+    DefaultError,
+    Options<CheckUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await checkUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Perform update
+ */
+export const performUpdateMutation = (
+  options?: Partial<Options<PerformUpdateData>>,
+): UseMutationOptions<
+  PerformUpdateResponse,
+  DefaultError,
+  Options<PerformUpdateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    PerformUpdateResponse,
+    DefaultError,
+    Options<PerformUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await performUpdate({
         ...options,
         ...fnOptions,
         throwOnError: true,

@@ -1,14 +1,18 @@
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+
 use bgmtv::BgmtvClient;
-use crate::metadata_service::{create_metadata_actor, MetadataHandle, MetadataService, PosterService};
 use mikan::MikanClient;
 use metadata::{BgmtvProvider, TmdbProvider};
 use parking_lot::RwLock;
-use crate::rss::RssClient;
 use sqlx::SqlitePool;
-use std::sync::Arc;
 use tmdb::TmdbClient;
+use updater::{UpdateConfig, UpdateService, UpdateServiceHandle};
 
 use crate::config::Config;
+use crate::metadata_service::{create_metadata_actor, MetadataHandle, MetadataService, PosterService};
+use crate::rss::RssClient;
 use crate::services::{
     create_downloader_service, create_log_cleanup_actor, create_notification_service,
     create_rename_actor, create_rss_fetch_actor, BangumiService, CacheService, CalendarService,
@@ -35,6 +39,7 @@ pub struct AppState {
     pub calendar: Arc<CalendarService>,
     pub notification: Arc<NotificationService>,
     pub rename: Arc<RenameService>,
+    pub update: UpdateServiceHandle,
     // Background actors (keep handles alive to prevent actors from stopping)
     #[allow(dead_code)]
     rss_fetch_actor: RssFetchHandle,
@@ -65,7 +70,7 @@ fn create_client_provider(
 }
 
 impl AppState {
-    pub fn new(db: SqlitePool, config: Config, settings: SettingsService) -> Self {
+    pub fn new(db: SqlitePool, config: Config, settings: SettingsService, current_version: &str) -> Self {
         // Wrap settings in Arc first (needed by HttpClientService and DownloaderService)
         let settings = Arc::new(settings);
 
@@ -195,6 +200,18 @@ impl AppState {
             Arc::clone(&metadata_actor),
         ));
 
+        // Create update service
+        let update_config = UpdateConfig::new("birdgg", "moe-bangumi", current_version)
+            .bin_name("moe")
+            .target_dir(PathBuf::from("/data/bin"))
+            .check_interval(Duration::from_secs(86400)) // 24 hours
+            .auto_check(true);
+
+        let (update_handle, update_service) = UpdateService::new(update_config);
+
+        // Spawn update service actor
+        tokio::spawn(update_service.run());
+
         // Start background actors
         // Note: These actors have internal timers and run independently
         let rss_fetch_actor = create_rss_fetch_actor(db.clone(), Arc::clone(&rss_processing));
@@ -218,6 +235,7 @@ impl AppState {
             calendar,
             notification,
             rename,
+            update: update_handle,
             rss_fetch_actor,
             rename_actor,
             log_cleanup_actor,

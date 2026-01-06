@@ -29,5 +29,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
 
-    server::run_server(addr, app_env, &data_path.to_string_lossy(), Some(log_receiver)).await
+    let current_version = env!("APP_VERSION");
+    server::run_server(addr, app_env, &data_path.to_string_lossy(), current_version, Some(log_receiver)).await
 }

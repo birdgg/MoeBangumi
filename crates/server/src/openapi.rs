@@ -1,6 +1,6 @@
 use utoipa::OpenApi;
 
-use crate::api::handlers::DeleteTorrentsRequest;
+use crate::api::handlers::{DeleteTorrentsRequest, UpdateResponse};
 use crate::models::{
     Bangumi, BangumiWithMetadata, BangumiWithRss, CalendarDay, CalendarSubject, CreateBangumi,
     CreateMetadata, DownloaderSettings, FilterSettings, Log, LogLevel, Metadata, Platform,
@@ -9,6 +9,7 @@ use crate::models::{
     Weekday,
 };
 use crate::services::{Task, TaskStatus};
+use updater::{UpdateStatus, VersionInfo};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -23,7 +24,8 @@ use crate::services::{Task, TaskStatus};
         (name = "calendar", description = "Anime calendar endpoints"),
         (name = "settings", description = "Application settings endpoints"),
         (name = "logs", description = "System logs endpoints"),
-        (name = "torrents", description = "Torrent management endpoints")
+        (name = "torrents", description = "Torrent management endpoints"),
+        (name = "system", description = "System version and update endpoints")
     ),
     components(schemas(
         bgmtv::SearchSubjectsResponse,
@@ -57,7 +59,10 @@ use crate::services::{Task, TaskStatus};
         Platform,
         Task,
         TaskStatus,
-        DeleteTorrentsRequest
+        DeleteTorrentsRequest,
+        VersionInfo,
+        UpdateStatus,
+        UpdateResponse
     ))
 )]
 pub struct ApiDoc;

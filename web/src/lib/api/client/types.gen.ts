@@ -999,6 +999,30 @@ export type UpdateQBittorrentConfig = {
 };
 
 /**
+ * Request body for update operation
+ */
+export type UpdateRequest = {
+  /**
+   * Whether to automatically restart after update (default: true)
+   */
+  auto_restart?: boolean;
+};
+
+/**
+ * Response for update operation
+ */
+export type UpdateResponse = {
+  /**
+   * Message describing the result
+   */
+  message: string;
+  /**
+   * Whether the operation was successful
+   */
+  success: boolean;
+};
+
+/**
  * Request body for updating settings.
  * All fields are optional - only provided fields will be updated.
  */
@@ -1010,6 +1034,17 @@ export type UpdateSettings = {
   proxy?: null | UpdateProxySettings;
   tmdb?: null | UpdateTmdbSettings;
 };
+
+/**
+ * Current status of the update process
+ */
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "restart_required"
+  | "failed";
 
 /**
  * Request body for updating Telegram settings
@@ -1055,6 +1090,44 @@ export type UpdateTransmissionConfig = {
    * Username (send null to clear)
    */
   username?: string | null;
+};
+
+/**
+ * Version information including current and latest versions
+ */
+export type VersionInfo = {
+  /**
+   * Release changelog/body
+   */
+  changelog?: string | null;
+  /**
+   * Current running version
+   */
+  current: string;
+  /**
+   * When we last checked for updates
+   */
+  last_checked?: string | null;
+  /**
+   * Latest available version (if checked)
+   */
+  latest?: string | null;
+  /**
+   * When the latest version was published
+   */
+  published_at?: string | null;
+  /**
+   * URL to the release page
+   */
+  release_url?: string | null;
+  /**
+   * Current update status
+   */
+  status: UpdateStatus;
+  /**
+   * Whether an update is available
+   */
+  update_available: boolean;
 };
 
 /**
@@ -1727,3 +1800,53 @@ export type DeleteTorrentsResponses = {
    */
   200: unknown;
 };
+
+export type GetVersionData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/version";
+};
+
+export type GetVersionResponses = {
+  /**
+   * Version information
+   */
+  200: VersionInfo;
+};
+
+export type GetVersionResponse = GetVersionResponses[keyof GetVersionResponses];
+
+export type CheckUpdateData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/version/check";
+};
+
+export type CheckUpdateResponses = {
+  /**
+   * Update check triggered
+   */
+  200: UpdateResponse;
+};
+
+export type CheckUpdateResponse =
+  CheckUpdateResponses[keyof CheckUpdateResponses];
+
+export type PerformUpdateData = {
+  body: UpdateRequest;
+  path?: never;
+  query?: never;
+  url: "/api/version/update";
+};
+
+export type PerformUpdateResponses = {
+  /**
+   * Update triggered
+   */
+  200: UpdateResponse;
+};
+
+export type PerformUpdateResponse =
+  PerformUpdateResponses[keyof PerformUpdateResponses];

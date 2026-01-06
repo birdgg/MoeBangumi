@@ -135,3 +135,4 @@ Each feature's route is defined in `src/routes/` with a simple import of the pag
 
 - start dev server after change
 - do not add stats for log
+- for tailwindcss use `bg-linear` instead of `bg-gradient`
