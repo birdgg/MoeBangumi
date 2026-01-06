@@ -44,11 +44,10 @@ impl MetadataHandle {
         });
     }
 
-    /// 触发完整的元数据同步 (fire-and-forget)
+    /// 触发完整的海报同步 (fire-and-forget)
     ///
     /// 同步内容：
     /// - 下载远程 Poster URL 到本地
-    /// - 为缺失 TMDB ID 的记录搜索并填充
     ///
     /// 通常由内部定时器自动触发，也可手动调用。
     pub fn trigger_sync(&self) {

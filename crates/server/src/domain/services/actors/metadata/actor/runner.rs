@@ -9,14 +9,14 @@ use tokio::task::JoinHandle;
 use tokio::time::MissedTickBehavior;
 
 use super::super::poster::PosterService;
-use super::super::service::MetadataService;
 use super::messages::{MetadataMessage, SyncStats};
 use crate::repositories::{MetadataRepository, MetadataToSync};
 
 /// Poster 下载并发限制
 const POSTER_CONCURRENCY: usize = 5;
 
-/// Metadata 同步并发限制
+/// 同步记录处理并发限制（限制同时处理的记录数量，防止内存占用过高）
+/// 实际的 Poster 下载并发由 POSTER_CONCURRENCY 信号量控制
 const SYNC_CONCURRENCY: usize = 5;
 
 /// RAII guard 确保 URL 在任务完成或 panic 时从去重集合中移除
@@ -131,11 +131,10 @@ fn spawn_poster_download_task(
 
 /// Metadata Actor
 ///
-/// 整合 Poster 下载 + TMDB 同步功能。
+/// 处理 Poster 下载功能。
 /// 内置定时器自动执行同步任务。
 pub struct MetadataActor {
     db: SqlitePool,
-    metadata_service: Arc<MetadataService>,
     poster_service: Arc<PosterService>,
     receiver: mpsc::Receiver<MetadataMessage>,
     poster_semaphore: Arc<Semaphore>,
@@ -146,14 +145,12 @@ pub struct MetadataActor {
 impl MetadataActor {
     pub fn new(
         db: SqlitePool,
-        metadata_service: Arc<MetadataService>,
         poster_service: Arc<PosterService>,
         receiver: mpsc::Receiver<MetadataMessage>,
         sync_interval: Duration,
     ) -> Self {
         Self {
             db,
-            metadata_service,
             poster_service,
             receiver,
             poster_semaphore: Arc::new(Semaphore::new(POSTER_CONCURRENCY)),
@@ -182,7 +179,6 @@ impl MetadataActor {
     /// 启动定时同步任务 (内部 interval)
     fn spawn_sync_interval(&self) -> JoinHandle<()> {
         let db = self.db.clone();
-        let metadata_service = Arc::clone(&self.metadata_service);
         let poster_service = Arc::clone(&self.poster_service);
         let poster_semaphore = Arc::clone(&self.poster_semaphore);
         let in_progress_urls = Arc::clone(&self.in_progress_urls);
@@ -198,11 +194,8 @@ impl MetadataActor {
             loop {
                 ticker.tick().await;
 
-                tracing::info!("Metadata interval sync triggered");
-
                 let _ = sync_all_metadata(
                     db.clone(),
-                    Arc::clone(&metadata_service),
                     Arc::clone(&poster_service),
                     Arc::clone(&poster_semaphore),
                     Arc::clone(&in_progress_urls),
@@ -230,7 +223,6 @@ impl MetadataActor {
 
                 let _ = sync_all_metadata(
                     self.db.clone(),
-                    Arc::clone(&self.metadata_service),
                     Arc::clone(&self.poster_service),
                     Arc::clone(&self.poster_semaphore),
                     Arc::clone(&self.in_progress_urls),
@@ -261,10 +253,9 @@ impl MetadataActor {
 /// 每次同步处理的记录数
 const SYNC_CHUNK_SIZE: i64 = 100;
 
-/// 执行完整的元数据同步（分块处理）
+/// 执行完整的海报同步（分块处理）
 async fn sync_all_metadata(
     db: SqlitePool,
-    metadata_service: Arc<MetadataService>,
     poster_service: Arc<PosterService>,
     poster_semaphore: Arc<Semaphore>,
     in_progress_urls: Arc<Mutex<HashSet<String>>>,
@@ -308,8 +299,6 @@ async fn sync_all_metadata(
 
         chunk_num += 1;
         let chunk_size = records.len();
-        let needs_poster = records.iter().filter(|r| r.needs_poster_sync()).count();
-        let needs_tmdb = records.iter().filter(|r| r.needs_tmdb_sync()).count();
 
         // Update last_id for next iteration
         if let Some(last) = records.last() {
@@ -317,40 +306,26 @@ async fn sync_all_metadata(
         }
 
         tracing::debug!(
-            "Processing chunk {} ({} records: {} posters, {} TMDB IDs)",
+            "Processing chunk {} ({} poster records)",
             chunk_num,
-            chunk_size,
-            needs_poster,
-            needs_tmdb
+            chunk_size
         );
 
-        let results: Vec<(Option<bool>, Option<(bool, bool)>)> = stream::iter(records)
+        let results: Vec<bool> = stream::iter(records)
             .map(|record| {
                 let db = db.clone();
-                let metadata = Arc::clone(&metadata_service);
                 let poster = Arc::clone(&poster_service);
                 let semaphore = Arc::clone(&poster_semaphore);
                 let in_progress = Arc::clone(&in_progress_urls);
-                async move {
-                    process_sync_record(record, db, metadata, poster, semaphore, in_progress).await
-                }
+                async move { process_sync_record(record, db, poster, semaphore, in_progress).await }
             })
             .buffer_unordered(SYNC_CONCURRENCY)
             .collect()
             .await;
 
-        for (poster_result, tmdb_result) in results {
-            if let Some(true) = poster_result {
+        for queued in results {
+            if queued {
                 stats.posters_queued += 1;
-            }
-            if let Some((succeeded, skipped)) = tmdb_result {
-                if succeeded {
-                    stats.tmdb_succeeded += 1;
-                } else if skipped {
-                    stats.tmdb_skipped += 1;
-                } else {
-                    stats.tmdb_failed += 1;
-                }
             }
         }
 
@@ -367,87 +342,24 @@ async fn sync_all_metadata(
 async fn process_sync_record(
     record: MetadataToSync,
     db: SqlitePool,
-    metadata: Arc<MetadataService>,
     poster: Arc<PosterService>,
     semaphore: Arc<Semaphore>,
     in_progress_urls: Arc<Mutex<HashSet<String>>>,
-) -> (Option<bool>, Option<(bool, bool)>) {
-    let mut poster_result = None;
-    let mut tmdb_result = None;
-    let mut any_success = false;
+) -> bool {
+    // poster_url is guaranteed to be Some and remote URL by the query
+    let url = record.poster_url.unwrap();
+    let queued = spawn_poster_download_task(
+        record.id,
+        url,
+        db,
+        poster,
+        semaphore,
+        in_progress_urls,
+    );
 
-    // Queue poster download
-    if record.needs_poster_sync() {
-        let url = record.poster_url.as_ref().unwrap().clone();
-        let queued = spawn_poster_download_task(
-            record.id,
-            url,
-            db.clone(),
-            Arc::clone(&poster),
-            Arc::clone(&semaphore),
-            Arc::clone(&in_progress_urls),
-        );
-        if queued {
-            poster_result = Some(true);
-            any_success = true;
-        }
+    if queued {
+        tracing::info!("{} poster queued for download", record.title_chinese);
     }
 
-    // Sync TMDB ID
-    if record.needs_tmdb_sync() {
-        let title = record.title_japanese.as_ref().unwrap();
-        let result = match metadata.find_tmdb_id(title, record.year).await {
-            Ok(Some(tmdb_id)) => {
-                match MetadataRepository::update_tmdb_id(&db, record.id, tmdb_id).await {
-                    Ok(true) => {
-                        any_success = true;
-                        (true, false)
-                    }
-                    Ok(false) => {
-                        tracing::warn!("Metadata {} not found when updating TMDB ID", record.id);
-                        (false, false)
-                    }
-                    Err(e) => {
-                        tracing::error!(
-                            "Failed to update TMDB ID for metadata {}: {}",
-                            record.id,
-                            e
-                        );
-                        (false, false)
-                    }
-                }
-            }
-            Ok(None) => {
-                tracing::debug!("No TMDB match found for metadata {} ({})", record.id, title);
-                (false, true) // skipped - no match found
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to search TMDB for metadata {} ({}): {}",
-                    record.id,
-                    title,
-                    e
-                );
-                (false, false) // failed - API error
-            }
-        };
-
-        // Update lookup timestamp to prevent repeated lookups (7-day cooldown)
-        if let Err(e) = MetadataRepository::update_tmdb_lookup_at(&db, record.id).await {
-            tracing::warn!(
-                "Failed to update tmdb_lookup_at for metadata {}: {}",
-                record.id,
-                e
-            );
-        }
-
-        tmdb_result = Some(result);
-    }
-
-    // Log success message
-    if any_success {
-        tracing::info!("{} metadata refreshed", record.title_chinese);
-    }
-
-    (poster_result, tmdb_result)
+    queued
 }

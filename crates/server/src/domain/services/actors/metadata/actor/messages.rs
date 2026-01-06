@@ -17,7 +17,4 @@ pub enum MetadataMessage {
 #[derive(Debug, Clone, Default)]
 pub struct SyncStats {
     pub posters_queued: usize,
-    pub tmdb_succeeded: usize,
-    pub tmdb_failed: usize,
-    pub tmdb_skipped: usize,
 }

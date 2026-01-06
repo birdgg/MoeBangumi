@@ -130,10 +130,9 @@ impl AppState {
             Arc::clone(&tmdb_provider),
         ));
 
-        // Create metadata actor (handles poster downloads + TMDB sync with internal scheduling)
+        // Create metadata actor (handles poster downloads with internal scheduling)
         let metadata_actor = Arc::new(create_metadata_actor(
             db.clone(),
-            Arc::clone(&metadata),
             Arc::clone(&poster),
         ));
 

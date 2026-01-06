@@ -265,10 +265,9 @@ impl MetadataRepository {
         Ok(count.0)
     }
 
-    /// Get metadata records that need syncing (remote poster URL or missing TMDB ID)
+    /// Get metadata records that need syncing (remote poster URL)
     ///
     /// Uses keyset pagination (seek method) for efficient chunked processing.
-    /// TMDB lookups are skipped if attempted within the last 7 days.
     ///
     /// # Arguments
     /// * `pool` - Database connection pool
@@ -281,16 +280,12 @@ impl MetadataRepository {
     ) -> Result<Vec<MetadataToSync>, sqlx::Error> {
         let rows: Vec<MetadataToSync> = sqlx::query_as(
             r#"
-            SELECT id, title_chinese, poster_url, tmdb_id, title_japanese, year
+            SELECT id, title_chinese, poster_url
             FROM metadata
             WHERE id > $2
-              AND (
-                (poster_url IS NOT NULL AND poster_url != '' AND poster_url NOT LIKE '/posters/%')
-                OR (tmdb_id IS NULL
-                    AND title_japanese IS NOT NULL
-                    AND title_japanese != ''
-                    AND (tmdb_lookup_at IS NULL OR tmdb_lookup_at < datetime('now', '-7 days')))
-              )
+              AND poster_url IS NOT NULL
+              AND poster_url != ''
+              AND poster_url NOT LIKE '/posters/%'
             ORDER BY id ASC
             LIMIT $1
             "#,
@@ -309,31 +304,15 @@ impl MetadataRepository {
             r#"
             SELECT COUNT(*)
             FROM metadata
-            WHERE (poster_url IS NOT NULL AND poster_url != '' AND poster_url NOT LIKE '/posters/%')
-               OR (tmdb_id IS NULL
-                   AND title_japanese IS NOT NULL
-                   AND title_japanese != ''
-                   AND (tmdb_lookup_at IS NULL OR tmdb_lookup_at < datetime('now', '-7 days')))
+            WHERE poster_url IS NOT NULL
+              AND poster_url != ''
+              AND poster_url NOT LIKE '/posters/%'
             "#,
         )
         .fetch_one(pool)
         .await?;
 
         Ok(count.0)
-    }
-
-    /// Update TMDB lookup timestamp for metadata
-    ///
-    /// Called after every TMDB lookup attempt (success or failure) to prevent
-    /// repeated lookups for shows that can't be found.
-    pub async fn update_tmdb_lookup_at(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
-        let result =
-            sqlx::query("UPDATE metadata SET tmdb_lookup_at = CURRENT_TIMESTAMP WHERE id = $1")
-                .bind(id)
-                .execute(pool)
-                .await?;
-
-        Ok(result.rows_affected() > 0)
     }
 
     /// Update TMDB ID for metadata
@@ -358,29 +337,6 @@ pub struct MetadataToSync {
     pub id: i64,
     pub title_chinese: String,
     pub poster_url: Option<String>,
-    pub tmdb_id: Option<i64>,
-    pub title_japanese: Option<String>,
-    pub year: Option<i32>,
-}
-
-impl MetadataToSync {
-    /// Check if poster needs to be downloaded (remote URL)
-    pub fn needs_poster_sync(&self) -> bool {
-        self.poster_url
-            .as_ref()
-            .map(|url| !url.is_empty() && !url.starts_with("/posters/"))
-            .unwrap_or(false)
-    }
-
-    /// Check if TMDB ID needs to be searched
-    pub fn needs_tmdb_sync(&self) -> bool {
-        self.tmdb_id.is_none()
-            && self
-                .title_japanese
-                .as_ref()
-                .map(|t| !t.is_empty())
-                .unwrap_or(false)
-    }
 }
 
 /// Internal row type for mapping SQLite results
