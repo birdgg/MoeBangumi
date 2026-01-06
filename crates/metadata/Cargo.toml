@@ -1,5 +1,5 @@
 [package]
-name = "tmdb"
+name = "metadata"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,12 +8,13 @@ license.workspace = true
 openapi = ["dep:utoipa"]
 
 [dependencies]
-parking_lot = "0.12"
-reqwest.workspace = true
+async-trait.workspace = true
+regex.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 thiserror.workspace = true
-serde_path_to_error.workspace = true
 tracing.workspace = true
-urlencoding.workspace = true
 utoipa = { workspace = true, optional = true }
+
+# Data source clients
+bgmtv = { path = "../bgmtv" }
+tmdb = { path = "../tmdb" }

@@ -17,6 +17,8 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::search_bgmtv))
         .routes(routes!(handlers::search_tmdb))
         .routes(routes!(handlers::search_mikan))
+        .routes(routes!(handlers::search_metadata))
+        .routes(routes!(handlers::find_metadata))
         .routes(routes!(handlers::get_mikan_rss))
         .routes(routes!(handlers::get_calendar))
         .routes(routes!(handlers::refresh_calendar))
@@ -55,13 +57,15 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
 // Non-OpenAPI mode: use standard axum Router
 #[cfg(not(feature = "openapi"))]
 pub fn create_router(state: AppState) -> Router {
-    use axum::routing::{get, post};
+    use axum::routing::{delete, get, post};
 
     Router::new()
         // Search endpoints
         .route("/api/search/bgmtv", get(handlers::search_bgmtv))
         .route("/api/search/tmdb", get(handlers::search_tmdb))
         .route("/api/search/mikan", get(handlers::search_mikan))
+        .route("/api/search/metadata", get(handlers::search_metadata))
+        .route("/api/search/metadata/find", get(handlers::find_metadata))
         // Mikan endpoints
         .route("/api/mikan/rss", get(handlers::get_mikan_rss))
         // Calendar endpoints
@@ -83,7 +87,7 @@ pub fn create_router(state: AppState) -> Router {
             get(handlers::get_metadata_by_id).patch(handlers::update_metadata),
         )
         // Episodes endpoint
-        .route("/api/episodes", get(handlers::get_episodes))
+        .route("/api/episodes/{subject_id}", get(handlers::get_episodes))
         // Settings endpoints
         .route(
             "/api/settings",
@@ -91,10 +95,10 @@ pub fn create_router(state: AppState) -> Router {
         )
         .route("/api/settings/reset", post(handlers::reset_settings))
         // Test endpoints
-        .route("/api/test/proxy", post(handlers::test_proxy))
-        .route("/api/test/notification", post(handlers::test_notification))
+        .route("/api/proxy/test", post(handlers::test_proxy))
+        .route("/api/notification/test", post(handlers::test_notification))
         .route(
-            "/api/test/downloader",
+            "/api/downloader/test",
             post(handlers::test_downloader_connection),
         )
         // Logs endpoints
@@ -102,12 +106,10 @@ pub fn create_router(state: AppState) -> Router {
             "/api/logs",
             get(handlers::get_logs).delete(handlers::cleanup_logs),
         )
-        .route("/api/logs/clear", post(handlers::clear_all_logs))
+        .route("/api/logs/all", delete(handlers::clear_all_logs))
         .route("/api/logs/stream", get(handlers::stream_logs))
         // Torrents endpoints
-        .route(
-            "/api/torrents",
-            get(handlers::list_torrents).delete(handlers::delete_torrents),
-        )
+        .route("/api/torrents", get(handlers::list_torrents))
+        .route("/api/torrents/delete", post(handlers::delete_torrents))
         .with_state(state)
 }

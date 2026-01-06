@@ -2,12 +2,27 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use metadata::{MetadataProvider, MetadataSource, SearchQuery as MetadataSearchQuery, SearchedMetadata};
+use serde::Deserialize;
+#[cfg(feature = "openapi")]
+use utoipa::{IntoParams, ToSchema};
 
 use crate::error::AppResult;
 use crate::state::AppState;
-use tmdb::DiscoverBangumiParams;
 
 use super::{SearchQuery, TmdbSearchQuery, MIKAN_SEARCH_CACHE_TTL};
+
+/// Query parameters for unified metadata search
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(IntoParams, ToSchema))]
+pub struct UnifiedSearchQuery {
+    /// Data source to search (bgmtv, tmdb, mikan)
+    pub source: MetadataSource,
+    /// Search keyword
+    pub keyword: String,
+    /// Optional year filter
+    pub year: Option<i32>,
+}
 
 /// Search for bangumi (Japanese anime) on BGM.tv
 #[cfg_attr(feature = "openapi", utoipa::path(
@@ -41,11 +56,8 @@ pub async fn search_tmdb(
     State(state): State<AppState>,
     Query(query): Query<TmdbSearchQuery>,
 ) -> AppResult<Json<Vec<tmdb::models::TvShow>>> {
-    let params = DiscoverBangumiParams {
-        with_text_query: Some(query.keyword),
-    };
-    let response = state.tmdb.discover_bangumi(params).await?;
-    Ok(Json(response.results))
+    let results = state.metadata.search_tmdb(&query.keyword).await?;
+    Ok(Json(results))
 }
 
 /// Search for bangumi on Mikan
@@ -74,4 +86,59 @@ pub async fn search_mikan(
         .await?;
 
     Ok(Json(results))
+}
+
+/// Unified metadata search across all data sources
+///
+/// Returns standardized SearchedMetadata format regardless of data source.
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/api/search/metadata",
+    tag = "search",
+    params(UnifiedSearchQuery),
+    responses(
+        (status = 200, description = "Search results in unified format", body = Vec<SearchedMetadata>)
+    )
+))]
+pub async fn search_metadata(
+    State(state): State<AppState>,
+    Query(query): Query<UnifiedSearchQuery>,
+) -> AppResult<Json<Vec<SearchedMetadata>>> {
+    let search_query = MetadataSearchQuery::new(&query.keyword);
+
+    let results = match query.source {
+        MetadataSource::Bgmtv => state.bgmtv_provider.search(&search_query).await?,
+        MetadataSource::Tmdb => state.tmdb_provider.search(&search_query).await?,
+    };
+
+    Ok(Json(results))
+}
+
+/// Find best matching metadata from a specific data source
+///
+/// Returns a single best matching result based on keyword and optional year filter.
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/api/search/metadata/find",
+    tag = "search",
+    params(UnifiedSearchQuery),
+    responses(
+        (status = 200, description = "Best matching metadata", body = Option<SearchedMetadata>)
+    )
+))]
+pub async fn find_metadata(
+    State(state): State<AppState>,
+    Query(query): Query<UnifiedSearchQuery>,
+) -> AppResult<Json<Option<SearchedMetadata>>> {
+    let mut search_query = MetadataSearchQuery::new(&query.keyword);
+    if let Some(year) = query.year {
+        search_query = search_query.with_year(year);
+    }
+
+    let result = match query.source {
+        MetadataSource::Bgmtv => state.bgmtv_provider.find(&search_query).await?,
+        MetadataSource::Tmdb => state.tmdb_provider.find(&search_query).await?,
+    };
+
+    Ok(Json(result))
 }

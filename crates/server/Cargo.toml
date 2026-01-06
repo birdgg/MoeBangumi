@@ -17,6 +17,7 @@ openapi = [
     "qbittorrent/openapi",
     "parser/openapi",
     "washing/openapi",
+    "metadata/openapi",
 ]
 
 [dependencies]
@@ -39,6 +40,8 @@ bgmtv = { path = "../bgmtv" }
 mikan = { path = "../mikan" }
 qbittorrent = { path = "../qbittorrent" }
 downloader = { path = "../downloader" }
+# Unified metadata abstraction
+metadata = { path = "../metadata" }
 # Tool libraries (kept separate)
 parser = { path = "../parser" }
 washing = { path = "../washing" }

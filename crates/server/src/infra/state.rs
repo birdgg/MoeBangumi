@@ -1,6 +1,7 @@
 use bgmtv::BgmtvClient;
 use crate::metadata_service::{create_metadata_actor, MetadataHandle, MetadataService, PosterService};
 use mikan::MikanClient;
+use metadata::{BgmtvProvider, TmdbProvider};
 use parking_lot::RwLock;
 use crate::rss::RssClient;
 use sqlx::SqlitePool;
@@ -36,6 +37,9 @@ pub struct AppState {
     pub calendar: Arc<CalendarService>,
     pub notification: Arc<NotificationService>,
     pub rename: Arc<RenameService>,
+    // Unified metadata providers
+    pub bgmtv_provider: Arc<BgmtvProvider>,
+    pub tmdb_provider: Arc<TmdbProvider>,
     // Background actors (keep handles alive to prevent actors from stopping)
     #[allow(dead_code)]
     rss_fetch_actor: RssFetchHandle,
@@ -199,6 +203,10 @@ impl AppState {
         let log_cleanup_actor = create_log_cleanup_actor(Arc::clone(&logs));
         let rename_actor = create_rename_actor(Arc::clone(&rename));
 
+        // Create unified metadata providers
+        let bgmtv_provider = Arc::new(BgmtvProvider::new(Arc::clone(&bgmtv)));
+        let tmdb_provider = Arc::new(TmdbProvider::new(Arc::clone(&tmdb)));
+
         Self {
             db,
             config,
@@ -218,6 +226,8 @@ impl AppState {
             calendar,
             notification,
             rename,
+            bgmtv_provider,
+            tmdb_provider,
             rss_fetch_actor,
             rename_actor,
             log_cleanup_actor,

@@ -211,3 +211,16 @@ impl From<crate::metadata_service::MetadataError> for AppError {
         }
     }
 }
+
+impl From<metadata::ProviderError> for AppError {
+    fn from(e: metadata::ProviderError) -> Self {
+        use metadata::ProviderError;
+        match e {
+            ProviderError::Bgmtv(e) => AppError::ExternalApi(e.to_string()),
+            ProviderError::Tmdb(e) => AppError::ExternalApi(e.to_string()),
+            ProviderError::SourceNotAvailable(source) => {
+                AppError::BadRequest(format!("Data source {:?} is not available", source))
+            }
+        }
+    }
+}

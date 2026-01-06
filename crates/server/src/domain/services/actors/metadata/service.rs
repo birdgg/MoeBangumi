@@ -4,6 +4,8 @@ use bgmtv::BgmtvClient;
 use sqlx::SqlitePool;
 use tmdb::{DiscoverBangumiParams, TmdbClient};
 
+use crate::infra::utils::clean_title_for_search;
+
 use super::error::MetadataError;
 use crate::models::{CreateMetadata, Metadata, Platform, UpdateMetadata};
 use crate::repositories::MetadataRepository;
@@ -53,7 +55,26 @@ impl MetadataService {
         })
     }
 
+    /// Search TMDB for anime by title
+    ///
+    /// The title is cleaned before searching to remove season and split-cour markers
+    /// (e.g., "SPY×FAMILY 第2クール" becomes "SPY×FAMILY").
+    pub async fn search_tmdb(
+        &self,
+        title: &str,
+    ) -> Result<Vec<tmdb::models::TvShow>, MetadataError> {
+        let cleaned_title = clean_title_for_search(title);
+        let params = DiscoverBangumiParams {
+            with_text_query: Some(cleaned_title),
+        };
+        let response = self.tmdb.discover_bangumi(params).await?;
+        Ok(response.results)
+    }
+
     /// Search for TMDB ID by title with optional year filtering
+    ///
+    /// The title is cleaned before searching to remove season and split-cour markers
+    /// (e.g., "SPY×FAMILY 第2クール" becomes "SPY×FAMILY").
     ///
     /// When `year` is provided, filters results to match shows that aired in:
     /// - The exact year
@@ -71,12 +92,9 @@ impl MetadataService {
         title: &str,
         year: Option<i32>,
     ) -> Result<Option<i64>, MetadataError> {
-        let params = DiscoverBangumiParams {
-            with_text_query: Some(title.to_string()),
-        };
-        let response = self.tmdb.discover_bangumi(params).await?;
+        let results = self.search_tmdb(title).await?;
 
-        if response.results.is_empty() {
+        if results.is_empty() {
             return Ok(None);
         }
 
@@ -84,7 +102,7 @@ impl MetadataService {
         if let Some(expected_year) = year {
             let mut first_with_unparseable_date: Option<i64> = None;
 
-            for show in &response.results {
+            for show in &results {
                 let parsed_year = show
                     .first_air_date
                     .as_ref()
@@ -131,7 +149,7 @@ impl MetadataService {
         }
 
         // No year filter, return first result
-        Ok(response.results.into_iter().next().map(|show| show.id))
+        Ok(results.into_iter().next().map(|show| show.id))
     }
 
     /// Create new metadata
