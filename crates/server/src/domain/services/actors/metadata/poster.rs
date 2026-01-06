@@ -50,8 +50,12 @@ fn is_temp_file(name: &str) -> bool {
 /// A function that asynchronously provides an HTTP client.
 /// Used for dynamic proxy configuration support.
 pub type ClientProvider = Arc<
-    dyn Fn() -> Pin<Box<dyn Future<Output = Result<Client, Box<dyn std::error::Error + Send + Sync>>> + Send>>
-        + Send
+    dyn Fn() -> Pin<
+            Box<
+                dyn Future<Output = Result<Client, Box<dyn std::error::Error + Send + Sync>>>
+                    + Send,
+            >,
+        > + Send
         + Sync,
 >;
 
@@ -220,11 +224,13 @@ impl PosterService {
     async fn save_to_file(&self, path: &PathBuf, bytes: &[u8]) -> Result<(), PosterError> {
         // Ensure directory exists
         if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| PosterError::Io {
-                operation: "Failed to create posters directory",
-                path: parent.display().to_string(),
-                source: e,
-            })?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| PosterError::Io {
+                    operation: "Failed to create posters directory",
+                    path: parent.display().to_string(),
+                    source: e,
+                })?;
         }
 
         // Atomic write: use unique temp file to avoid race conditions
@@ -313,7 +319,6 @@ impl PosterService {
 
         self.save_to_file(&local_path, &bytes).await?;
 
-        tracing::info!("Saved poster: {}", local_path.display());
         Ok(self.local_path_string(filename))
     }
 
@@ -366,7 +371,11 @@ impl PosterService {
     /// Get file extension from Content-Type header.
     fn extension_from_content_type(content_type: &str) -> Option<&'static str> {
         // Parse mime type, ignoring parameters like charset
-        let mime = content_type.split(';').next().unwrap_or(content_type).trim();
+        let mime = content_type
+            .split(';')
+            .next()
+            .unwrap_or(content_type)
+            .trim();
         match mime {
             "image/jpeg" => Some("jpg"),
             "image/png" => Some("png"),
@@ -433,7 +442,8 @@ impl PosterService {
         }
 
         // No extension in URL, need to detect from Content-Type
-        self.download_with_content_type_detection(&normalized_url, &hash).await
+        self.download_with_content_type_detection(&normalized_url, &hash)
+            .await
     }
 
     /// Download poster and detect extension from Content-Type header.

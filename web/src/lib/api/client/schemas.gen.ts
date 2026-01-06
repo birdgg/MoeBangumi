@@ -136,7 +136,6 @@ export const CalendarSubjectSchema = {
   description: "Subject item in calendar results",
   required: [
     "title_chinese",
-    "parsed_name",
     "season",
     "air_week",
     "platform",
@@ -161,10 +160,6 @@ export const CalendarSubjectSchema = {
       type: ["string", "null"],
       description: "Mikan bangumi ID",
     },
-    parsed_name: {
-      type: "string",
-      description: "Parsed Chinese title (without season info)",
-    },
     platform: {
       $ref: "#/components/schemas/Platform",
       description: "Platform type (tv, movie, ova)",
@@ -176,7 +171,7 @@ export const CalendarSubjectSchema = {
     season: {
       type: "integer",
       format: "int32",
-      description: "Parsed season number (defaults to 1)",
+      description: "Season number from metadata",
     },
     title_chinese: {
       type: "string",

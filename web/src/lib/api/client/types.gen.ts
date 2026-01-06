@@ -92,10 +92,6 @@ export type CalendarSubject = {
    */
   mikan_id?: string | null;
   /**
-   * Parsed Chinese title (without season info)
-   */
-  parsed_name: string;
-  /**
    * Platform type (tv, movie, ova)
    */
   platform: Platform;
@@ -104,7 +100,7 @@ export type CalendarSubject = {
    */
   poster_url?: string | null;
   /**
-   * Parsed season number (defaults to 1)
+   * Season number from metadata
    */
   season: number;
   /**

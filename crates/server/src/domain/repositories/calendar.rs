@@ -198,16 +198,12 @@ impl CalendarWithMetadata {
             _ => Platform::Tv,
         };
 
-        // Parse the Chinese title to extract clean name and season
-        let parsed = bgmtv::parse_name(&self.title_chinese);
-
         CalendarSubject {
             bgmtv_id: self.bgmtv_id,
             mikan_id: self.mikan_id.clone(),
             title_chinese: self.title_chinese.clone(),
             title_japanese: self.title_japanese.clone(),
-            parsed_name: parsed.title,
-            season: parsed.season,
+            season: self.metadata_season,
             air_date: self.air_date.clone(),
             air_week: self.air_week,
             poster_url: self.poster_url.clone(),

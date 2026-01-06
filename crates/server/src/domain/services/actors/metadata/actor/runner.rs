@@ -8,9 +8,9 @@ use tokio::sync::{mpsc, Semaphore};
 use tokio::task::JoinHandle;
 use tokio::time::MissedTickBehavior;
 
-use super::messages::{MetadataMessage, SyncStats};
 use super::super::poster::PosterService;
 use super::super::service::MetadataService;
+use super::messages::{MetadataMessage, SyncStats};
 use crate::repositories::{MetadataRepository, MetadataToSync};
 
 /// Poster 下载并发限制
@@ -114,13 +114,6 @@ fn spawn_poster_download_task(
                         metadata_id,
                         e
                     );
-                } else {
-                    tracing::info!(
-                        "Poster downloaded for metadata_id={}: {} -> {}",
-                        metadata_id,
-                        url,
-                        local_path
-                    );
                 }
             }
             Err(e) => {
@@ -207,7 +200,7 @@ impl MetadataActor {
 
                 tracing::info!("Metadata interval sync triggered");
 
-                let stats = sync_all_metadata(
+                let _ = sync_all_metadata(
                     db.clone(),
                     Arc::clone(&metadata_service),
                     Arc::clone(&poster_service),
@@ -215,14 +208,6 @@ impl MetadataActor {
                     Arc::clone(&in_progress_urls),
                 )
                 .await;
-
-                tracing::info!(
-                    "Metadata sync completed: {} posters queued, TMDB IDs ({} succeeded, {} failed, {} skipped)",
-                    stats.posters_queued,
-                    stats.tmdb_succeeded,
-                    stats.tmdb_failed,
-                    stats.tmdb_skipped
-                );
             }
         })
     }
@@ -243,7 +228,7 @@ impl MetadataActor {
             MetadataMessage::TriggerSync => {
                 tracing::info!("Manual metadata sync triggered");
 
-                let stats = sync_all_metadata(
+                let _ = sync_all_metadata(
                     self.db.clone(),
                     Arc::clone(&self.metadata_service),
                     Arc::clone(&self.poster_service),
@@ -251,14 +236,6 @@ impl MetadataActor {
                     Arc::clone(&self.in_progress_urls),
                 )
                 .await;
-
-                tracing::info!(
-                    "Metadata sync completed: {} posters queued, TMDB IDs ({} succeeded, {} failed, {} skipped)",
-                    stats.posters_queued,
-                    stats.tmdb_succeeded,
-                    stats.tmdb_failed,
-                    stats.tmdb_skipped
-                );
             }
             MetadataMessage::Shutdown => {
                 tracing::info!("Metadata actor received shutdown signal");
@@ -427,10 +404,7 @@ async fn process_sync_record(
                         (true, false)
                     }
                     Ok(false) => {
-                        tracing::warn!(
-                            "Metadata {} not found when updating TMDB ID",
-                            record.id
-                        );
+                        tracing::warn!("Metadata {} not found when updating TMDB ID", record.id);
                         (false, false)
                     }
                     Err(e) => {

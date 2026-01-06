@@ -16,9 +16,7 @@ pub struct CalendarSubject {
     pub title_chinese: String,
     /// Japanese title
     pub title_japanese: Option<String>,
-    /// Parsed Chinese title (without season info)
-    pub parsed_name: String,
-    /// Parsed season number (defaults to 1)
+    /// Season number from metadata
     pub season: i32,
     /// First air date (YYYY-MM-DD)
     pub air_date: Option<String>,

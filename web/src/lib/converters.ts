@@ -27,8 +27,8 @@ export function calendarSubjectToModalData(
 ): BangumiModalData {
   return {
     bgmtvId: subject.bgmtv_id ?? 0,
-    titleChinese: subject.parsed_name,
-    titleJapanese: subject.title_chinese ? subject.title_japanese : null,
+    titleChinese: subject.title_chinese,
+    titleJapanese: subject.title_japanese,
     posterUrl: subject.poster_url,
     year: subject.air_date
       ? parseInt(subject.air_date.split("-")[0], 10) || null
