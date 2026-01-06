@@ -58,8 +58,7 @@ pub struct RenameTaskResult {
 /// 2. Matches them with Torrent records in the database
 /// 3. Gets Bangumi metadata for proper naming
 /// 4. Renames video files and associated subtitles
-/// 5. Generates .nfo metadata files
-/// 6. Marks tasks as rename complete
+/// 5. Marks tasks as rename complete
 pub struct RenameService {
     db: SqlitePool,
     downloader: Arc<DownloaderHandle>,
@@ -393,7 +392,7 @@ impl RenameService {
         let ext = file.extension().unwrap_or("mkv");
 
         // Apply episode offset to convert RSS episode number to season-relative episode
-        let adjusted_episode = episode - bangumi.metadata.episode_offset;
+        let adjusted_episode = bangumi.metadata.adjust_episode(episode);
 
         // Generate new filename using pathgen
         let new_filename_base = crate::pathgen::generate_filename(
@@ -420,26 +419,6 @@ impl RenameService {
             self.downloader
                 .rename_file(&task.id, old_path, &new_path)
                 .await?;
-        }
-
-        // Generate NFO file next to the renamed video
-        // Calculate absolute directory path by combining task.save_path with file's relative directory
-        let nfo_dir = if let Some(parent) = Path::new(&new_path).parent() {
-            Path::new(&task.save_path).join(parent)
-        } else {
-            Path::new(&task.save_path).to_path_buf()
-        };
-        if let Err(e) = self
-            .write_nfo_file(
-                &nfo_dir.to_string_lossy(),
-                &new_filename_base,
-                bangumi,
-                adjusted_episode,
-                old_path,
-            )
-            .await
-        {
-            tracing::warn!("Failed to write NFO file for {}: {}", new_path, e);
         }
 
         Ok(())
@@ -507,91 +486,6 @@ impl RenameService {
         }
 
         Ok(())
-    }
-
-    /// Write NFO metadata file
-    async fn write_nfo_file(
-        &self,
-        save_path: &str,
-        filename_base: &str,
-        bangumi: &BangumiWithMetadata,
-        episode: i32,
-        original_filename: &str,
-    ) -> Result<()> {
-        let nfo_content = Self::generate_nfo(bangumi, episode, original_filename);
-
-        let nfo_path = Path::new(save_path).join(format!("{}.nfo", filename_base));
-
-        // Create parent directories if needed
-        if let Some(parent) = nfo_path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
-
-        tokio::fs::write(&nfo_path, nfo_content).await?;
-        tracing::debug!("Generated NFO: {}", nfo_path.display());
-
-        Ok(())
-    }
-
-    /// Generate NFO content in XML format
-    fn generate_nfo(
-        bangumi: &BangumiWithMetadata,
-        episode: i32,
-        original_filename: &str,
-    ) -> String {
-        let mut nfo =
-            String::from("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n");
-        nfo.push_str("<episodedetails>\n");
-
-        // Title and show info
-        nfo.push_str(&format!("  <title>Episode {}</title>\n", episode));
-        nfo.push_str(&format!(
-            "  <showtitle>{}</showtitle>\n",
-            Self::escape_xml(&bangumi.metadata.title_chinese)
-        ));
-
-        // Season and episode
-        nfo.push_str(&format!("  <season>{}</season>\n", bangumi.metadata.season));
-        nfo.push_str(&format!("  <episode>{}</episode>\n", episode));
-
-        // Year and air date
-        nfo.push_str(&format!("  <year>{}</year>\n", bangumi.metadata.year));
-        if let Some(ref air_date) = bangumi.metadata.air_date {
-            nfo.push_str(&format!("  <aired>{}</aired>\n", air_date));
-        }
-
-        // IDs
-        if let Some(tmdb_id) = bangumi.metadata.tmdb_id {
-            nfo.push_str(&format!("  <tmdbid>{}</tmdbid>\n", tmdb_id));
-            nfo.push_str(&format!(
-                "  <uniqueid type=\"tmdb\" default=\"true\">{}</uniqueid>\n",
-                tmdb_id
-            ));
-        }
-        if let Some(bgmtv_id) = bangumi.metadata.bgmtv_id {
-            nfo.push_str(&format!(
-                "  <uniqueid type=\"bangumi\">{}</uniqueid>\n",
-                bgmtv_id
-            ));
-        }
-
-        // Original filename for reference
-        nfo.push_str(&format!(
-            "  <original_filename>{}</original_filename>\n",
-            Self::escape_xml(original_filename)
-        ));
-
-        nfo.push_str("</episodedetails>\n");
-        nfo
-    }
-
-    /// Escape XML special characters
-    fn escape_xml(s: &str) -> String {
-        s.replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;")
-            .replace('\'', "&apos;")
     }
 
     /// Parse episode number from filename using the parser
@@ -667,60 +561,6 @@ impl RenameService {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_escape_xml() {
-        assert_eq!(
-            RenameService::escape_xml("Test & <Name>"),
-            "Test &amp; &lt;Name&gt;"
-        );
-        assert_eq!(RenameService::escape_xml("Normal"), "Normal");
-    }
-
-    #[test]
-    fn test_generate_nfo() {
-        use crate::models::{Bangumi, Metadata, Platform, SourceType};
-
-        let metadata = Metadata {
-            id: 1,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            mikan_id: None,
-            bgmtv_id: Some(12345),
-            tmdb_id: Some(67890),
-            title_chinese: "测试动画".to_string(),
-            title_japanese: None,
-            season: 1,
-            year: 2024,
-            platform: Platform::Tv,
-            total_episodes: 12,
-            poster_url: None,
-            air_date: Some("2024-01-01".to_string()),
-            air_week: 1,
-            tmdb_lookup_at: None,
-            episode_offset: 0,
-        };
-
-        let bangumi = Bangumi {
-            id: 1,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            metadata_id: 1,
-            current_episode: 0,
-            auto_complete: true,
-            save_path: "/downloads".to_string(),
-            source_type: SourceType::WebRip,
-        };
-
-        let bangumi_with_metadata = BangumiWithMetadata { bangumi, metadata };
-
-        let nfo = RenameService::generate_nfo(&bangumi_with_metadata, 5, "original.mkv");
-
-        assert!(nfo.contains("<episode>5</episode>"));
-        assert!(nfo.contains("<season>1</season>"));
-        assert!(nfo.contains("<tmdbid>67890</tmdbid>"));
-        assert!(nfo.contains("<showtitle>测试动画</showtitle>"));
-    }
 
     #[test]
     fn test_format_episode_range() {

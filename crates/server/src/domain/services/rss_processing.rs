@@ -358,7 +358,7 @@ impl RssProcessingService {
             }
 
             // Wash ("洗版"): replace existing torrents with higher priority resource
-            let adjusted_episode = episode - ctx.bangumi.metadata.episode_offset;
+            let adjusted_episode = ctx.bangumi.metadata.adjust_episode(episode);
             let filename = crate::pathgen::generate_filename(
                 &ctx.bangumi.metadata.title_chinese,
                 ctx.bangumi.metadata.season,
@@ -401,7 +401,7 @@ impl RssProcessingService {
         parse_result: &ParseResult,
     ) {
         // Apply episode offset to convert RSS episode number to season-relative episode
-        let adjusted_episode = episode - ctx.bangumi.metadata.episode_offset;
+        let adjusted_episode = ctx.bangumi.metadata.adjust_episode(episode);
 
         // Generate filename for this specific episode
         let filename = crate::pathgen::generate_filename(

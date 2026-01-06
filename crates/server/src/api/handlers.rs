@@ -8,6 +8,7 @@ mod mikan;
 mod search;
 mod settings;
 mod torrents;
+mod update;
 
 use serde::Deserialize;
 #[cfg(feature = "openapi")]
@@ -55,6 +56,7 @@ pub use settings::{
     TestNotificationRequest, TestProxyRequest,
 };
 pub use torrents::{delete_torrents, list_torrents, DeleteTorrentsRequest};
+pub use update::{check_update, get_version, UpdateResponse};
 
 // Re-export utoipa path structs for OpenAPI routing
 #[cfg(feature = "openapi")]
@@ -88,6 +90,8 @@ mod openapi_paths {
     };
     #[doc(hidden)]
     pub use super::torrents::{__path_delete_torrents, __path_list_torrents};
+    #[doc(hidden)]
+    pub use super::update::{__path_check_update, __path_get_version};
 }
 #[cfg(feature = "openapi")]
 pub use openapi_paths::*;

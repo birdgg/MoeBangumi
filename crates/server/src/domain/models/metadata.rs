@@ -87,6 +87,29 @@ pub struct Metadata {
     pub episode_offset: i32,
 }
 
+impl Metadata {
+    /// Adjust episode number by applying episode_offset.
+    ///
+    /// Converts RSS episode number to season-relative episode number.
+    /// Only applies offset if episode > offset, otherwise returns original episode.
+    ///
+    /// # Example
+    /// ```ignore
+    /// // RSS shows episode 13, offset is 12 -> returns 1 (s02e01)
+    /// let adjusted = metadata.adjust_episode(13); // returns 1
+    ///
+    /// // RSS shows episode 5, offset is 12 -> returns 5 (offset not applied)
+    /// let adjusted = metadata.adjust_episode(5); // returns 5
+    /// ```
+    pub fn adjust_episode(&self, episode: i32) -> i32 {
+        if episode > self.episode_offset {
+            episode - self.episode_offset
+        } else {
+            episode
+        }
+    }
+}
+
 /// Request body for creating new metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

@@ -53,14 +53,14 @@ pub async fn get_calendar(
     // Try to get from database first
     let calendar = state.calendar.get_calendar(year, season).await?;
 
-    // If database is empty, import seed data from GitHub
+    // If database is empty for this season, import seed data for this specific season
     if calendar.is_empty() {
         tracing::info!(
-            "Calendar database is empty for {} {:?}, importing seed data",
+            "Calendar database is empty for {} {:?}, importing seed data for this season",
             year,
             season
         );
-        state.calendar.import_seed_data().await?;
+        state.calendar.import_season_if_missing(year, season).await?;
         let calendar = state.calendar.get_calendar(year, season).await?;
         return Ok(Json(calendar));
     }

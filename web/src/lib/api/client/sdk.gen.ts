@@ -3,6 +3,8 @@
 import type { Client, Options as Options2, TDataShape } from "./client";
 import { client } from "./client.gen";
 import type {
+  CheckUpdateData,
+  CheckUpdateResponses,
   CleanupLogsData,
   CleanupLogsResponses,
   ClearAllLogsData,
@@ -36,9 +38,13 @@ import type {
   GetMikanRssResponses,
   GetSettingsData,
   GetSettingsResponses,
+  GetVersionData,
+  GetVersionResponses,
   ListTorrentsData,
   ListTorrentsErrors,
   ListTorrentsResponses,
+  PerformUpdateData,
+  PerformUpdateResponses,
   RefreshCalendarData,
   RefreshCalendarResponses,
   ResetSettingsData,
@@ -489,6 +495,46 @@ export const deleteTorrents = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/api/torrents/delete",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get current version information
+ */
+export const getVersion = <ThrowOnError extends boolean = false>(
+  options?: Options<GetVersionData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<GetVersionResponses, unknown, ThrowOnError>({
+    url: "/api/version",
+    ...options,
+  });
+
+/**
+ * Check for updates
+ */
+export const checkUpdate = <ThrowOnError extends boolean = false>(
+  options?: Options<CheckUpdateData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<CheckUpdateResponses, unknown, ThrowOnError>(
+    { url: "/api/version/check", ...options },
+  );
+
+/**
+ * Perform update
+ */
+export const performUpdate = <ThrowOnError extends boolean = false>(
+  options: Options<PerformUpdateData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<
+    PerformUpdateResponses,
+    unknown,
+    ThrowOnError
+  >({
+    url: "/api/version/update",
     ...options,
     headers: {
       "Content-Type": "application/json",

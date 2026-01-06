@@ -189,6 +189,34 @@ impl CalendarService {
         Ok(CalendarRepository::is_empty(&self.db).await?)
     }
 
+    /// Import a specific season from GitHub seed file if not already in database
+    /// This is used for on-demand loading when user requests a historical season
+    pub async fn import_season_if_missing(&self, year: i32, season: Season) -> Result<usize> {
+        let season_str = season.to_db_string();
+
+        // Check if data already exists for this season
+        if CalendarRepository::has_data(&self.db, year, &season_str).await? {
+            tracing::debug!(
+                "Calendar data for {} {} already exists, skipping import",
+                year,
+                season_str
+            );
+            return Ok(0);
+        }
+
+        let count = self.import_season(year, &season_str).await?;
+        if count > 0 {
+            tracing::info!(
+                "Imported {} entries for {} {} on demand",
+                count,
+                year,
+                season_str
+            );
+            self.metadata_actor.trigger_sync();
+        }
+        Ok(count)
+    }
+
     /// Import calendar data from GitHub seed JSON files
     /// Downloads individual season files for incremental updates
     /// Returns the number of entries imported

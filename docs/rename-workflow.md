@@ -8,7 +8,6 @@
 - **标签驱动**：通过 `rename` 标签标识待处理任务
 - **Plex/Jellyfin 兼容**：生成标准命名格式 `{标题} - s{季}e{集}.{扩展名}`
 - **字幕同步**：自动重命名关联的字幕文件
-- **NFO 生成**：创建媒体库元数据文件
 - **进度追踪**：更新 Bangumi 的 `current_episode`
 - **自动完结**：当 `current_episode >= total_episodes` 时自动禁用 RSS
 - **更新通知**：处理完成后发送通知（支持海报图片）
@@ -31,7 +30,7 @@
 │  │                   RenameService                        │ │
 │  │  • process_all()    - 处理所有待重命名任务              │ │
 │  │  • process_task()   - 处理单个任务                     │ │
-│  │  • rename_file()    - 重命名视频+字幕+生成NFO          │ │
+│  │  • rename_file()    - 重命名视频+字幕                  │ │
 │  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -95,8 +94,7 @@
    ├── 应用剧集偏移量（episode_offset）
    ├── 使用 pathgen 生成新文件名
    ├── 重命名字幕文件
-   ├── 重命名视频文件
-   └── 生成 NFO 元数据文件
+   └── 重命名视频文件
 
 5. 收尾工作
    finalize_task()
@@ -149,7 +147,7 @@ impl SchedulerJob for RenameJob {
 
 ### 重命名服务 (RenameService)
 
-核心业务逻辑，负责文件重命名、NFO 生成、通知发送。
+核心业务逻辑，负责文件重命名、通知发送。
 
 主要方法：
 | 方法 | 功能 |
@@ -157,9 +155,8 @@ impl SchedulerJob for RenameJob {
 | `process_all()` | 入口，处理所有待重命名任务 |
 | `get_pending_tasks()` | 查询待处理任务并匹配数据库 |
 | `process_task()` | 处理单个下载任务 |
-| `rename_file()` | 重命名视频+字幕+生成NFO |
+| `rename_file()` | 重命名视频+字幕 |
 | `rename_subtitles()` | 重命名关联字幕文件 |
-| `generate_nfo()` | 生成 NFO 元数据 |
 
 ### 标签机制
 
@@ -228,30 +225,6 @@ video.mkv  →  video.ass           (直接匹配)
 新文件: 迷宫饭 - s01e05.zh-CN.ass
 ```
 
-### NFO 元数据
-
-为每个剧集生成 NFO 文件，供媒体库读取。
-
-**文件位置**：与视频文件同目录
-**文件名**：`{视频basename}.nfo`
-
-**包含字段**：
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<episodedetails>
-  <title>Episode {集数}</title>
-  <showtitle>{中文标题}</showtitle>
-  <season>{季}</season>
-  <episode>{集}</episode>
-  <year>{年份}</year>
-  <aired>{播出日期}</aired>
-  <tmdbid>{TMDB ID}</tmdbid>
-  <uniqueid type="tmdb">{TMDB ID}</uniqueid>
-  <uniqueid type="bangumi">{BGM.tv ID}</uniqueid>
-  <original_filename>{原始文件名}</original_filename>
-</episodedetails>
-```
-
 ## 关键数据模型
 
 ### Task（下载器任务）
@@ -287,7 +260,7 @@ BangumiWithMetadata
     ├── title_chinese         # 用于生成文件名
     ├── season                # 季度
     ├── year, air_date
-    ├── tmdb_id, bgmtv_id     # 用于 NFO
+    ├── tmdb_id, bgmtv_id     # 外部 ID
     └── poster_url            # 用于通知
 ```
 

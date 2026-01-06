@@ -39,11 +39,15 @@ RUN apk add --no-cache ca-certificates curl tzdata
 # Copy binary from builder
 COPY --from=builder /app/target/release/moe /app/moe
 
+# Copy entrypoint script
+COPY crates/cli/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Copy pre-built frontend dist
 COPY ${FRONTEND_DIST} /app/dist
 
-# Create data directory
-RUN mkdir -p /data
+# Create data directory and bin directory for self-updates
+RUN mkdir -p /data /data/bin
 
 # Set environment variables
 ENV APP_ENV=prod
@@ -53,4 +57,4 @@ EXPOSE 3000
 
 VOLUME ["/data"]
 
-CMD ["/app/moe"]
+CMD ["/app/entrypoint.sh"]

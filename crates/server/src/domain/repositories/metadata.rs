@@ -209,6 +209,33 @@ impl MetadataRepository {
         Ok(result.rows_affected() > 0)
     }
 
+    /// Batch update poster URLs for multiple metadata records
+    ///
+    /// Uses a single transaction to reduce SQLite lock contention.
+    pub async fn batch_update_poster_urls(
+        pool: &SqlitePool,
+        updates: &[(i64, String)],
+    ) -> Result<u64, sqlx::Error> {
+        if updates.is_empty() {
+            return Ok(0);
+        }
+
+        let mut tx = pool.begin().await?;
+        let mut total_affected = 0u64;
+
+        for (id, poster_url) in updates {
+            let result = sqlx::query("UPDATE metadata SET poster_url = $1 WHERE id = $2")
+                .bind(poster_url)
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+            total_affected += result.rows_affected();
+        }
+
+        tx.commit().await?;
+        Ok(total_affected)
+    }
+
     /// Batch upsert for Mikan mapping sync
     /// Inserts new mappings with minimal data (mikan_id, bgmtv_id, title)
     /// Returns number of newly inserted records

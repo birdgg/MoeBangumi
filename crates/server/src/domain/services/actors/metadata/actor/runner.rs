@@ -13,11 +13,17 @@ use super::messages::{MetadataMessage, SyncStats};
 use crate::repositories::{MetadataRepository, MetadataToSync};
 
 /// Poster 下载并发限制
-const POSTER_CONCURRENCY: usize = 5;
+const POSTER_CONCURRENCY: usize = 10;
 
 /// 同步记录处理并发限制（限制同时处理的记录数量，防止内存占用过高）
 /// 实际的 Poster 下载并发由 POSTER_CONCURRENCY 信号量控制
 const SYNC_CONCURRENCY: usize = 5;
+
+/// 批量数据库更新间隔
+const BATCH_UPDATE_INTERVAL: Duration = Duration::from_millis(500);
+
+/// 批量更新缓冲区大小（超过此数量立即写入）
+const BATCH_UPDATE_BUFFER_SIZE: usize = 20;
 
 /// RAII guard 确保 URL 在任务完成或 panic 时从去重集合中移除
 struct UrlGuard {
@@ -73,10 +79,10 @@ fn try_register_url(url: &str, in_progress: &Mutex<HashSet<String>>) -> bool {
 fn spawn_poster_download_task(
     metadata_id: i64,
     url: String,
-    db: SqlitePool,
     poster_service: Arc<PosterService>,
     semaphore: Arc<Semaphore>,
     in_progress_urls: Arc<Mutex<HashSet<String>>>,
+    update_sender: mpsc::UnboundedSender<(i64, String)>,
 ) -> bool {
     // 去重检查
     if !try_register_url(&url, &in_progress_urls) {
@@ -106,11 +112,10 @@ fn spawn_poster_download_task(
 
         match poster_service.download_from_url(&url).await {
             Ok(local_path) => {
-                if let Err(e) =
-                    MetadataRepository::update_poster_url(&db, metadata_id, &local_path).await
-                {
+                // 发送到批量更新 channel，而不是立即更新数据库
+                if let Err(e) = update_sender.send((metadata_id, local_path)) {
                     tracing::error!(
-                        "Failed to update poster_url for metadata {}: {}",
+                        "Failed to queue poster update for metadata {}: {}",
                         metadata_id,
                         e
                     );
@@ -129,6 +134,73 @@ fn spawn_poster_download_task(
     true
 }
 
+/// 批量数据库更新后台任务
+///
+/// 收集下载完成的海报更新请求，定期批量写入数据库
+fn spawn_batch_update_task(
+    db: SqlitePool,
+    mut update_receiver: mpsc::UnboundedReceiver<(i64, String)>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut buffer: Vec<(i64, String)> = Vec::with_capacity(BATCH_UPDATE_BUFFER_SIZE);
+        let mut ticker = tokio::time::interval(BATCH_UPDATE_INTERVAL);
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                // 接收更新请求
+                result = update_receiver.recv() => {
+                    match result {
+                        Some(update) => {
+                            buffer.push(update);
+
+                            // 缓冲区满了立即刷新
+                            if buffer.len() >= BATCH_UPDATE_BUFFER_SIZE {
+                                flush_updates(&db, &mut buffer).await;
+                            }
+                        }
+                        None => {
+                            // Channel 关闭，刷新剩余数据后退出
+                            if !buffer.is_empty() {
+                                flush_updates(&db, &mut buffer).await;
+                            }
+                            tracing::debug!("Batch update task stopped");
+                            break;
+                        }
+                    }
+                }
+
+                // 定时刷新
+                _ = ticker.tick() => {
+                    if !buffer.is_empty() {
+                        flush_updates(&db, &mut buffer).await;
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// 刷新缓冲区到数据库
+async fn flush_updates(db: &SqlitePool, buffer: &mut Vec<(i64, String)>) {
+    let count = buffer.len();
+
+    match MetadataRepository::batch_update_poster_urls(db, buffer).await {
+        Ok(affected) => {
+            tracing::debug!(
+                "Batch updated {} poster URLs ({} rows affected)",
+                count,
+                affected
+            );
+        }
+        Err(e) => {
+            tracing::error!("Failed to batch update poster URLs: {}", e);
+        }
+    }
+
+    buffer.clear();
+}
+
 /// Metadata Actor
 ///
 /// 处理 Poster 下载功能。
@@ -140,6 +212,8 @@ pub struct MetadataActor {
     poster_semaphore: Arc<Semaphore>,
     in_progress_urls: Arc<Mutex<HashSet<String>>>,
     sync_interval: Duration,
+    update_sender: mpsc::UnboundedSender<(i64, String)>,
+    batch_update_task: JoinHandle<()>,
 }
 
 impl MetadataActor {
@@ -149,6 +223,11 @@ impl MetadataActor {
         receiver: mpsc::Receiver<MetadataMessage>,
         sync_interval: Duration,
     ) -> Self {
+        let (update_sender, update_receiver) = mpsc::unbounded_channel();
+
+        // 启动批量写入后台任务
+        let batch_update_task = spawn_batch_update_task(db.clone(), update_receiver);
+
         Self {
             db,
             poster_service,
@@ -156,6 +235,8 @@ impl MetadataActor {
             poster_semaphore: Arc::new(Semaphore::new(POSTER_CONCURRENCY)),
             in_progress_urls: Arc::new(Mutex::new(HashSet::new())),
             sync_interval,
+            update_sender,
+            batch_update_task,
         }
     }
 
@@ -171,8 +252,9 @@ impl MetadataActor {
             }
         }
 
-        // Actor 停止时取消定时任务
+        // Actor 停止时取消定时任务和批量更新任务
         sync_task.abort();
+        self.batch_update_task.abort();
         tracing::info!("Metadata actor stopped");
     }
 
@@ -182,6 +264,7 @@ impl MetadataActor {
         let poster_service = Arc::clone(&self.poster_service);
         let poster_semaphore = Arc::clone(&self.poster_semaphore);
         let in_progress_urls = Arc::clone(&self.in_progress_urls);
+        let update_sender = self.update_sender.clone();
         let interval_duration = self.sync_interval;
 
         tokio::spawn(async move {
@@ -199,6 +282,7 @@ impl MetadataActor {
                     Arc::clone(&poster_service),
                     Arc::clone(&poster_semaphore),
                     Arc::clone(&in_progress_urls),
+                    update_sender.clone(),
                 )
                 .await;
             }
@@ -226,6 +310,7 @@ impl MetadataActor {
                     Arc::clone(&self.poster_service),
                     Arc::clone(&self.poster_semaphore),
                     Arc::clone(&self.in_progress_urls),
+                    self.update_sender.clone(),
                 )
                 .await;
             }
@@ -242,10 +327,10 @@ impl MetadataActor {
         spawn_poster_download_task(
             metadata_id,
             url,
-            self.db.clone(),
             Arc::clone(&self.poster_service),
             Arc::clone(&self.poster_semaphore),
             Arc::clone(&self.in_progress_urls),
+            self.update_sender.clone(),
         );
     }
 }
@@ -259,6 +344,7 @@ async fn sync_all_metadata(
     poster_service: Arc<PosterService>,
     poster_semaphore: Arc<Semaphore>,
     in_progress_urls: Arc<Mutex<HashSet<String>>>,
+    update_sender: mpsc::UnboundedSender<(i64, String)>,
 ) -> SyncStats {
     // Get total count first
     let total_count = match MetadataRepository::count_metadata_to_sync(&db).await {
@@ -313,11 +399,11 @@ async fn sync_all_metadata(
 
         let results: Vec<bool> = stream::iter(records)
             .map(|record| {
-                let db = db.clone();
                 let poster = Arc::clone(&poster_service);
                 let semaphore = Arc::clone(&poster_semaphore);
                 let in_progress = Arc::clone(&in_progress_urls);
-                async move { process_sync_record(record, db, poster, semaphore, in_progress).await }
+                let sender = update_sender.clone();
+                async move { process_sync_record(record, poster, semaphore, in_progress, sender).await }
             })
             .buffer_unordered(SYNC_CONCURRENCY)
             .collect()
@@ -341,20 +427,20 @@ async fn sync_all_metadata(
 /// 处理单条同步记录
 async fn process_sync_record(
     record: MetadataToSync,
-    db: SqlitePool,
     poster: Arc<PosterService>,
     semaphore: Arc<Semaphore>,
     in_progress_urls: Arc<Mutex<HashSet<String>>>,
+    update_sender: mpsc::UnboundedSender<(i64, String)>,
 ) -> bool {
     // poster_url is guaranteed to be Some and remote URL by the query
     let url = record.poster_url.unwrap();
     let queued = spawn_poster_download_task(
         record.id,
         url,
-        db,
         poster,
         semaphore,
         in_progress_urls,
+        update_sender,
     );
 
     if queued {
