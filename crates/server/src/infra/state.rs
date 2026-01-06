@@ -200,14 +200,15 @@ impl AppState {
             Arc::clone(&metadata_actor),
         ));
 
-        // Create update service
+        // Create update service (reuse HTTP client for proxy support)
         let update_config = UpdateConfig::new("birdgg", "moe-bangumi", current_version)
             .bin_name("moe")
             .target_dir(PathBuf::from("/data/bin"))
             .check_interval(Duration::from_secs(86400)) // 24 hours
             .auto_check(true);
 
-        let (update_handle, update_service) = UpdateService::new(update_config);
+        let (update_handle, update_service) =
+            UpdateService::new(update_config, http_client_service.get_client());
 
         // Spawn update service actor
         tokio::spawn(update_service.run());

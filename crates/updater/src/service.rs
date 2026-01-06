@@ -57,16 +57,14 @@ pub struct UpdateService {
 }
 
 impl UpdateService {
-    /// Create a new update service and return a handle to it
-    pub fn new(config: UpdateConfig) -> (UpdateServiceHandle, Self) {
+    /// Create a new update service with a shared HTTP client
+    ///
+    /// The HTTP client should be passed from the application's HttpClientService
+    /// to ensure proxy settings are respected.
+    pub fn new(config: UpdateConfig, http_client: reqwest::Client) -> (UpdateServiceHandle, Self) {
         let (sender, receiver) = mpsc::channel(16);
 
         let state = Arc::new(RwLock::new(VersionInfo::new(&config.current_version)));
-
-        let http_client = reqwest::Client::builder()
-            .user_agent(format!("{}/{}", config.bin_name, config.current_version))
-            .build()
-            .expect("Failed to create HTTP client");
 
         let handle = UpdateServiceHandle {
             sender,
