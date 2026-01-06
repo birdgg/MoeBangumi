@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use chrono::Datelike;
 use futures::stream::{self, StreamExt};
-use metadata::{BgmtvProvider, MetadataProvider, SearchedMetadata};
+use metadata::{MetadataSource, SearchedMetadata};
+
+use crate::metadata_service::MetadataService;
 use mikan::{MikanClient, Season};
 use sqlx::SqlitePool;
 use thiserror::Error;
@@ -51,7 +53,7 @@ pub type Result<T> = std::result::Result<T, CalendarError>;
 /// Data flow: Mikan Season API → BGM.tv Subject API → Metadata + Calendar tables
 pub struct CalendarService {
     db: SqlitePool,
-    bgmtv_provider: Arc<BgmtvProvider>,
+    metadata_service: Arc<MetadataService>,
     mikan: Arc<MikanClient>,
     metadata_actor: Arc<MetadataHandle>,
 }
@@ -59,13 +61,13 @@ pub struct CalendarService {
 impl CalendarService {
     pub fn new(
         db: SqlitePool,
-        bgmtv_provider: Arc<BgmtvProvider>,
+        metadata_service: Arc<MetadataService>,
         mikan: Arc<MikanClient>,
         metadata_actor: Arc<MetadataHandle>,
     ) -> Self {
         Self {
             db,
-            bgmtv_provider,
+            metadata_service,
             mikan,
             metadata_actor,
         }
@@ -427,23 +429,28 @@ impl CalendarService {
                     air_week: data.air_week,
                     poster_url: data.poster_url.clone(),
                 };
-                (data, *bgmtv_id, Arc::clone(&self.bgmtv_provider))
+                (data, *bgmtv_id, Arc::clone(&self.metadata_service))
             })
             .collect();
 
-        let tasks = items.into_iter().map(|(data, bgmtv_id, provider)| async move {
-            match provider.get_detail(&bgmtv_id.to_string()).await {
-                Ok(Some(subject)) => Some((data, bgmtv_id, subject)),
-                Ok(None) => {
-                    tracing::warn!("BGM.tv subject {} not found", bgmtv_id);
-                    None
+        let tasks = items
+            .into_iter()
+            .map(|(data, bgmtv_id, metadata_service)| async move {
+                match metadata_service
+                    .get_provider_detail(&bgmtv_id.to_string(), MetadataSource::Bgmtv)
+                    .await
+                {
+                    Ok(Some(subject)) => Some((data, bgmtv_id, subject)),
+                    Ok(None) => {
+                        tracing::warn!("BGM.tv subject {} not found", bgmtv_id);
+                        None
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to fetch BGM.tv subject {}: {}", bgmtv_id, e);
+                        None
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!("Failed to fetch BGM.tv subject {}: {}", bgmtv_id, e);
-                    None
-                }
-            }
-        });
+            });
 
         // Limit concurrency
         stream::iter(tasks)

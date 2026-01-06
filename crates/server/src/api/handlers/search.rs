@@ -2,7 +2,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use metadata::{MetadataProvider, MetadataSource, SearchQuery as MetadataSearchQuery, SearchedMetadata};
+use metadata::{MetadataSource, SearchQuery as MetadataSearchQuery, SearchedMetadata};
 use serde::Deserialize;
 #[cfg(feature = "openapi")]
 use utoipa::{IntoParams, ToSchema};
@@ -49,7 +49,10 @@ pub async fn search_bgmtv(
     Query(query): Query<SearchQuery>,
 ) -> AppResult<Json<Vec<SearchedMetadata>>> {
     let search_query = MetadataSearchQuery::new(&query.keyword);
-    let results = state.bgmtv_provider.search(&search_query).await?;
+    let results = state
+        .metadata
+        .search_provider(&search_query, MetadataSource::Bgmtv)
+        .await?;
     Ok(Json(results))
 }
 
@@ -68,7 +71,10 @@ pub async fn search_tmdb(
     Query(query): Query<TmdbSearchQuery>,
 ) -> AppResult<Json<Vec<SearchedMetadata>>> {
     let search_query = MetadataSearchQuery::new(&query.keyword);
-    let results = state.tmdb_provider.search(&search_query).await?;
+    let results = state
+        .metadata
+        .search_provider(&search_query, MetadataSource::Tmdb)
+        .await?;
     Ok(Json(results))
 }
 
@@ -117,12 +123,10 @@ pub async fn search_metadata(
     Query(query): Query<UnifiedSearchQuery>,
 ) -> AppResult<Json<Vec<SearchedMetadata>>> {
     let search_query = MetadataSearchQuery::new(&query.keyword);
-
-    let results = match query.source {
-        MetadataSource::Bgmtv => state.bgmtv_provider.search(&search_query).await?,
-        MetadataSource::Tmdb => state.tmdb_provider.search(&search_query).await?,
-    };
-
+    let results = state
+        .metadata
+        .search_provider(&search_query, query.source)
+        .await?;
     Ok(Json(results))
 }
 
@@ -146,12 +150,10 @@ pub async fn find_metadata(
     if let Some(year) = query.year {
         search_query = search_query.with_year(year);
     }
-
-    let result = match query.source {
-        MetadataSource::Bgmtv => state.bgmtv_provider.find(&search_query).await?,
-        MetadataSource::Tmdb => state.tmdb_provider.find(&search_query).await?,
-    };
-
+    let result = state
+        .metadata
+        .find_provider(&search_query, query.source)
+        .await?;
     Ok(Json(result))
 }
 
@@ -171,10 +173,9 @@ pub async fn get_metadata_detail(
     State(state): State<AppState>,
     Query(query): Query<DetailQuery>,
 ) -> AppResult<Json<Option<SearchedMetadata>>> {
-    let result = match query.source {
-        MetadataSource::Bgmtv => state.bgmtv_provider.get_detail(&query.external_id).await?,
-        MetadataSource::Tmdb => state.tmdb_provider.get_detail(&query.external_id).await?,
-    };
-
+    let result = state
+        .metadata
+        .get_provider_detail(&query.external_id, query.source)
+        .await?;
     Ok(Json(result))
 }

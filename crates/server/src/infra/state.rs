@@ -35,9 +35,6 @@ pub struct AppState {
     pub calendar: Arc<CalendarService>,
     pub notification: Arc<NotificationService>,
     pub rename: Arc<RenameService>,
-    // Unified metadata providers (replaces direct bgmtv/tmdb clients)
-    pub bgmtv_provider: Arc<BgmtvProvider>,
-    pub tmdb_provider: Arc<TmdbProvider>,
     // Background actors (keep handles alive to prevent actors from stopping)
     #[allow(dead_code)]
     rss_fetch_actor: RssFetchHandle,
@@ -194,7 +191,7 @@ impl AppState {
         // Create calendar service (fetches from Mikan -> BGM.tv)
         let calendar = Arc::new(CalendarService::new(
             db.clone(),
-            Arc::clone(&bgmtv_provider),
+            Arc::clone(&metadata),
             Arc::clone(&mikan_arc),
             Arc::clone(&metadata_actor),
         ));
@@ -222,8 +219,6 @@ impl AppState {
             calendar,
             notification,
             rename,
-            bgmtv_provider,
-            tmdb_provider,
             rss_fetch_actor,
             rename_actor,
             log_cleanup_actor,

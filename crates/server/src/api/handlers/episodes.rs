@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, State},
     Json,
 };
-use metadata::{Episode, MetadataProvider};
+use metadata::Episode;
 
 use crate::error::AppResult;
 use crate::state::AppState;
@@ -23,9 +23,6 @@ pub async fn get_episodes(
     State(state): State<AppState>,
     Path(subject_id): Path<i64>,
 ) -> AppResult<Json<Vec<Episode>>> {
-    let episodes = state
-        .bgmtv_provider
-        .get_episodes(&subject_id.to_string())
-        .await?;
+    let episodes = state.metadata.get_episodes(subject_id).await?;
     Ok(Json(episodes))
 }

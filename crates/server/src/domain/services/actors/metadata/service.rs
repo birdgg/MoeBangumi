@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use metadata::{BgmtvProvider, MetadataProvider, SearchQuery, TmdbProvider};
+use metadata::{
+    BgmtvProvider, Episode, MetadataProvider, MetadataSource, SearchQuery, SearchedMetadata,
+    TmdbProvider,
+};
 use sqlx::SqlitePool;
 
 use super::error::MetadataError;
@@ -201,5 +204,55 @@ impl MetadataService {
     /// Get database pool reference (for repositories that need direct access)
     pub fn pool(&self) -> &SqlitePool {
         &self.db
+    }
+
+    // ============ Unified Provider Interface ============
+
+    /// Get metadata detail by external ID from a specific source
+    pub async fn get_provider_detail(
+        &self,
+        external_id: &str,
+        source: MetadataSource,
+    ) -> Result<Option<SearchedMetadata>, MetadataError> {
+        let result = match source {
+            MetadataSource::Bgmtv => self.bgmtv_provider.get_detail(external_id).await?,
+            MetadataSource::Tmdb => self.tmdb_provider.get_detail(external_id).await?,
+        };
+        Ok(result)
+    }
+
+    /// Search metadata from a specific source
+    pub async fn search_provider(
+        &self,
+        query: &SearchQuery,
+        source: MetadataSource,
+    ) -> Result<Vec<SearchedMetadata>, MetadataError> {
+        let results = match source {
+            MetadataSource::Bgmtv => self.bgmtv_provider.search(query).await?,
+            MetadataSource::Tmdb => self.tmdb_provider.search(query).await?,
+        };
+        Ok(results)
+    }
+
+    /// Find best matching metadata from a specific source
+    pub async fn find_provider(
+        &self,
+        query: &SearchQuery,
+        source: MetadataSource,
+    ) -> Result<Option<SearchedMetadata>, MetadataError> {
+        let result = match source {
+            MetadataSource::Bgmtv => self.bgmtv_provider.find(query).await?,
+            MetadataSource::Tmdb => self.tmdb_provider.find(query).await?,
+        };
+        Ok(result)
+    }
+
+    /// Get episodes from BGM.tv (only BGM.tv supports episodes)
+    pub async fn get_episodes(&self, bgmtv_id: i64) -> Result<Vec<Episode>, MetadataError> {
+        let episodes = self
+            .bgmtv_provider
+            .get_episodes(&bgmtv_id.to_string())
+            .await?;
+        Ok(episodes)
     }
 }
