@@ -158,6 +158,10 @@ impl UpdateService {
             .http_client
             .get(&url)
             .header("Accept", "application/vnd.github.v3+json")
+            .header(
+                "User-Agent",
+                format!("{}/{}", self.config.bin_name, self.config.current_version),
+            )
             .send()
             .await?;
 
@@ -319,6 +323,10 @@ impl UpdateService {
         let response = self
             .http_client
             .get(&asset.browser_download_url)
+            .header(
+                "User-Agent",
+                format!("{}/{}", self.config.bin_name, self.config.current_version),
+            )
             .send()
             .await?;
 
@@ -464,6 +472,10 @@ impl UpdateService {
         let response = self
             .http_client
             .get(&checksum_asset.browser_download_url)
+            .header(
+                "User-Agent",
+                format!("{}/{}", self.config.bin_name, self.config.current_version),
+            )
             .send()
             .await?;
 
