@@ -48,4 +48,8 @@ pub enum UpdateError {
     /// Checksum file not found in release
     #[error("Checksum file not found in release")]
     ChecksumNotFound,
+
+    /// Invalid binary format (not a valid ELF executable)
+    #[error("Invalid binary format: {0}")]
+    InvalidBinary(String),
 }

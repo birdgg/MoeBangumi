@@ -365,13 +365,10 @@ impl UpdateService {
             tokio::fs::rename(&temp_file, &final_file).await?;
         }
 
-        // Make the binary executable (Unix only)
+        // Validate ELF binary format and set executable permissions (Unix only)
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = tokio::fs::metadata(&final_file).await?.permissions();
-            perms.set_mode(0o755);
-            tokio::fs::set_permissions(&final_file, perms).await?;
+            self.validate_and_set_permissions(&final_file).await?;
         }
 
         tracing::info!("Update installed to {:?}", final_file);
@@ -417,8 +414,27 @@ impl UpdateService {
                         entry
                             .read_to_end(&mut content)
                             .map_err(|e| UpdateError::ExtractionError(e.to_string()))?;
+
+                        // Validate ELF magic before writing
+                        const ELF_MAGIC: [u8; 4] = [0x7F, b'E', b'L', b'F'];
+                        if content.len() < 4 || content[..4] != ELF_MAGIC {
+                            return Err(UpdateError::InvalidBinary(format!(
+                                "Not a valid ELF executable in archive"
+                            )));
+                        }
+
                         std::fs::write(&target_path, content)?;
-                        tracing::debug!("Extracted {} to {:?}", bin_name, target_path);
+
+                        // Set restrictive permissions
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt;
+                            let mut perms = std::fs::metadata(&target_path)?.permissions();
+                            perms.set_mode(0o750);
+                            std::fs::set_permissions(&target_path, perms)?;
+                        }
+
+                        tracing::debug!("Extracted and validated {} to {:?}", bin_name, target_path);
                         return Ok(());
                     }
                 }
@@ -479,5 +495,36 @@ impl UpdateService {
     fn set_failed_status(&self) {
         let mut state = self.state.write();
         state.status = UpdateStatus::Failed;
+    }
+
+    /// Validate ELF binary format and set executable permissions
+    #[cfg(unix)]
+    async fn validate_and_set_permissions(&self, path: &PathBuf) -> Result<(), UpdateError> {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Read the first 4 bytes to check ELF magic number
+        let mut file = tokio::fs::File::open(path).await?;
+        let mut magic = [0u8; 4];
+        use tokio::io::AsyncReadExt;
+        file.read_exact(&mut magic).await?;
+
+        // ELF magic number: 0x7F 'E' 'L' 'F'
+        const ELF_MAGIC: [u8; 4] = [0x7F, b'E', b'L', b'F'];
+        if magic != ELF_MAGIC {
+            return Err(UpdateError::InvalidBinary(format!(
+                "Not a valid ELF executable (magic: {:02x?})",
+                magic
+            )));
+        }
+
+        tracing::debug!("ELF binary validation passed for {:?}", path);
+
+        // Set more restrictive permissions (owner: rwx, group: rx, others: none)
+        let mut perms = tokio::fs::metadata(path).await?.permissions();
+        perms.set_mode(0o750);
+        tokio::fs::set_permissions(path, perms).await?;
+
+        tracing::debug!("Set permissions to 0750 for {:?}", path);
+        Ok(())
     }
 }
