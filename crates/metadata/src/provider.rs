@@ -7,7 +7,7 @@ use crate::{ProviderError, SearchQuery, SearchedMetadata};
 /// Unified metadata provider trait
 ///
 /// This trait defines a standard interface for searching metadata from
-/// different data sources (BGM.tv, TMDB, Mikan).
+/// different data sources (BGM.tv, TMDB).
 #[async_trait]
 pub trait MetadataProvider: Send + Sync {
     /// Search for metadata matching the query
@@ -44,6 +44,24 @@ pub trait MetadataProvider: Send + Sync {
         }
 
         Ok(results.into_iter().next())
+    }
+
+    /// Calculate episode offset for a subject.
+    ///
+    /// Episode offset converts absolute episode numbers (from RSS feeds)
+    /// to season-relative episode numbers. For example:
+    /// - Season 2 starts at episode 13 (absolute) but should be episode 1 (relative)
+    /// - offset = 13 - 1 = 12
+    /// - When RSS gives episode 15, adjusted = 15 - 12 = 3 (S02E03)
+    ///
+    /// # Arguments
+    /// * `external_id` - The external ID of the subject (e.g., BGM.tv subject ID)
+    ///
+    /// # Returns
+    /// * `Ok(offset)` - The calculated episode offset
+    /// * Default implementation returns 0 (no offset)
+    async fn get_episode_offset(&self, _external_id: &str) -> Result<i32, ProviderError> {
+        Ok(0)
     }
 
     /// Provider name for logging and debugging

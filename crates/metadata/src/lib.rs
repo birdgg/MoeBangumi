@@ -1,7 +1,9 @@
 //! Unified metadata provider abstraction layer
 //!
 //! This crate provides a standardized interface for searching metadata
-//! from different data sources (BGM.tv, TMDB, Mikan).
+//! from different data sources (BGM.tv, TMDB).
+//!
+//! See [README.md](../README.md) for detailed documentation.
 //!
 //! # Architecture
 //!
@@ -11,11 +13,11 @@
 //! │  search(&SearchQuery) -> Vec<Searched>  │
 //! │  find(&SearchQuery) -> Option<Searched> │
 //! └─────────────────────────────────────────┘
-//!              △          △          △
-//!              │          │          │
-//!    ┌─────────┴──┐ ┌─────┴────┐ ┌───┴────────┐
-//!    │BgmtvProvider│ │TmdbProvider│ │MikanProvider│
-//!    └─────────────┘ └──────────┘ └────────────┘
+//!              △                    △
+//!              │                    │
+//!    ┌─────────┴──────┐   ┌─────────┴──────┐
+//!    │  BgmtvProvider │   │  TmdbProvider  │
+//!    └────────────────┘   └────────────────┘
 //! ```
 //!
 //! # Example
