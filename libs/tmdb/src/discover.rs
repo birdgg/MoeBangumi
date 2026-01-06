@@ -14,10 +14,8 @@ impl TmdbClient {
         params: DiscoverBangumiParams,
     ) -> crate::Result<PaginatedResponse<TvShow>> {
         let url = self.url("/discover/tv");
-        let client = self.client().await?;
-
         let api_key = self.api_key();
-        let mut request = client.get(&url).query(&[
+        let mut request = self.client().get(&url).query(&[
             ("api_key", api_key.as_str()),
             ("language", self.lang.as_str()),
             ("with_genres", "16"),

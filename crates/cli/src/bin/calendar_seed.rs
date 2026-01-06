@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create API clients
     let mikan = Arc::new(MikanClient::new(http_client.clone()));
-    let bgmtv = Arc::new(BgmtvClient::with_client(http_client));
+    let bgmtv = Arc::new(BgmtvClient::new(http_client));
 
     // Create output directory if needed
     std::fs::create_dir_all(OUTPUT_DIR)?;

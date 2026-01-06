@@ -6,7 +6,7 @@ pub mod parser;
 mod search;
 mod subject;
 
-pub use client::{BgmtvClient, ClientProvider};
+pub use client::BgmtvClient;
 pub use error::BgmtvError;
 pub use models::{
     CalendarCollection, CalendarDay, CalendarRating, CalendarSubject, Episode, EpisodeType,

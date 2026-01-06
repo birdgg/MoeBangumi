@@ -7,8 +7,8 @@ impl BgmtvClient {
     /// GET /v0/subjects/{subject_id}
     pub async fn get_subject(&self, subject_id: i64) -> crate::Result<ParsedSubject> {
         let url = self.url(&format!("/v0/subjects/{}", subject_id));
-        let client = self.client().await?;
-        let response = client
+        let response = self
+            .client()
             .get(&url)
             .header("User-Agent", USER_AGENT)
             .send()

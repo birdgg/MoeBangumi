@@ -10,8 +10,8 @@ impl BgmtvClient {
         request: SearchSubjectsRequest,
     ) -> crate::Result<SearchSubjectsResponse> {
         let url = self.url("/v0/search/subjects");
-        let client = self.client().await?;
-        let response = client
+        let response = self
+            .client()
             .post(&url)
             .header("User-Agent", USER_AGENT)
             .json(&request)
