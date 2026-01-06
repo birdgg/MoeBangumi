@@ -18,8 +18,8 @@ path = "src/bin/calendar_seed.rs"
 
 [dependencies]
 server = { path = "../server", default-features = false }
-mikan = { path = "../mikan" }
-bgmtv = { path = "../bgmtv" }
+mikan = { path = "../../libs/mikan" }
+bgmtv = { path = "../../libs/bgmtv" }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

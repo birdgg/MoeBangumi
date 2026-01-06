@@ -34,11 +34,11 @@ utoipa = { workspace = true, optional = true }
 utoipa-axum = { workspace = true, optional = true }
 utoipa-scalar = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["multipart"] }
-# Third-party API clients (kept separate)
-tmdb = { path = "../tmdb" }
-bgmtv = { path = "../bgmtv" }
-mikan = { path = "../mikan" }
-qbittorrent = { path = "../qbittorrent" }
+# Third-party API clients (in libs/)
+tmdb = { path = "../../libs/tmdb" }
+bgmtv = { path = "../../libs/bgmtv" }
+mikan = { path = "../../libs/mikan" }
+qbittorrent = { path = "../../libs/qbittorrent" }
 downloader = { path = "../downloader" }
 # Unified metadata abstraction
 metadata = { path = "../metadata" }

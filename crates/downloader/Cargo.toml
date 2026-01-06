@@ -16,5 +16,5 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 url = "2"
 utoipa = { workspace = true, optional = true }
-qbittorrent = { path = "../qbittorrent" }
+qbittorrent = { path = "../../libs/qbittorrent" }
 transmission-rpc = "0.5"

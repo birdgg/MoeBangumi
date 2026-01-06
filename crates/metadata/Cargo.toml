@@ -15,6 +15,6 @@ thiserror.workspace = true
 tracing.workspace = true
 utoipa = { workspace = true, optional = true }
 
-# Data source clients
-bgmtv = { path = "../bgmtv" }
-tmdb = { path = "../tmdb" }
+# Data source clients (in libs/)
+bgmtv = { path = "../../libs/bgmtv" }
+tmdb = { path = "../../libs/tmdb" }

@@ -20,7 +20,7 @@ urlencoding.workspace = true
 utoipa = { workspace = true, optional = true }
 regex.workspace = true
 chrono.workspace = true
-parser = { path = "../parser" }
+parser = { path = "../../crates/parser" }
 
 [dev-dependencies]
 tokio.workspace = true
