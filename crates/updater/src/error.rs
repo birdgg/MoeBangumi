@@ -40,4 +40,12 @@ pub enum UpdateError {
     /// IO error
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+
+    /// Checksum verification failed
+    #[error("Checksum verification failed: expected {expected}, got {actual}")]
+    ChecksumMismatch { expected: String, actual: String },
+
+    /// Checksum file not found in release
+    #[error("Checksum file not found in release")]
+    ChecksumNotFound,
 }

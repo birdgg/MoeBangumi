@@ -216,6 +216,11 @@ jobs:
           pattern: binary-*
           merge-multiple: true
 
+      - name: Generate checksums
+        run: |
+          sha256sum moe-linux-amd64.tar.gz moe-linux-arm64.tar.gz > checksums.txt
+          cat checksums.txt
+
       - name: Wait for release to be created
         run: |
           # Wait a bit for the release workflow to create the release
@@ -228,3 +233,4 @@ jobs:
           files: |
             moe-linux-amd64.tar.gz
             moe-linux-arm64.tar.gz
+            checksums.txt

@@ -277,8 +277,8 @@ impl UpdateService {
             }
         };
 
-        // Download and install
-        if let Err(e) = self.download_and_install(asset).await {
+        // Download and install with checksum verification
+        if let Err(e) = self.download_and_install(asset, &release).await {
             tracing::error!("Update failed: {}", e);
             self.set_failed_status();
             return;
@@ -292,8 +292,12 @@ impl UpdateService {
         std::process::exit(0);
     }
 
-    /// Download and install the update
-    async fn download_and_install(&self, asset: &ReleaseAsset) -> Result<(), UpdateError> {
+    /// Download and install the update with checksum verification
+    async fn download_and_install(
+        &self,
+        asset: &ReleaseAsset,
+        release: &ReleaseInfo,
+    ) -> Result<(), UpdateError> {
         tracing::info!("Downloading {} ({} bytes)...", asset.name, asset.size);
 
         // Determine target path
@@ -308,6 +312,10 @@ impl UpdateService {
 
         let temp_file = target_dir.join(format!("{}.tmp", self.config.bin_name));
         let final_file = target_dir.join(&self.config.bin_name);
+
+        // Fetch expected checksum first
+        let expected_hash = self.fetch_checksum(release, &asset.name).await?;
+        tracing::debug!("Expected checksum for {}: {}", asset.name, expected_hash);
 
         // Download the asset
         let response = self
@@ -324,6 +332,20 @@ impl UpdateService {
         }
 
         let bytes = response.bytes().await?;
+
+        // Verify checksum before writing to disk
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        let actual_hash = hex::encode(hasher.finalize());
+
+        if actual_hash.to_lowercase() != expected_hash.to_lowercase() {
+            return Err(UpdateError::ChecksumMismatch {
+                expected: expected_hash,
+                actual: actual_hash,
+            });
+        }
+        tracing::info!("Checksum verified successfully");
 
         // Save to temp file first
         tokio::fs::write(&temp_file, &bytes).await?;
@@ -409,6 +431,48 @@ impl UpdateService {
         })
         .await
         .map_err(|e| UpdateError::ExtractionError(e.to_string()))?
+    }
+
+    /// Fetch checksum for an asset from checksums.txt
+    async fn fetch_checksum(
+        &self,
+        release: &ReleaseInfo,
+        asset_name: &str,
+    ) -> Result<String, UpdateError> {
+        // Find checksums.txt asset
+        let checksum_asset = release
+            .find_asset("checksums.txt")
+            .ok_or(UpdateError::ChecksumNotFound)?;
+
+        tracing::debug!("Downloading checksums.txt from {}", checksum_asset.browser_download_url);
+
+        // Download checksums.txt
+        let response = self
+            .http_client
+            .get(&checksum_asset.browser_download_url)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(UpdateError::ChecksumNotFound);
+        }
+
+        let content = response.text().await?;
+
+        // Parse format: "sha256hash  filename" (two spaces between hash and filename)
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 && parts[1] == asset_name {
+                return Ok(parts[0].to_lowercase());
+            }
+        }
+
+        tracing::warn!(
+            "Checksum for {} not found in checksums.txt. Contents:\n{}",
+            asset_name,
+            content
+        );
+        Err(UpdateError::ChecksumNotFound)
     }
 
     /// Set status to failed
