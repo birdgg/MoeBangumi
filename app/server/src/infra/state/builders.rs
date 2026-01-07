@@ -224,13 +224,14 @@ pub fn build_update_service(
 /// Build and start background actors
 pub fn build_actors(
     db: &SqlitePool,
+    settings: &Arc<SettingsService>,
     services: &AppServices,
     metadata_actor: Arc<MetadataHandle>,
     rss_processing: Arc<RssProcessingService>,
 ) -> AppActors {
-    let rss_fetch = create_rss_fetch_actor(db.clone(), rss_processing);
+    let rss_fetch = create_rss_fetch_actor(db.clone(), rss_processing, Arc::clone(settings));
     let log_cleanup = create_log_cleanup_actor(Arc::clone(&services.logs));
-    let rename = create_rename_actor(Arc::clone(&services.rename));
+    let rename = create_rename_actor(Arc::clone(&services.rename), Arc::clone(settings));
 
     AppActors {
         metadata: metadata_actor,

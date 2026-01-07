@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use domain::repositories::RssRepository;
-use domain::services::RssProcessingService;
+use domain::services::{RssProcessingService, SettingsService};
 
 use super::actor::{spawn_periodic_actor, ActorHandle, PeriodicActor};
 
@@ -23,6 +23,7 @@ pub type RssFetchHandle = ActorHandle;
 struct RssFetchActor {
     db: SqlitePool,
     rss_processing: Arc<RssProcessingService>,
+    settings: Arc<SettingsService>,
 }
 
 impl PeriodicActor for RssFetchActor {
@@ -36,6 +37,16 @@ impl PeriodicActor for RssFetchActor {
 
     async fn execute(&mut self) {
         tracing::debug!("RSS fetch job started");
+
+        // Pre-check: skip if downloader is not configured
+        let settings = self.settings.get();
+        if !settings.downloader.is_active_config_complete() {
+            tracing::debug!(
+                "RSS fetch job skipped: Downloader not configured (type: {:?})",
+                settings.downloader.downloader_type
+            );
+            return;
+        }
 
         // Get all enabled RSS subscriptions
         let rss_list = match RssRepository::get_enabled(&self.db).await {
@@ -67,6 +78,11 @@ impl PeriodicActor for RssFetchActor {
 pub fn create_rss_fetch_actor(
     db: SqlitePool,
     rss_processing: Arc<RssProcessingService>,
+    settings: Arc<SettingsService>,
 ) -> RssFetchHandle {
-    spawn_periodic_actor(RssFetchActor { db, rss_processing })
+    spawn_periodic_actor(RssFetchActor {
+        db,
+        rss_processing,
+        settings,
+    })
 }

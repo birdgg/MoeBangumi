@@ -56,7 +56,7 @@ impl AppState {
         );
 
         // Build actors
-        let actors = builders::build_actors(&db, &services, metadata_actor, rss_processing);
+        let actors = builders::build_actors(&db, &settings, &services, metadata_actor, rss_processing);
 
         // Build final state structures
         let infra = Arc::new(AppInfra {
