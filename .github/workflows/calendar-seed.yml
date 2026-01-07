@@ -29,33 +29,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build calendar_seed
-        run: cargo build --release --bin calendar_seed
+      - name: Download calendar_seed binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download calendar-seed-bin -p calendar_seed
+          chmod +x calendar_seed
 
       - name: Fetch calendar data
         run: |
           MODE="${{ github.event.inputs.mode || 'recent' }}"
           if [ "$MODE" = "all" ]; then
             echo "Fetching all seasons..."
-            ./target/release/calendar_seed
+            ./calendar_seed
           else
             RECENT_COUNT="${{ github.event.inputs.recent_count || '1' }}"
             echo "Fetching recent $RECENT_COUNT seasons..."
-            ./target/release/calendar_seed --recent $RECENT_COUNT
+            ./calendar_seed --recent $RECENT_COUNT
           fi
 
       - name: Check for changes
