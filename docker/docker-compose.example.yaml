@@ -1,0 +1,28 @@
+version: "3"
+services:
+  moe-bangumi:
+    image: birdgg/moe-bangumi:latest
+    container_name: moe-bangumi
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /share/CACHEDEV1_DATA/docker/moe-bangumi/data:/data
+      - /share/CACHEDEV1_DATA/Media:/Media # 番剧挂载路径，两侧须保持一致
+    restart: always
+    network_mode: host
+  # qBittorrent:
+  #   image: superng6/qbittorrentee:latest
+  #   container_name: qBittorrent
+  #   environment:
+  #     - PUID=0
+  #     - PGID=0
+  #     - WEBUI_PORT=8080 # qBittorrent 端口
+  #     - TZ=Asia/Shanghai
+  #   volumes:
+  #     - /share/CACHEDEV1_DATA/docker/qb/config:/config
+  #     - /share/CACHEDEV1_DATA/Downloads:/downloads
+  #     - /share/CACHEDEV1_DATA/Media:/Media # 番剧挂载路径，两侧须保持一致
+  #   restart: always
+  #   network_mode: host

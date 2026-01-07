@@ -218,7 +218,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          CHANGELOG=$(git-cliff --current --strip header)
+          CHANGELOG=$(git-cliff --current --strip header | sed '/^## \[/d')
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="No notable changes in this release."
           fi

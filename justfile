@@ -80,50 +80,16 @@ changelog mode="unreleased":
         git-cliff --unreleased
     fi
 
-# Bump version in all Cargo.toml files
-bump-version version:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    VERSION="{{version}}"
+# Release with version bump: just release patch|minor|major|X.Y.Z
+# Examples:
+#   just release patch   # 0.2.4 -> 0.2.5
+#   just release minor   # 0.2.4 -> 0.3.0
+#   just release major   # 0.2.4 -> 1.0.0
+#   just release 0.3.0   # explicit version
+release level:
+    cargo release {{level}} --execute
 
-    # Validate version format
-    if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
-        echo "Error: Invalid version format. Expected: X.Y.Z or X.Y.Z-suffix"
-        exit 1
-    fi
-
-    # Update workspace version
-    sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-
-    echo "Version bumped to $VERSION"
-    echo "Run 'cargo check' to verify the changes"
-
-# Create and push a release tag (triggers Docker build, then GitHub Release)
-# Usage: just release 0.1.0
-release version:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    VERSION="{{version}}"
-    TAG="v$VERSION"
-
-    # Validate version format
-    if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
-        echo "Error: Invalid version format. Expected: X.Y.Z or X.Y.Z-suffix"
-        exit 1
-    fi
-
-    # Check if tag already exists
-    if git rev-parse "$TAG" >/dev/null 2>&1; then
-        echo "Error: Tag $TAG already exists"
-        exit 1
-    fi
-
-    echo "Creating tag $TAG..."
-    git tag -a "$TAG" -m "Release $TAG"
-
-    echo "Pushing tag $TAG..."
-    git push origin "$TAG"
-
-    echo "Tag $TAG pushed! Docker build will start, then GitHub Release will be created."
-    echo "Check GitHub Actions for progress: https://github.com/$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/actions"
+# Preview release (dry-run)
+release-dry level:
+    cargo release {{level}}
 

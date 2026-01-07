@@ -8,32 +8,7 @@ Avoid success $ at all cost
 
 ### Docker Compose (推荐)
 
-1. 创建目录并下载配置文件：
-```bash
-mkdir -p moe-bangumi && cd moe-bangumi
-curl -O https://raw.githubusercontent.com/birdgg/moe-bangumi/main/docker/docker-compose.yaml
-```
-
-2. 修改 `docker-compose.yaml` 中的媒体库路径：
-```yaml
-volumes:
-  - ./data:/data
-  - /your/media/path:/media  # 修改为你的媒体库路径
-```
-
-4. 启动服务：
-```bash
-docker compose up -d
-```
-
-5. 访问 `http://localhost:3000` 开始使用
-
-### 更新
-
-```bash
-docker compose pull
-docker compose up -d
-```
+checkout [example](./docker/docker-compose.example.yaml)
 
 ## 相关推荐
 - [Anime4K](https://github.com/bloc97/Anime4K)
