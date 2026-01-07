@@ -103,7 +103,20 @@ jobs:
           ref: ${{ inputs.tag }}
           fetch-depth: 0
 
+      - name: Check if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ inputs.tag }}" &>/dev/null; then
+            echo "Release ${{ inputs.tag }} already exists, skipping creation"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Generate release body
+        if: steps.check.outputs.exists != 'true'
         id: body
         run: |
           {
@@ -125,6 +138,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
+        if: steps.check.outputs.exists != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.validate.outputs.tag }}
