@@ -13,7 +13,7 @@ name = "moe"
 path = "src/main.rs"
 
 [dependencies]
-server = { path = "../../core/server", default-features = false }
+server = { path = "../../app/server", default-features = false }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

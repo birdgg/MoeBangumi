@@ -1,0 +1,62 @@
+[package]
+name = "server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+openapi = [
+    "dep:utoipa",
+    "dep:utoipa-axum",
+    "dep:utoipa-scalar",
+    "domain/openapi",
+    "parser/openapi",
+    "downloader/openapi",
+    "tmdb/openapi",
+    "bgmtv/openapi",
+    "mikan/openapi",
+    "metadata/openapi",
+    "updater/openapi",
+]
+
+[dependencies]
+# Domain and Jobs layers
+domain = { path = "../../core/domain" }
+jobs = { path = "../jobs" }
+
+# Web framework
+axum.workspace = true
+tower-http.workspace = true
+utoipa = { workspace = true, optional = true }
+utoipa-axum = { workspace = true, optional = true }
+utoipa-scalar = { workspace = true, optional = true }
+
+# Core dependencies
+sqlx.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Third-party API clients (used in state.rs)
+tmdb = { path = "../../libs/tmdb" }
+bgmtv = { path = "../../libs/bgmtv" }
+mikan = { path = "../../libs/mikan" }
+metadata = { path = "../../core/metadata" }
+updater = { path = "../../core/updater" }
+
+# Used in API handlers
+parser = { path = "../../core/parser" }
+downloader = { path = "../../core/downloader" }
+pathgen = { path = "../../core/pathgen" }
+rss = { path = "../../libs/rss" }
+futures.workspace = true
+tokio-stream = { version = "0.1", features = ["sync"] }
+chrono.workspace = true
+
+# Other dependencies
+parking_lot.workspace = true
+reqwest.workspace = true

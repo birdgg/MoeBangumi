@@ -1,0 +1,13 @@
+[package]
+name = "rss"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+reqwest.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+quick-xml.workspace = true
+chrono.workspace = true
+serde.workspace = true

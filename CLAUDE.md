@@ -35,11 +35,14 @@ This is a Rust workspace for a Bangumi (anime) tracking and download management 
 
 ### Workspace Structure
 
+- **app/** - Application layer (runtime components)
+  - **app/server** - Web server (API routes, state management)
+  - **app/jobs** - Background job actors (RSS fetch, rename, log cleanup)
 - **cli/** - Binary crates (entry points)
   - **cli/cli** - Main CLI entry point, reads config from .env and starts server
   - **cli/calendar-seed** - Calendar seed data generator tool
 - **core/** - Core library crates
-  - **core/server** - Core library with web server, API routes, and business logic
+  - **core/domain** - Domain layer with models, repositories, services, and core actors
   - **core/downloader** - Downloader abstraction layer (supports qBittorrent, extensible)
   - **core/metadata** - Unified metadata abstraction (BGM.tv, TMDB adapters)
   - **core/parser** - Anime filename parser (extracts episode, season, subtitle group, resolution, etc.)
@@ -52,19 +55,30 @@ This is a Rust workspace for a Bangumi (anime) tracking and download management 
   - **libs/tmdb** - TMDB API client for movie/TV metadata
 - **web/** - Frontend application (React + Vite)
 
-### Server Module Organization
+### Domain Module Organization (core/domain)
 
 ```
-server/src/
-├── api/              # API route handlers (grouped by resource)
+core/domain/src/
+├── config.rs         # Application configuration
 ├── models/           # Data models (Bangumi, RSS, Settings, etc.)
 ├── repositories/     # Database access layer
-├── services/         # Business logic and external service integrations
-├── config.rs         # Configuration struct
-├── db.rs             # Database connection and migrations
+├── services/         # Business logic
+│   └── actors/       # Core actors (downloader, metadata, notification)
+└── utils/            # Utilities (pathgen, rss, tracing)
+```
+
+### Server Module Organization (app/server)
+
+```
+app/server/src/
+├── api/              # API route handlers (grouped by resource)
+├── infra/            # Infrastructure
+│   ├── banner.rs     # Startup banner
+│   ├── db.rs         # Database connection and migrations
+│   ├── error.rs      # Error handling
+│   └── state.rs      # AppState with shared resources
 ├── lib.rs            # Library entry point
-├── openapi.rs        # OpenAPI/Swagger documentation
-└── state.rs          # AppState with shared resources (DB pool, clients)
+└── openapi.rs        # OpenAPI/Swagger documentation
 ```
 
 ### Key Patterns

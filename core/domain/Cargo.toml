@@ -1,0 +1,66 @@
+[package]
+name = "domain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+openapi = [
+    "dep:utoipa",
+    "tmdb/openapi",
+    "bgmtv/openapi",
+    "mikan/openapi",
+    "downloader/openapi",
+    "qbittorrent/openapi",
+    "parser/openapi",
+    "washing/openapi",
+    "metadata/openapi",
+]
+
+[dependencies]
+# Core
+sqlx.workspace = true
+tokio.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+utoipa = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["multipart"] }
+
+# Third-party API clients (in libs/)
+tmdb = { path = "../../libs/tmdb" }
+bgmtv = { path = "../../libs/bgmtv" }
+mikan = { path = "../../libs/mikan" }
+qbittorrent = { path = "../../libs/qbittorrent" }
+downloader = { path = "../downloader" }
+
+# Unified metadata abstraction
+metadata = { path = "../metadata" }
+
+# Tool libraries
+parser = { path = "../parser" }
+washing = { path = "../washing" }
+pathgen = { path = "../pathgen" }
+rss = { path = "../../libs/rss" }
+
+# Other dependencies
+chrono.workspace = true
+toml.workspace = true
+regex.workspace = true
+futures.workspace = true
+tokio-stream = { version = "0.1", features = ["sync"] }
+tracing-subscriber.workspace = true
+parking_lot.workspace = true
+urlencoding = "2"
+sha2 = "0.10"
+hex = "0.4"
+
+# Note: quick-xml moved to libs/rss
+
+# From notify crate
+teloxide.workspace = true
+lru.workspace = true

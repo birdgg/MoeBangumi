@@ -3,7 +3,7 @@
 # Run `just --list` to see all available commands
 
 # Default: start backend dev server
-default: dev
+default: dev-all
 
 # === Rust Commands ===
 
@@ -11,17 +11,9 @@ default: dev
 check:
     cargo check
 
-# Check compilation without OpenAPI (release mode)
-check-release:
-    cargo check -p cli --release --no-default-features
-
 # Run tests
 test:
     cargo test
-
-# Build release binary (without OpenAPI, optimized for production)
-build-release:
-    cargo build -p cli --release --no-default-features
 
 # Run the server (dev mode)
 dev:
@@ -59,7 +51,7 @@ web-gen-api:
 dev-all:
     #!/usr/bin/env bash
     trap 'kill 0' EXIT
-    cargo run -p cli --bin moe &
+    cargo run -p cli --bin moe --features openapi &
     cd web && bun run dev &
     wait
 
