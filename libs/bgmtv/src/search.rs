@@ -24,15 +24,12 @@ impl BgmtvClient {
     /// Search for Japanese anime (bangumi) - returns raw subjects
     /// Convenience method with preset filter: type=[Anime], meta_tags=["日本"], air_date=[<today]
     pub async fn search_bangumi(&self, keyword: impl Into<String>) -> crate::Result<Vec<Subject>> {
-        // Get today's date in YYYY-MM-DD format
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-
         let request = SearchSubjectsRequest {
             keyword: keyword.into(),
             filter: Some(SearchFilter {
                 subject_type: Some(vec![SubjectType::Anime]),
                 meta_tags: Some(vec!["日本".to_string()]),
-                air_date: Some(vec![format!("<{}", today)]),
+                air_date: None,
             }),
         };
         let response = self.search_subjects(request).await?;
