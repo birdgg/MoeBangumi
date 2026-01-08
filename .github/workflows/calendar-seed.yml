@@ -19,26 +19,33 @@ on:
         required: false
         default: '1'
 
+env:
+  SEED_REPO: birdgg/bangumi-calendar
+
 jobs:
   update-seed:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout seed repository
         uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SEED_REPO }}
+          token: ${{ secrets.SEED_REPO_TOKEN }}
+          path: seed-repo
 
       - name: Download calendar-seed binary
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download calendar-seed-bin -p calendar-seed
+          gh release download calendar-seed-bin -p calendar-seed -R birdgg/moe-bangumi
           chmod +x calendar-seed
 
       - name: Fetch calendar data
         run: |
           MODE="${{ github.event.inputs.mode || 'recent' }}"
+          # Output directly to seed-repo directory
+          export OUTPUT_DIR=seed-repo
           if [ "$MODE" = "all" ]; then
             echo "Fetching all seasons..."
             ./calendar-seed
@@ -50,22 +57,24 @@ jobs:
 
       - name: Check for changes
         id: changes
+        working-directory: seed-repo
         run: |
-          if git diff --quiet assets/seed/; then
+          if git diff --quiet; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "No changes detected in seed data"
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "Changes detected in seed data:"
-            git diff --stat assets/seed/
+            git diff --stat
           fi
 
       - name: Commit and push changes
         if: steps.changes.outputs.has_changes == 'true'
+        working-directory: seed-repo
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add assets/seed/*.json
+          git add *.json
           git commit -m "chore: update calendar seed data
 
           Automatically updated by GitHub Actions.

@@ -16,7 +16,9 @@ use mikan::{MikanClient, Season, SeasonIterator};
 use serde::{Deserialize, Serialize};
 use tracing_subscriber::EnvFilter;
 
-const OUTPUT_DIR: &str = "assets/seed";
+fn get_output_dir() -> String {
+    std::env::var("OUTPUT_DIR").unwrap_or_else(|_| "assets/seed".to_string())
+}
 const REQUEST_DELAY_SECS: u64 = 10;
 const END_YEAR: i32 = 2013;
 
@@ -81,8 +83,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mikan = Arc::new(MikanClient::new(http_client.clone()));
     let bgmtv_provider = Arc::new(BgmtvProvider::with_http_client(http_client));
 
+    let output_dir = get_output_dir();
+
     // Create output directory if needed
-    std::fs::create_dir_all(OUTPUT_DIR)?;
+    std::fs::create_dir_all(&output_dir)?;
 
     let iterator = SeasonIterator::from_current_to(END_YEAR, Season::Winter);
     let seasons: Vec<_> = iterator.collect();
@@ -123,7 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
 
                 // Save each season to its own file
-                let filename = format!("{}/{}-{}.json", OUTPUT_DIR, year, season_str);
+                let filename = format!("{}/{}-{}.json", output_dir, year, season_str);
                 let json = serde_json::to_string_pretty(&data)?;
                 std::fs::write(&filename, &json)?;
                 tracing::info!("Saved {}", filename);
