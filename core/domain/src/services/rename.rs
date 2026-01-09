@@ -4,14 +4,14 @@
 //! to be compatible with Plex/Jellyfin naming standards.
 
 use futures::stream::{self, StreamExt};
-use parser::Parser;
+use parser::{BDRipContentType, BDRipParser, Parser};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::config::Config;
-use crate::models::{BangumiWithMetadata, Torrent};
+use crate::models::{BangumiWithMetadata, SourceType, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
 use crate::services::{DownloaderHandle, NotificationService, Task, TaskFile};
 
@@ -342,8 +342,6 @@ impl RenameService {
             }
         }
 
-        let mut renamed_episodes = Vec::new();
-
         // Get file list from downloader
         let files = self.downloader.get_task_files(&task.id).await?;
 
@@ -359,12 +357,83 @@ impl RenameService {
                 bangumi_title: bangumi.metadata.title_chinese.clone(),
                 poster_url: bangumi.metadata.poster_url.clone(),
                 total_episodes: bangumi.metadata.total_episodes,
-                renamed_episodes,
+                renamed_episodes: Vec::new(),
             });
         }
 
-        // Process each video file
-        for video_file in &video_files {
+        // Check if this is a BDRip task
+        let is_bdrip = self.is_bdrip(task, bangumi, &files);
+
+        let renamed_episodes = if is_bdrip {
+            tracing::info!("Detected BDRip structure for task: {}", task.name);
+            self.process_bdrip_task(task, &video_files, bangumi, &files)
+                .await?
+        } else {
+            self.process_standard_task(task, &video_files, torrent, bangumi, &files)
+                .await?
+        };
+
+        // Remove the "rename" tag
+        self.finalize_task(&task.id).await?;
+
+        tracing::info!("Successfully renamed task: {}", task.name);
+        Ok(RenameTaskResult {
+            bangumi_id: bangumi.bangumi.id,
+            bangumi_title: bangumi.metadata.title_chinese.clone(),
+            poster_url: bangumi.metadata.poster_url.clone(),
+            total_episodes: bangumi.metadata.total_episodes,
+            renamed_episodes,
+        })
+    }
+
+    /// Check if a task is a BDRip (three-way detection)
+    ///
+    /// 1. User marked source_type as BDRip
+    /// 2. Torrent title contains "bdrip" (case insensitive)
+    /// 3. Directory structure contains BDRip indicators (SPs, CDs, Scans)
+    fn is_bdrip(&self, task: &Task, bangumi: &BangumiWithMetadata, files: &[TaskFile]) -> bool {
+        // 1. User marked as BDRip
+        if bangumi.bangumi.source_type == SourceType::BDRip {
+            return true;
+        }
+
+        // 2. Torrent title contains "bdrip"
+        if task.name.to_lowercase().contains("bdrip") {
+            return true;
+        }
+
+        // 3. Directory structure detection
+        self.is_bdrip_structure(files)
+    }
+
+    /// Check if file structure indicates BDRip content
+    ///
+    /// Detects BDRip by looking for characteristic directories:
+    /// - SPs/SP/Specials: Special episodes
+    /// - CDs/CD: Music/OST
+    /// - Scans/Scan: Booklet scans
+    fn is_bdrip_structure(&self, files: &[TaskFile]) -> bool {
+        // Use case-insensitive matching for directory names
+        let markers = ["/sps/", "/sp/", "/specials/", "/cds/", "/cd/", "/scans/", "/scan/"];
+
+        files.iter().any(|f| {
+            let path_lower = f.path.to_lowercase();
+            markers.iter().any(|m| path_lower.contains(m))
+        })
+    }
+
+    /// Process a standard (non-BDRip) task
+    async fn process_standard_task(
+        &self,
+        task: &Task,
+        video_files: &[&TaskFile],
+        torrent: &Torrent,
+        bangumi: &BangumiWithMetadata,
+        all_files: &[TaskFile],
+    ) -> Result<Vec<i32>> {
+        let mut renamed_episodes = Vec::new();
+
+        for video_file in video_files {
             // If single video file and torrent has episode_number, use it as fallback
             let episode = if video_files.len() == 1 {
                 torrent
@@ -377,7 +446,7 @@ impl RenameService {
 
             if let Some(ep) = episode {
                 if self
-                    .rename_file(task, video_file, bangumi, ep, &files)
+                    .rename_file(task, video_file, bangumi, ep, all_files)
                     .await
                     .is_ok()
                 {
@@ -391,17 +460,199 @@ impl RenameService {
             }
         }
 
-        // Remove the "rename" tag
-        self.finalize_task(&task.id).await?;
+        Ok(renamed_episodes)
+    }
 
-        tracing::info!("Successfully renamed task: {}", task.name);
-        Ok(RenameTaskResult {
-            bangumi_id: bangumi.bangumi.id,
-            bangumi_title: bangumi.metadata.title_chinese.clone(),
-            poster_url: bangumi.metadata.poster_url.clone(),
-            total_episodes: bangumi.metadata.total_episodes,
-            renamed_episodes,
-        })
+    /// Process a BDRip task with complex directory structure
+    async fn process_bdrip_task(
+        &self,
+        task: &Task,
+        video_files: &[&TaskFile],
+        bangumi: &BangumiWithMetadata,
+        all_files: &[TaskFile],
+    ) -> Result<Vec<i32>> {
+        let mut renamed_episodes = Vec::new();
+
+        for video_file in video_files {
+            let parse_result = BDRipParser::parse(&video_file.path);
+
+            match parse_result.content_type {
+                BDRipContentType::NonVideo => {
+                    // Skip non-video content (shouldn't happen as we filtered video files)
+                    tracing::debug!("Skipping non-video in BDRip: {}", video_file.path);
+                    continue;
+                }
+                BDRipContentType::Special => {
+                    // Process special/SP content
+                    if let Some(sp_number) = parse_result.number {
+                        if self
+                            .rename_special(task, video_file, bangumi, sp_number, all_files)
+                            .await
+                            .is_ok()
+                        {
+                            tracing::info!(
+                                "Renamed special SP{:02} for: {}",
+                                sp_number,
+                                video_file.path
+                            );
+                        }
+                    } else {
+                        tracing::warn!(
+                            "Could not determine special number for: {}",
+                            video_file.path
+                        );
+                    }
+                }
+                BDRipContentType::Episode => {
+                    // Process regular episode
+                    let season = parse_result.season.unwrap_or(bangumi.metadata.season);
+
+                    if let Some(episode) = parse_result.number {
+                        if self
+                            .rename_bdrip_episode(
+                                task, video_file, bangumi, season, episode, all_files,
+                            )
+                            .await
+                            .is_ok()
+                        {
+                            renamed_episodes.push(episode);
+                        }
+                    } else {
+                        tracing::warn!(
+                            "Could not determine episode number for BDRip: {}",
+                            video_file.path
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(renamed_episodes)
+    }
+
+    /// Rename a BDRip episode file
+    ///
+    /// Note: Unlike standard WebRip processing, BDRip episode numbers are NOT
+    /// adjusted with episode_offset. This is because:
+    /// 1. BDRip releases typically use season-relative numbering (e.g., S2E01, not S2E13)
+    /// 2. The episode number is parsed from directory structure, not RSS metadata
+    /// 3. episode_offset is designed for RSS feeds that use absolute episode numbers
+    async fn rename_bdrip_episode(
+        &self,
+        task: &Task,
+        file: &TaskFile,
+        bangumi: &BangumiWithMetadata,
+        season: i32,
+        episode: i32,
+        all_files: &[TaskFile],
+    ) -> Result<()> {
+        let ext = file.extension().unwrap_or("mkv");
+
+        // BDRip episode numbers are already season-relative, no offset needed
+        let new_filename_base = pathgen::generate_filename(
+            &bangumi.metadata.title_chinese,
+            season,
+            episode,
+            Some(bangumi.metadata.platform.as_str()),
+        );
+
+        // Build the full destination path
+        let new_path = Self::build_bdrip_path(
+            &bangumi.metadata.title_chinese,
+            bangumi.metadata.year,
+            bangumi.metadata.tmdb_id,
+            season,
+            &new_filename_base,
+            ext,
+        );
+
+        // Rename subtitles first
+        self.rename_subtitles(task, &file.path, &new_filename_base, all_files)
+            .await?;
+
+        // Rename video file
+        if file.path != new_path {
+            tracing::info!("BDRip rename: {} -> {}", file.path, new_path);
+            self.downloader
+                .rename_file(&task.id, &file.path, &new_path)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Rename a special/SP file
+    async fn rename_special(
+        &self,
+        task: &Task,
+        file: &TaskFile,
+        bangumi: &BangumiWithMetadata,
+        sp_number: i32,
+        all_files: &[TaskFile],
+    ) -> Result<()> {
+        let ext = file.extension().unwrap_or("mkv");
+
+        // Generate special filename: Title - s00eXX
+        let title = pathgen::sanitize(&bangumi.metadata.title_chinese);
+        let new_filename_base = format!("{} - s00e{:02}", title, sp_number);
+
+        // Build the full destination path with Specials directory
+        let new_path = Self::build_special_path(
+            &bangumi.metadata.title_chinese,
+            bangumi.metadata.year,
+            bangumi.metadata.tmdb_id,
+            &new_filename_base,
+            ext,
+        );
+
+        // Rename subtitles first
+        self.rename_subtitles(task, &file.path, &new_filename_base, all_files)
+            .await?;
+
+        // Rename video file
+        if file.path != new_path {
+            tracing::info!("Special rename: {} -> {}", file.path, new_path);
+            self.downloader
+                .rename_file(&task.id, &file.path, &new_path)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Build destination path for BDRip episode
+    fn build_bdrip_path(
+        title: &str,
+        year: i32,
+        tmdb_id: Option<i64>,
+        season: i32,
+        filename: &str,
+        ext: &str,
+    ) -> String {
+        let base_dir = Self::format_base_dir(title, year, tmdb_id);
+        format!("{}/Season {:02}/{}.{}", base_dir, season, filename, ext)
+    }
+
+    /// Build destination path for special content
+    fn build_special_path(
+        title: &str,
+        year: i32,
+        tmdb_id: Option<i64>,
+        filename: &str,
+        ext: &str,
+    ) -> String {
+        let base_dir = Self::format_base_dir(title, year, tmdb_id);
+        format!("{}/Specials/{}.{}", base_dir, filename, ext)
+    }
+
+    /// Format base directory: "Title (year) {tmdb-ID}"
+    fn format_base_dir(title: &str, year: i32, tmdb_id: Option<i64>) -> String {
+        let sanitized = pathgen::sanitize(title);
+        if let Some(id) = tmdb_id {
+            format!("{} ({}) {{tmdb-{}}}", sanitized, year, id)
+        } else {
+            format!("{} ({})", sanitized, year)
+        }
     }
 
     /// Rename a single video file and associated subtitles

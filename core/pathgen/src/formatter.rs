@@ -47,10 +47,21 @@ impl DefaultFormatter {
         format!("Season {:02}", season)
     }
 
+    /// Format the Specials directory
+    fn format_specials_dir() -> String {
+        "Specials".to_string()
+    }
+
     /// Format the episode filename: "迷宫饭 - s01e12"
     fn format_episode_filename(&self, info: &PathInfo) -> String {
         let title = PathSanitizer::sanitize(&info.title);
         format!("{} - s{:02}e{:02}", title, info.season, info.episode)
+    }
+
+    /// Format the special filename: "迷宫饭 - s00e01"
+    fn format_special_filename(&self, info: &PathInfo) -> String {
+        let title = PathSanitizer::sanitize(&info.title);
+        format!("{} - s00e{:02}", title, info.episode)
     }
 
     /// Format the movie filename: "迷宫饭"
@@ -66,8 +77,12 @@ impl PathFormatter for DefaultFormatter {
         // Add base directory
         path.push(self.format_base_dir(info));
 
-        // Movies don't need Season directory
-        if !info.is_movie() {
+        // Add subdirectory based on content type
+        if info.is_movie() {
+            // Movies don't need subdirectory
+        } else if info.is_special() {
+            path.push(Self::format_specials_dir());
+        } else {
             path.push(self.format_season_dir(info.season));
         }
 
@@ -81,7 +96,11 @@ impl PathFormatter for DefaultFormatter {
         let mut path = PathBuf::new();
         path.push(self.format_base_dir(info));
 
-        if !info.is_movie() {
+        if info.is_movie() {
+            // Movies don't need subdirectory
+        } else if info.is_special() {
+            path.push(Self::format_specials_dir());
+        } else {
             path.push(self.format_season_dir(info.season));
         }
 
@@ -91,6 +110,8 @@ impl PathFormatter for DefaultFormatter {
     fn format_filename(&self, info: &PathInfo) -> Result<String> {
         Ok(if info.is_movie() {
             self.format_movie_filename(info)
+        } else if info.is_special() {
+            self.format_special_filename(info)
         } else {
             self.format_episode_filename(info)
         })
@@ -161,5 +182,44 @@ mod tests {
             path.to_str().unwrap(),
             "Title Subtitle (2024) {tmdb-123}/Season 01/Title Subtitle - s01e01"
         );
+    }
+
+    #[test]
+    fn test_format_special() {
+        let formatter = DefaultFormatter::new();
+        let info = PathInfo::new_special("迷宫饭", 2024, 1).with_tmdb_id(119121);
+
+        let path = formatter.format(&info).unwrap();
+        assert_eq!(
+            path.to_str().unwrap(),
+            "迷宫饭 (2024) {tmdb-119121}/Specials/迷宫饭 - s00e01"
+        );
+    }
+
+    #[test]
+    fn test_format_special_directory() {
+        let formatter = DefaultFormatter::new();
+        let info = PathInfo::new_special("测试动画", 2024, 3).with_tmdb_id(99999);
+
+        let dir = formatter.format_directory(&info).unwrap();
+        assert_eq!(
+            dir.to_str().unwrap(),
+            "测试动画 (2024) {tmdb-99999}/Specials"
+        );
+    }
+
+    #[test]
+    fn test_is_special() {
+        // Season 0 = special
+        let info1 = PathInfo::new("测试", 2024, 0, 1);
+        assert!(info1.is_special());
+
+        // kind = "special"
+        let info2 = PathInfo::new("测试", 2024, 1, 1).with_kind("special");
+        assert!(info2.is_special());
+
+        // Regular episode
+        let info3 = PathInfo::new("测试", 2024, 1, 1);
+        assert!(!info3.is_special());
     }
 }

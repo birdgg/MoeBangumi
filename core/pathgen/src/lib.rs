@@ -103,6 +103,13 @@ pub fn generate_filename(title: &str, season: i32, episode: i32, kind: Option<&s
         .unwrap_or_else(|_| format!("{} - s{:02}e{:02}", title, season, episode))
 }
 
+/// Convenience function for sanitizing a path component
+///
+/// Removes or replaces filesystem-illegal characters.
+pub fn sanitize(s: &str) -> String {
+    PathSanitizer::sanitize(s)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
