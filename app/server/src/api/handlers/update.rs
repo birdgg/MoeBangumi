@@ -30,22 +30,51 @@ pub async fn get_version(State(state): State<AppState>) -> Json<VersionInfo> {
     Json(state.services.update.get_version_info())
 }
 
-/// Check for updates (triggers auto-update if available)
+/// Check for updates (check only, does not auto-update)
 #[cfg_attr(feature = "openapi", utoipa::path(
     post,
     path = "/api/version/check",
     tag = "system",
     responses(
-        (status = 200, description = "Update check triggered", body = UpdateResponse)
+        (status = 200, description = "Version information after check", body = VersionInfo)
     )
 ))]
-pub async fn check_update(State(state): State<AppState>) -> AppResult<Json<UpdateResponse>> {
-    state.services.update.check_for_updates().await.map_err(|e| {
+pub async fn check_update(State(state): State<AppState>) -> AppResult<Json<VersionInfo>> {
+    state.services.update.check_only().await.map_err(|e| {
         crate::error::AppError::internal(format!("Failed to check for updates: {}", e))
+    })?;
+
+    // Wait a moment for the check to complete
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+    Ok(Json(state.services.update.get_version_info()))
+}
+
+/// Perform update (download and install)
+#[cfg_attr(feature = "openapi", utoipa::path(
+    post,
+    path = "/api/version/update",
+    tag = "system",
+    responses(
+        (status = 200, description = "Update triggered", body = UpdateResponse)
+    )
+))]
+pub async fn perform_update(State(state): State<AppState>) -> AppResult<Json<UpdateResponse>> {
+    // Check if update is available
+    let version_info = state.services.update.get_version_info();
+    if !version_info.update_available {
+        return Ok(Json(UpdateResponse {
+            success: false,
+            message: "No update available".to_string(),
+        }));
+    }
+
+    state.services.update.perform_update().await.map_err(|e| {
+        crate::error::AppError::internal(format!("Failed to trigger update: {}", e))
     })?;
 
     Ok(Json(UpdateResponse {
         success: true,
-        message: "Update check triggered. If an update is available, it will be installed automatically.".to_string(),
+        message: "Update started. The application will restart shortly.".to_string(),
     }))
 }

@@ -43,6 +43,8 @@ import type {
   ListTorrentsData,
   ListTorrentsErrors,
   ListTorrentsResponses,
+  PerformUpdateData,
+  PerformUpdateResponses,
   RefreshCalendarData,
   RefreshCalendarResponses,
   ResetSettingsData,
@@ -537,7 +539,7 @@ export const getVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Check for updates (triggers auto-update if available)
+ * Check for updates (check only, does not auto-update)
  */
 export const checkUpdate = <ThrowOnError extends boolean = false>(
   options?: Options<CheckUpdateData, ThrowOnError>,
@@ -545,3 +547,15 @@ export const checkUpdate = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).post<CheckUpdateResponses, unknown, ThrowOnError>(
     { url: "/api/version/check", ...options },
   );
+
+/**
+ * Perform update (download and install)
+ */
+export const performUpdate = <ThrowOnError extends boolean = false>(
+  options?: Options<PerformUpdateData, ThrowOnError>,
+) =>
+  (options?.client ?? client).post<
+    PerformUpdateResponses,
+    unknown,
+    ThrowOnError
+  >({ url: "/api/version/update", ...options });

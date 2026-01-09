@@ -58,7 +58,7 @@ pub use settings::{
     TestNotificationRequest, TestProxyRequest,
 };
 pub use torrents::{delete_torrents, list_torrents, DeleteTorrentsRequest};
-pub use update::{check_update, get_version, UpdateResponse};
+pub use update::{check_update, get_version, perform_update, UpdateResponse};
 
 // Re-export utoipa path structs for OpenAPI routing
 #[cfg(feature = "openapi")]
@@ -93,7 +93,7 @@ mod openapi_paths {
     #[doc(hidden)]
     pub use super::torrents::{__path_delete_torrents, __path_list_torrents};
     #[doc(hidden)]
-    pub use super::update::{__path_check_update, __path_get_version};
+    pub use super::update::{__path_check_update, __path_get_version, __path_perform_update};
     #[doc(hidden)]
     pub use super::scan::__path_scan_import;
 }
