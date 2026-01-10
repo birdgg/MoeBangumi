@@ -183,6 +183,32 @@ impl BangumiRepository {
         Ok(rows.into_iter().map(Into::into).collect())
     }
 
+    /// Get multiple bangumi with series by IDs
+    /// Results are sorted by season (ascending) for consistent ordering
+    pub async fn get_with_series_by_ids(
+        pool: &SqlitePool,
+        ids: &[i64],
+    ) -> Result<Vec<BangumiWithSeries>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("${}", i)).collect();
+        let query = format!(
+            "{} WHERE b.id IN ({}) ORDER BY b.season ASC",
+            SELECT_BANGUMI_WITH_SERIES,
+            placeholders.join(", ")
+        );
+
+        let mut q = sqlx::query_as::<_, BangumiWithSeriesRow>(&query);
+        for id in ids {
+            q = q.bind(id);
+        }
+
+        let rows = q.fetch_all(pool).await?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
     /// Update a bangumi
     pub async fn update(
         pool: &SqlitePool,
