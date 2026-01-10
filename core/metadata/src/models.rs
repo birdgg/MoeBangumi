@@ -128,6 +128,19 @@ pub enum EpisodeType {
     Ending,
 }
 
+/// Combined search results from all metadata sources
+///
+/// This struct holds results from parallel searches to BGM.tv and TMDB,
+/// allowing the frontend to display results grouped by data source.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct CombinedSearchResults {
+    /// Search results from BGM.tv
+    pub bgmtv: Vec<SearchedMetadata>,
+    /// Search results from TMDB
+    pub tmdb: Vec<SearchedMetadata>,
+}
+
 /// Episode information from metadata provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]

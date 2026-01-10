@@ -52,7 +52,7 @@ pub use logs::{cleanup_logs, clear_all_logs, get_logs, stream_logs};
 pub use metadata::{get_metadata, get_metadata_by_id, update_metadata};
 pub use mikan::get_mikan_rss;
 pub use scan::{scan_import, ScanImportRequest, ScanImportResponse};
-pub use search::{find_metadata, get_metadata_detail, search_bgmtv, search_metadata, search_mikan, search_tmdb, DetailQuery, UnifiedSearchQuery};
+pub use search::{find_metadata, get_metadata_detail, search_bgmtv, search_metadata, search_metadata_all, search_mikan, search_tmdb, DetailQuery, UnifiedSearchQuery};
 pub use settings::{
     get_settings, reset_settings, test_notification, test_proxy, update_settings,
     TestNotificationRequest, TestProxyRequest,
@@ -84,7 +84,7 @@ mod openapi_paths {
     #[doc(hidden)]
     pub use super::mikan::__path_get_mikan_rss;
     #[doc(hidden)]
-    pub use super::search::{__path_find_metadata, __path_get_metadata_detail, __path_search_bgmtv, __path_search_metadata, __path_search_mikan, __path_search_tmdb};
+    pub use super::search::{__path_find_metadata, __path_get_metadata_detail, __path_search_bgmtv, __path_search_metadata, __path_search_metadata_all, __path_search_mikan, __path_search_tmdb};
     #[doc(hidden)]
     pub use super::settings::{
         __path_get_settings, __path_reset_settings, __path_test_notification, __path_test_proxy,

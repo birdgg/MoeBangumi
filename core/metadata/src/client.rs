@@ -1,8 +1,8 @@
 //! Unified metadata client combining BGM.tv and TMDB providers.
 
 use crate::{
-    BgmtvProvider, MetadataProvider, MetadataSource, ProviderError, SearchQuery, SearchedMetadata,
-    TmdbProvider,
+    BgmtvProvider, CombinedSearchResults, MetadataProvider, MetadataSource, ProviderError,
+    SearchQuery, SearchedMetadata, TmdbProvider,
 };
 
 /// Unified metadata client that wraps BGM.tv and TMDB providers.
@@ -82,5 +82,27 @@ impl MetadataClient {
     /// episode data needed to calculate the offset.
     pub async fn get_offset(&self, bgmtv_id: &str) -> Result<i32, ProviderError> {
         self.bgmtv.get_episode_offset(bgmtv_id).await
+    }
+
+    /// Search for metadata from all sources in parallel.
+    ///
+    /// Returns grouped results from BGM.tv and TMDB. If one source fails,
+    /// the other source's results are still returned.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let results = client.search_all(&query).await;
+    /// println!("BGM.tv: {} results", results.bgmtv.len());
+    /// println!("TMDB: {} results", results.tmdb.len());
+    /// ```
+    pub async fn search_all(&self, query: &SearchQuery) -> CombinedSearchResults {
+        let (bgmtv_result, tmdb_result) =
+            tokio::join!(self.bgmtv.search(query), self.tmdb.search(query),);
+
+        CombinedSearchResults {
+            bgmtv: bgmtv_result.unwrap_or_default(),
+            tmdb: tmdb_result.unwrap_or_default(),
+        }
     }
 }

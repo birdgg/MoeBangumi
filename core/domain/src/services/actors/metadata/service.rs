@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use metadata::{
-    BgmtvProvider, Episode, MetadataProvider, MetadataSource, SearchQuery, SearchedMetadata,
-    TmdbProvider,
+    BgmtvProvider, CombinedSearchResults, Episode, MetadataProvider, MetadataSource, SearchQuery,
+    SearchedMetadata, TmdbProvider,
 };
 use sqlx::SqlitePool;
 
@@ -254,5 +254,21 @@ impl MetadataService {
             .get_episodes(&bgmtv_id.to_string())
             .await?;
         Ok(episodes)
+    }
+
+    /// Search metadata from all sources in parallel
+    ///
+    /// Returns grouped results from BGM.tv and TMDB. If one source fails,
+    /// the other source's results are still returned.
+    pub async fn search_all(&self, query: &SearchQuery) -> CombinedSearchResults {
+        let (bgmtv_result, tmdb_result) = tokio::join!(
+            self.bgmtv_provider.search(query),
+            self.tmdb_provider.search(query),
+        );
+
+        CombinedSearchResults {
+            bgmtv: bgmtv_result.unwrap_or_default(),
+            tmdb: tmdb_result.unwrap_or_default(),
+        }
     }
 }

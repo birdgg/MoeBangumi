@@ -1,3 +1,4 @@
+use metadata::CombinedSearchResults;
 use utoipa::OpenApi;
 
 use crate::api::handlers::{DeleteTorrentsRequest, UpdateResponse};
@@ -62,7 +63,8 @@ use updater::{UpdateStatus, VersionInfo};
         DeleteTorrentsRequest,
         VersionInfo,
         UpdateStatus,
-        UpdateResponse
+        UpdateResponse,
+        CombinedSearchResults
     ))
 )]
 pub struct ApiDoc;

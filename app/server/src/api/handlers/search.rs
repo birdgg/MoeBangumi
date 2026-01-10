@@ -2,7 +2,9 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use metadata::{MetadataSource, SearchQuery as MetadataSearchQuery, SearchedMetadata};
+use metadata::{
+    CombinedSearchResults, MetadataSource, SearchQuery as MetadataSearchQuery, SearchedMetadata,
+};
 use serde::Deserialize;
 #[cfg(feature = "openapi")]
 use utoipa::{IntoParams, ToSchema};
@@ -184,4 +186,26 @@ pub async fn get_metadata_detail(
         .get_provider_detail(&query.external_id, query.source)
         .await?;
     Ok(Json(result))
+}
+
+/// Search metadata from all data sources in parallel
+///
+/// Returns grouped results from BGM.tv and TMDB. If one source fails,
+/// the other source's results are still returned.
+#[cfg_attr(feature = "openapi", utoipa::path(
+    get,
+    path = "/api/search/metadata/all",
+    tag = "search",
+    params(SearchQuery),
+    responses(
+        (status = 200, description = "Combined search results from all sources", body = CombinedSearchResults)
+    )
+))]
+pub async fn search_metadata_all(
+    State(state): State<AppState>,
+    Query(query): Query<SearchQuery>,
+) -> AppResult<Json<CombinedSearchResults>> {
+    let search_query = MetadataSearchQuery::new(&query.keyword);
+    let results = state.services.metadata.search_all(&search_query).await;
+    Ok(Json(results))
 }
