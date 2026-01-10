@@ -3,21 +3,41 @@
 export const BangumiSchema = {
   type: "object",
   description:
-    "Bangumi (anime) subscription entity\nStores user's subscription state and download configuration",
+    'Bangumi entity representing a specific season/work\n(e.g., "Re:Zero Season 2")\nMerged from old metadata + bangumi tables',
   required: [
     "id",
     "created_at",
     "updated_at",
-    "metadata_id",
+    "series_id",
+    "title_chinese",
+    "season",
+    "year",
+    "total_episodes",
+    "air_week",
+    "platform",
     "current_episode",
+    "episode_offset",
     "auto_complete",
-    "save_path",
     "source_type",
   ],
   properties: {
+    air_date: {
+      type: ["string", "null"],
+      description: "First air date (YYYY-MM-DD format)",
+    },
+    air_week: {
+      type: "integer",
+      format: "int32",
+      description: "Day of week when new episodes air (0=Sunday ~ 6=Saturday)",
+    },
     auto_complete: {
       type: "boolean",
       description: "Only download first matching episode per RSS check",
+    },
+    bgmtv_id: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "BGM.tv subject ID",
     },
     created_at: {
       type: "string",
@@ -28,26 +48,62 @@ export const BangumiSchema = {
       format: "int32",
       description: "Current downloaded episode",
     },
+    episode_offset: {
+      type: "integer",
+      format: "int32",
+      description: "Episode offset for season-relative numbering",
+    },
     id: {
       type: "integer",
       format: "int64",
     },
-    metadata_id: {
+    mikan_id: {
+      type: ["string", "null"],
+      description: "Mikan bangumi ID",
+    },
+    platform: {
+      $ref: "#/components/schemas/Platform",
+      description: "Platform type (TV, Movie, OVA)",
+    },
+    poster_url: {
+      type: ["string", "null"],
+      description: "Poster image URL",
+    },
+    season: {
+      type: "integer",
+      format: "int32",
+      description: "Season number",
+    },
+    series_id: {
       type: "integer",
       format: "int64",
-      description: "Reference to metadata (foreign key)",
-    },
-    save_path: {
-      type: "string",
-      description: "Save path (required)",
+      description: "Reference to series (foreign key)",
     },
     source_type: {
       $ref: "#/components/schemas/SourceType",
       description: "Source type: webrip or bdrip",
     },
+    title_chinese: {
+      type: "string",
+      description: "Chinese title (primary display)",
+    },
+    title_japanese: {
+      type: ["string", "null"],
+      description: "Japanese original name",
+    },
+    total_episodes: {
+      type: "integer",
+      format: "int32",
+      description: "Total episodes (0=unknown)",
+    },
     updated_at: {
       type: "string",
       format: "date-time",
+    },
+    year: {
+      type: "integer",
+      format: "int32",
+      description: "Year",
     },
   },
 } as const;
@@ -69,25 +125,6 @@ export const BangumiDetailSchema = {
   },
 } as const;
 
-export const BangumiWithMetadataSchema = {
-  allOf: [
-    {
-      $ref: "#/components/schemas/Bangumi",
-    },
-    {
-      type: "object",
-      required: ["metadata"],
-      properties: {
-        metadata: {
-          $ref: "#/components/schemas/Metadata",
-          description: "Associated metadata",
-        },
-      },
-    },
-  ],
-  description: "Bangumi with its associated metadata",
-} as const;
-
 export const BangumiWithRssSchema = {
   allOf: [
     {
@@ -95,12 +132,8 @@ export const BangumiWithRssSchema = {
     },
     {
       type: "object",
-      required: ["metadata", "rss_entries"],
+      required: ["series", "rss_entries"],
       properties: {
-        metadata: {
-          $ref: "#/components/schemas/Metadata",
-          description: "Associated metadata",
-        },
         rss_entries: {
           type: "array",
           items: {
@@ -108,10 +141,33 @@ export const BangumiWithRssSchema = {
           },
           description: "RSS subscriptions for this bangumi",
         },
+        series: {
+          $ref: "#/components/schemas/Series",
+          description: "Associated series",
+        },
       },
     },
   ],
-  description: "Bangumi with metadata and RSS subscriptions",
+  description: "Bangumi with series and RSS subscriptions",
+} as const;
+
+export const BangumiWithSeriesSchema = {
+  allOf: [
+    {
+      $ref: "#/components/schemas/Bangumi",
+    },
+    {
+      type: "object",
+      required: ["series"],
+      properties: {
+        series: {
+          $ref: "#/components/schemas/Series",
+          description: "Associated series",
+        },
+      },
+    },
+  ],
+  description: "Bangumi with its associated series",
 } as const;
 
 export const CalendarDaySchema = {
@@ -171,7 +227,7 @@ export const CalendarSubjectSchema = {
     season: {
       type: "integer",
       format: "int32",
-      description: "Season number from metadata",
+      description: "Season number from bangumi",
     },
     title_chinese: {
       type: "string",
@@ -192,57 +248,7 @@ export const CalendarSubjectSchema = {
 export const CreateBangumiSchema = {
   type: "object",
   description: "Request body for creating a new bangumi",
-  properties: {
-    auto_complete: {
-      type: "boolean",
-      description: "Only download first matching episode per RSS check",
-    },
-    current_episode: {
-      type: ["integer", "null"],
-      format: "int32",
-      description:
-        "Initial current episode (for imported bangumi with existing episodes)",
-    },
-    episode_offset: {
-      type: ["integer", "null"],
-      format: "int32",
-      description:
-        "Episode offset for season-relative numbering (overrides metadata.episode_offset if provided)",
-    },
-    metadata: {
-      oneOf: [
-        {
-          type: "null",
-        },
-        {
-          $ref: "#/components/schemas/CreateMetadata",
-          description: "Inline metadata creation (if not using existing)",
-        },
-      ],
-    },
-    metadata_id: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "Metadata ID (if using existing metadata)",
-    },
-    rss_entries: {
-      type: "array",
-      items: {
-        $ref: "#/components/schemas/RssEntry",
-      },
-      description: "RSS subscriptions to create with this bangumi",
-    },
-    source_type: {
-      $ref: "#/components/schemas/SourceType",
-      description: "Source type",
-    },
-  },
-} as const;
-
-export const CreateMetadataSchema = {
-  type: "object",
-  description: "Request body for creating new metadata",
-  required: ["title_chinese", "year", "air_week"],
+  required: ["title_chinese", "year"],
   properties: {
     air_date: {
       type: ["string", "null"],
@@ -253,10 +259,20 @@ export const CreateMetadataSchema = {
       format: "int32",
       description: "Day of week when new episodes air (0=Sunday ~ 6=Saturday)",
     },
+    auto_complete: {
+      type: "boolean",
+      description: "Only download first matching episode per RSS check",
+    },
     bgmtv_id: {
       type: ["integer", "null"],
       format: "int64",
       description: "BGM.tv subject ID",
+    },
+    current_episode: {
+      type: "integer",
+      format: "int32",
+      description:
+        "Initial current episode (for imported bangumi with existing episodes)",
     },
     episode_offset: {
       type: "integer",
@@ -275,10 +291,67 @@ export const CreateMetadataSchema = {
       type: ["string", "null"],
       description: "Poster image URL",
     },
+    rss_entries: {
+      type: "array",
+      items: {
+        $ref: "#/components/schemas/RssEntry",
+      },
+      description: "RSS subscriptions to create with this bangumi",
+    },
     season: {
       type: "integer",
       format: "int32",
       description: "Season number (default: 1)",
+    },
+    series: {
+      oneOf: [
+        {
+          type: "null",
+        },
+        {
+          $ref: "#/components/schemas/CreateSeries",
+          description: "Inline series creation (if not using existing)",
+        },
+      ],
+    },
+    series_id: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "Series ID (if using existing series)",
+    },
+    source_type: {
+      $ref: "#/components/schemas/SourceType",
+      description: "Source type",
+    },
+    title_chinese: {
+      type: "string",
+      description: "Chinese title (required)",
+    },
+    title_japanese: {
+      type: ["string", "null"],
+      description: "Japanese original name",
+    },
+    total_episodes: {
+      type: "integer",
+      format: "int32",
+      description: "Total episodes",
+    },
+    year: {
+      type: "integer",
+      format: "int32",
+      description: "Year (required)",
+    },
+  },
+} as const;
+
+export const CreateSeriesSchema = {
+  type: "object",
+  description: "Request body for creating a new series",
+  required: ["title_chinese"],
+  properties: {
+    poster_url: {
+      type: ["string", "null"],
+      description: "Poster image URL",
     },
     title_chinese: {
       type: "string",
@@ -291,17 +364,7 @@ export const CreateMetadataSchema = {
     tmdb_id: {
       type: ["integer", "null"],
       format: "int64",
-      description: "TMDB ID",
-    },
-    total_episodes: {
-      type: "integer",
-      format: "int32",
-      description: "Total episodes",
-    },
-    year: {
-      type: "integer",
-      format: "int32",
-      description: "Year (required)",
+      description: "TMDB TV Show ID",
     },
   },
 } as const;
@@ -453,102 +516,6 @@ export const LogLevelSchema = {
   type: "string",
   description: "Log severity level",
   enum: ["info", "warning", "error"],
-} as const;
-
-export const MetadataSchema = {
-  type: "object",
-  description:
-    "Metadata entity for anime information\nUnified metadata center caching data from BGM.tv, TMDB, and Mikan",
-  required: [
-    "id",
-    "created_at",
-    "updated_at",
-    "title_chinese",
-    "season",
-    "year",
-    "platform",
-    "total_episodes",
-    "air_week",
-    "episode_offset",
-  ],
-  properties: {
-    air_date: {
-      type: ["string", "null"],
-      description: "First air date (YYYY-MM-DD format)",
-    },
-    air_week: {
-      type: "integer",
-      format: "int32",
-      description: "Day of week when new episodes air (0=Sunday ~ 6=Saturday)",
-    },
-    bgmtv_id: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "BGM.tv subject ID",
-    },
-    created_at: {
-      type: "string",
-      format: "date-time",
-    },
-    episode_offset: {
-      type: "integer",
-      format: "int32",
-      description: "Episode offset for season-relative numbering",
-    },
-    id: {
-      type: "integer",
-      format: "int64",
-    },
-    mikan_id: {
-      type: ["string", "null"],
-      description: "Mikan bangumi ID",
-    },
-    platform: {
-      $ref: "#/components/schemas/Platform",
-      description: "Platform type (TV, Movie, OVA)",
-    },
-    poster_url: {
-      type: ["string", "null"],
-      description: "Poster image URL",
-    },
-    season: {
-      type: "integer",
-      format: "int32",
-      description: "Season number",
-    },
-    title_chinese: {
-      type: "string",
-      description: "Chinese title (primary display)",
-    },
-    title_japanese: {
-      type: ["string", "null"],
-      description: "Japanese original name",
-    },
-    tmdb_id: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "TMDB ID",
-    },
-    tmdb_lookup_at: {
-      type: ["string", "null"],
-      format: "date-time",
-      description: "Last TMDB lookup attempt timestamp",
-    },
-    total_episodes: {
-      type: "integer",
-      format: "int32",
-      description: "Total episodes (0=unknown)",
-    },
-    updated_at: {
-      type: "string",
-      format: "date-time",
-    },
-    year: {
-      type: "integer",
-      format: "int32",
-      description: "Year",
-    },
-  },
 } as const;
 
 export const MetadataSourceSchema = {
@@ -858,6 +825,44 @@ export const SearchedMetadataSchema = {
 export const SeasonSchema = {
   type: "string",
   enum: ["winter", "spring", "summer", "fall"],
+} as const;
+
+export const SeriesSchema = {
+  type: "object",
+  description:
+    'Series entity representing an anime franchise\n(e.g., "Re:Zero - Starting Life in Another World")\nUsed to group different seasons of the same anime',
+  required: ["id", "created_at", "updated_at", "title_chinese"],
+  properties: {
+    created_at: {
+      type: "string",
+      format: "date-time",
+    },
+    id: {
+      type: "integer",
+      format: "int64",
+    },
+    poster_url: {
+      type: ["string", "null"],
+      description: "Poster image URL",
+    },
+    title_chinese: {
+      type: "string",
+      description: "Chinese title (primary display)",
+    },
+    title_japanese: {
+      type: ["string", "null"],
+      description: "Japanese original name",
+    },
+    tmdb_id: {
+      type: ["integer", "null"],
+      format: "int64",
+      description: "TMDB TV Show ID",
+    },
+    updated_at: {
+      type: "string",
+      format: "date-time",
+    },
+  },
 } as const;
 
 export const SettingsSchema = {
@@ -1206,8 +1211,7 @@ export const UpdateBangumiRequestSchema = {
     episode_offset: {
       type: ["integer", "null"],
       format: "int32",
-      description:
-        "Episode offset for season-relative numbering (updates metadata)",
+      description: "Episode offset for season-relative numbering",
     },
     rss_entries: {
       type: ["array", "null"],
@@ -1273,80 +1277,6 @@ export const UpdateFilterSettingsSchema = {
         type: "string",
       },
       description: "Global RSS filters (replaces entire array if provided)",
-    },
-  },
-} as const;
-
-export const UpdateMetadataSchema = {
-  type: "object",
-  description:
-    "Request body for updating metadata\nFor Clearable fields: null means clear the value, value means set new value, absent means unchanged",
-  properties: {
-    air_date: {
-      type: ["string", "null"],
-      description: "First air date in YYYY-MM-DD format (null to clear)",
-    },
-    air_week: {
-      type: ["integer", "null"],
-      format: "int32",
-      description: "Day of week when new episodes air (0=Sunday ~ 6=Saturday)",
-    },
-    bgmtv_id: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "BGM.tv subject ID (null to clear)",
-    },
-    episode_offset: {
-      type: ["integer", "null"],
-      format: "int32",
-      description: "Episode offset for season-relative numbering",
-    },
-    mikan_id: {
-      type: ["string", "null"],
-      description: "Mikan bangumi ID (null to clear)",
-    },
-    platform: {
-      oneOf: [
-        {
-          type: "null",
-        },
-        {
-          $ref: "#/components/schemas/Platform",
-          description: "Platform type (TV, Movie, OVA)",
-        },
-      ],
-    },
-    poster_url: {
-      type: ["string", "null"],
-      description: "Poster image URL (null to clear)",
-    },
-    season: {
-      type: ["integer", "null"],
-      format: "int32",
-      description: "Season number",
-    },
-    title_chinese: {
-      type: ["string", "null"],
-      description: "Chinese title",
-    },
-    title_japanese: {
-      type: ["string", "null"],
-      description: "Japanese original name (null to clear)",
-    },
-    tmdb_id: {
-      type: ["integer", "null"],
-      format: "int64",
-      description: "TMDB ID (null to clear)",
-    },
-    total_episodes: {
-      type: ["integer", "null"],
-      format: "int32",
-      description: "Total episodes",
-    },
-    year: {
-      type: ["integer", "null"],
-      format: "int32",
-      description: "Year",
     },
   },
 } as const;

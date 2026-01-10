@@ -1,32 +1,43 @@
-//! TMDB metadata provider adapter
+//! Compatibility layer for existing code
+//!
+//! This module provides the old MetadataProvider trait and adapters
+//! for backward compatibility with existing domain and server code.
 
-use std::sync::Arc;
+mod bgmtv_adapter;
+mod provider;
 
-use async_trait::async_trait;
-use tmdb::{DiscoverBangumiParams, TmdbClient};
+pub use bgmtv_adapter::{
+    BgmtvProvider, Episode, EpisodeType, Platform, SearchQuery, SearchedMetadata,
+};
+pub use provider::{MetadataProvider, ProviderError};
 
-use crate::{MetadataProvider, MetadataSource, ProviderError, SearchQuery, SearchedMetadata};
+/// Metadata source identifier (compat)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum MetadataSource {
+    Bgmtv,
+    Tmdb,
+}
 
-/// TMDB image base URL
-const TMDB_IMAGE_BASE_URL: &str = "https://image.tmdb.org/t/p/w500";
-
-/// TMDB metadata provider
+// Re-export TmdbProvider as a stub for compatibility
 pub struct TmdbProvider {
-    client: Arc<TmdbClient>,
+    #[allow(dead_code)]
+    client: std::sync::Arc<tmdb::TmdbClient>,
 }
 
 impl TmdbProvider {
-    pub fn new(client: Arc<TmdbClient>) -> Self {
+    pub fn new(client: std::sync::Arc<tmdb::TmdbClient>) -> Self {
         Self { client }
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl MetadataProvider for TmdbProvider {
     async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchedMetadata>, ProviderError> {
-        let cleaned_title = clean_title_for_search(&query.keyword);
-        let params = DiscoverBangumiParams {
-            with_text_query: Some(cleaned_title),
+        // Use discover_bangumi for anime search
+        let params = tmdb::DiscoverBangumiParams {
+            with_text_query: Some(clean_title_for_search(&query.keyword)),
         };
 
         let response = self.client.discover_bangumi(params).await?;
@@ -47,10 +58,12 @@ impl MetadataProvider for TmdbProvider {
                     title_chinese: Some(show.name),
                     title_original: Some(show.original_name),
                     year,
-                    season: None, // TMDB doesn't provide season info in search results
-                    platform: None, // TMDB doesn't provide platform info
-                    total_episodes: 0, // Not available in search results
-                    poster_url: show.poster_path.map(|path| format!("{}{}", TMDB_IMAGE_BASE_URL, path)),
+                    season: None,
+                    platform: None,
+                    total_episodes: 0,
+                    poster_url: show
+                        .poster_path
+                        .map(|path| format!("https://image.tmdb.org/t/p/w500{}", path)),
                     air_date: show.first_air_date,
                 }
             })
@@ -62,19 +75,15 @@ impl MetadataProvider for TmdbProvider {
     }
 }
 
-/// Clean title for TMDB search by removing season and split-cour markers.
-///
-/// This is a simplified version that handles common patterns.
+/// Clean title for TMDB search
 fn clean_title_for_search(title: &str) -> String {
-    use std::sync::LazyLock;
     use regex::Regex;
+    use std::sync::LazyLock;
 
-    // Pattern to match split-cour markers: 第Xクール, 第X部分, Part X
     static SPLIT_COUR_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?i)(?:第\s*\d+\s*(?:クール|部分))|(?:Part\s*\d+)").unwrap()
     });
 
-    // Pattern to match season markers: 第X季, 第X期, SX, Season X
     static SEASON_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"(?i)(?:第[0-9一二三四五六七八九十]+(?:季|期))|(?:SEASON\s*\d{1,2})|(?:S\d{1,2})",

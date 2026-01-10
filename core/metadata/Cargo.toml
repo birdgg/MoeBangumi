@@ -22,3 +22,8 @@ parser = { path = "../parser" }
 # Data source clients (in libs/)
 bgmtv = { path = "../../libs/bgmtv" }
 tmdb = { path = "../../libs/tmdb" }
+
+[dev-dependencies]
+dotenvy = "0.15"
+parking_lot.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

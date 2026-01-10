@@ -1,7 +1,6 @@
-//! Data models for metadata search results
+//! Unified data models for metadata
 
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
@@ -14,136 +13,192 @@ pub enum MetadataSource {
     Tmdb,
 }
 
-/// Platform type for bangumi (TV, Movie, OVA)
+impl std::fmt::Display for MetadataSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MetadataSource::Bgmtv => write!(f, "BGM.tv"),
+            MetadataSource::Tmdb => write!(f, "TMDB"),
+        }
+    }
+}
+
+/// Media type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[serde(rename_all = "lowercase")]
-pub enum Platform {
+pub enum MediaType {
     #[default]
     Tv,
     Movie,
-    Ova,
 }
 
-impl Platform {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Platform::Tv => "tv",
-            Platform::Movie => "movie",
-            Platform::Ova => "ova",
-        }
-    }
-}
-
-impl FromStr for Platform {
-    type Err = std::convert::Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s.to_lowercase().as_str() {
-            "movie" | "劇場版" => Platform::Movie,
-            "ova" => Platform::Ova,
-            _ => Platform::Tv,
-        })
-    }
-}
-
-/// Search query parameters
-#[derive(Debug, Clone)]
-pub struct SearchQuery {
-    /// Search keyword (required)
-    pub keyword: String,
-    /// Year filter (optional)
-    pub year: Option<i32>,
-}
-
-impl SearchQuery {
-    pub fn new(keyword: impl Into<String>) -> Self {
-        Self {
-            keyword: keyword.into(),
-            year: None,
-        }
-    }
-
-    pub fn with_year(mut self, year: i32) -> Self {
-        self.year = Some(year);
-        self
-    }
-}
-
-/// Standardized metadata search result
-///
-/// This represents metadata fetched from external sources (BGM.tv, TMDB, Mikan)
-/// before it is persisted to the database.
+/// Search result from metadata providers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
-pub struct SearchedMetadata {
-    /// Data source identifier
+pub struct SearchResult {
+    /// Data source
     pub source: MetadataSource,
+    /// External ID
+    pub id: String,
+    /// Media type (tv/movie)
+    pub media_type: MediaType,
+    /// Title (localized)
+    pub title: String,
+    /// Original title
+    pub original_title: Option<String>,
+    /// Overview/description
+    pub overview: Option<String>,
+    /// Poster URL
+    pub poster_url: Option<String>,
+    /// First air date or release date (YYYY-MM-DD)
+    pub date: Option<String>,
+    /// Year extracted from date
+    pub year: Option<i32>,
+    /// Vote average (0-10)
+    pub vote_average: Option<f64>,
+}
 
-    /// External ID (string form to unify i64 and String IDs)
-    pub external_id: String,
-
-    /// Chinese title
-    pub title_chinese: Option<String>,
-    /// Japanese/original title
-    pub title_original: Option<String>,
-
+/// TV show detail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct TvDetail {
+    /// Data source
+    pub source: MetadataSource,
+    /// External ID
+    pub id: String,
+    /// Title (localized)
+    pub title: String,
+    /// Original title
+    pub original_title: Option<String>,
+    /// Overview/description
+    pub overview: Option<String>,
+    /// Poster URL
+    pub poster_url: Option<String>,
+    /// Backdrop URL
+    pub backdrop_url: Option<String>,
+    /// First air date (YYYY-MM-DD)
+    pub first_air_date: Option<String>,
     /// Year
     pub year: Option<i32>,
-    /// Season number
-    pub season: Option<i32>,
-    /// Platform type (TV, Movie, OVA)
-    pub platform: Option<Platform>,
-
-    /// Total episodes (0 = unknown)
-    pub total_episodes: i32,
-    /// Poster image URL
-    pub poster_url: Option<String>,
-    /// First air date (YYYY-MM-DD format)
-    pub air_date: Option<String>,
+    /// Number of seasons
+    pub number_of_seasons: Option<i32>,
+    /// Number of episodes
+    pub number_of_episodes: Option<i32>,
+    /// Status (e.g., "Returning Series", "Ended")
+    pub status: Option<String>,
+    /// Vote average (0-10)
+    pub vote_average: Option<f64>,
+    /// Genres
+    pub genres: Vec<String>,
+    /// Season summaries
+    pub seasons: Vec<SeasonSummary>,
 }
 
-impl SearchedMetadata {
-    /// Check if this result matches the given year (with ±1 year tolerance)
-    pub fn matches_year(&self, expected_year: i32) -> bool {
-        self.year
-            .map(|y| (y - expected_year).abs() <= 1)
-            .unwrap_or(false)
-    }
-}
-
-/// Episode type
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[serde(rename_all = "lowercase")]
-pub enum EpisodeType {
-    /// Main episode (本篇)
-    #[default]
-    Main,
-    /// Special episode (SP)
-    Special,
-    /// Opening
-    Opening,
-    /// Ending
-    Ending,
-}
-
-/// Episode information from metadata provider
+/// Season summary (from TV detail)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
-pub struct Episode {
-    /// Episode ID from the source
-    pub id: i64,
-    /// Episode type
-    pub episode_type: EpisodeType,
-    /// Original name
+pub struct SeasonSummary {
+    /// Season number
+    pub season_number: i32,
+    /// Name
     pub name: String,
-    /// Chinese name
-    pub name_cn: String,
-    /// Sort order (absolute episode number)
-    pub sort: f64,
-    /// Episode number (season-relative)
-    pub ep: Option<f64>,
-    /// Air date (YYYY-MM-DD format)
-    pub air_date: String,
+    /// Episode count
+    pub episode_count: i32,
+    /// Air date
+    pub air_date: Option<String>,
+    /// Poster URL
+    pub poster_url: Option<String>,
+}
+
+/// Season detail with episodes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct SeasonDetail {
+    /// Data source
+    pub source: MetadataSource,
+    /// TV show ID
+    pub tv_id: String,
+    /// Season number
+    pub season_number: i32,
+    /// Name
+    pub name: String,
+    /// Overview
+    pub overview: Option<String>,
+    /// Poster URL
+    pub poster_url: Option<String>,
+    /// Air date
+    pub air_date: Option<String>,
+    /// Episodes
+    pub episodes: Vec<EpisodeInfo>,
+}
+
+/// Episode information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct EpisodeInfo {
+    /// Episode ID
+    pub id: String,
+    /// Episode number
+    pub episode_number: i32,
+    /// Name
+    pub name: String,
+    /// Overview
+    pub overview: Option<String>,
+    /// Air date
+    pub air_date: Option<String>,
+    /// Still image URL
+    pub still_url: Option<String>,
+    /// Runtime in minutes
+    pub runtime: Option<i32>,
+    /// Vote average
+    pub vote_average: Option<f64>,
+}
+
+/// Movie detail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct MovieDetail {
+    /// Data source
+    pub source: MetadataSource,
+    /// External ID
+    pub id: String,
+    /// Title (localized)
+    pub title: String,
+    /// Original title
+    pub original_title: Option<String>,
+    /// Overview/description
+    pub overview: Option<String>,
+    /// Poster URL
+    pub poster_url: Option<String>,
+    /// Backdrop URL
+    pub backdrop_url: Option<String>,
+    /// Release date (YYYY-MM-DD)
+    pub release_date: Option<String>,
+    /// Year
+    pub year: Option<i32>,
+    /// Runtime in minutes
+    pub runtime: Option<i32>,
+    /// Status
+    pub status: Option<String>,
+    /// Vote average (0-10)
+    pub vote_average: Option<f64>,
+    /// Genres
+    pub genres: Vec<String>,
+}
+
+// ============ Helper functions ============
+
+/// Extract year from date string (YYYY-MM-DD)
+pub fn extract_year(date: &Option<String>) -> Option<i32> {
+    date.as_ref()
+        .and_then(|d| d.split('-').next())
+        .and_then(|y| y.parse().ok())
+}
+
+/// TMDB image base URL
+pub const TMDB_IMAGE_BASE_URL: &str = "https://image.tmdb.org/t/p/w500";
+
+/// Build TMDB image URL
+pub fn tmdb_image_url(path: &Option<String>) -> Option<String> {
+    path.as_ref().map(|p| format!("{}{}", TMDB_IMAGE_BASE_URL, p))
 }

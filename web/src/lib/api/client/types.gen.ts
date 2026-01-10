@@ -5,33 +5,78 @@ export type ClientOptions = {
 };
 
 /**
- * Bangumi (anime) subscription entity
- * Stores user's subscription state and download configuration
+ * Bangumi entity representing a specific season/work
+ * (e.g., "Re:Zero Season 2")
+ * Merged from old metadata + bangumi tables
  */
 export type Bangumi = {
+  /**
+   * First air date (YYYY-MM-DD format)
+   */
+  air_date?: string | null;
+  /**
+   * Day of week when new episodes air (0=Sunday ~ 6=Saturday)
+   */
+  air_week: number;
   /**
    * Only download first matching episode per RSS check
    */
   auto_complete: boolean;
+  /**
+   * BGM.tv subject ID
+   */
+  bgmtv_id?: number | null;
   created_at: string;
   /**
    * Current downloaded episode
    */
   current_episode: number;
+  /**
+   * Episode offset for season-relative numbering
+   */
+  episode_offset: number;
   id: number;
   /**
-   * Reference to metadata (foreign key)
+   * Mikan bangumi ID
    */
-  metadata_id: number;
+  mikan_id?: string | null;
   /**
-   * Save path (required)
+   * Platform type (TV, Movie, OVA)
    */
-  save_path: string;
+  platform: Platform;
+  /**
+   * Poster image URL
+   */
+  poster_url?: string | null;
+  /**
+   * Season number
+   */
+  season: number;
+  /**
+   * Reference to series (foreign key)
+   */
+  series_id: number;
   /**
    * Source type: webrip or bdrip
    */
   source_type: SourceType;
+  /**
+   * Chinese title (primary display)
+   */
+  title_chinese: string;
+  /**
+   * Japanese original name
+   */
+  title_japanese?: string | null;
+  /**
+   * Total episodes (0=unknown)
+   */
+  total_episodes: number;
   updated_at: string;
+  /**
+   * Year
+   */
+  year: number;
 };
 
 export type BangumiDetail = {
@@ -40,27 +85,27 @@ export type BangumiDetail = {
 };
 
 /**
- * Bangumi with its associated metadata
- */
-export type BangumiWithMetadata = Bangumi & {
-  /**
-   * Associated metadata
-   */
-  metadata: Metadata;
-};
-
-/**
- * Bangumi with metadata and RSS subscriptions
+ * Bangumi with series and RSS subscriptions
  */
 export type BangumiWithRss = Bangumi & {
-  /**
-   * Associated metadata
-   */
-  metadata: Metadata;
   /**
    * RSS subscriptions for this bangumi
    */
   rss_entries: Array<Rss>;
+  /**
+   * Associated series
+   */
+  series: Series;
+};
+
+/**
+ * Bangumi with its associated series
+ */
+export type BangumiWithSeries = Bangumi & {
+  /**
+   * Associated series
+   */
+  series: Series;
 };
 
 /**
@@ -100,7 +145,7 @@ export type CalendarSubject = {
    */
   poster_url?: string | null;
   /**
-   * Season number from metadata
+   * Season number from bangumi
    */
   season: number;
   /**
@@ -122,48 +167,25 @@ export type CalendarSubject = {
  */
 export type CreateBangumi = {
   /**
-   * Only download first matching episode per RSS check
-   */
-  auto_complete?: boolean;
-  /**
-   * Initial current episode (for imported bangumi with existing episodes)
-   */
-  current_episode?: number | null;
-  /**
-   * Episode offset for season-relative numbering (overrides metadata.episode_offset if provided)
-   */
-  episode_offset?: number | null;
-  metadata?: null | CreateMetadata;
-  /**
-   * Metadata ID (if using existing metadata)
-   */
-  metadata_id?: number | null;
-  /**
-   * RSS subscriptions to create with this bangumi
-   */
-  rss_entries?: Array<RssEntry>;
-  /**
-   * Source type
-   */
-  source_type?: SourceType;
-};
-
-/**
- * Request body for creating new metadata
- */
-export type CreateMetadata = {
-  /**
    * First air date (YYYY-MM-DD format)
    */
   air_date?: string | null;
   /**
    * Day of week when new episodes air (0=Sunday ~ 6=Saturday)
    */
-  air_week: number;
+  air_week?: number;
+  /**
+   * Only download first matching episode per RSS check
+   */
+  auto_complete?: boolean;
   /**
    * BGM.tv subject ID
    */
   bgmtv_id?: number | null;
+  /**
+   * Initial current episode (for imported bangumi with existing episodes)
+   */
+  current_episode?: number;
   /**
    * Episode offset for season-relative numbering
    */
@@ -181,9 +203,22 @@ export type CreateMetadata = {
    */
   poster_url?: string | null;
   /**
+   * RSS subscriptions to create with this bangumi
+   */
+  rss_entries?: Array<RssEntry>;
+  /**
    * Season number (default: 1)
    */
   season?: number;
+  series?: null | CreateSeries;
+  /**
+   * Series ID (if using existing series)
+   */
+  series_id?: number | null;
+  /**
+   * Source type
+   */
+  source_type?: SourceType;
   /**
    * Chinese title (required)
    */
@@ -193,10 +228,6 @@ export type CreateMetadata = {
    */
   title_japanese?: string | null;
   /**
-   * TMDB ID
-   */
-  tmdb_id?: number | null;
-  /**
    * Total episodes
    */
   total_episodes?: number;
@@ -204,6 +235,28 @@ export type CreateMetadata = {
    * Year (required)
    */
   year: number;
+};
+
+/**
+ * Request body for creating a new series
+ */
+export type CreateSeries = {
+  /**
+   * Poster image URL
+   */
+  poster_url?: string | null;
+  /**
+   * Chinese title (required)
+   */
+  title_chinese: string;
+  /**
+   * Japanese original name
+   */
+  title_japanese?: string | null;
+  /**
+   * TMDB TV Show ID
+   */
+  tmdb_id?: number | null;
 };
 
 /**
@@ -326,72 +379,6 @@ export type Log = {
  * Log severity level
  */
 export type LogLevel = "info" | "warning" | "error";
-
-/**
- * Metadata entity for anime information
- * Unified metadata center caching data from BGM.tv, TMDB, and Mikan
- */
-export type Metadata = {
-  /**
-   * First air date (YYYY-MM-DD format)
-   */
-  air_date?: string | null;
-  /**
-   * Day of week when new episodes air (0=Sunday ~ 6=Saturday)
-   */
-  air_week: number;
-  /**
-   * BGM.tv subject ID
-   */
-  bgmtv_id?: number | null;
-  created_at: string;
-  /**
-   * Episode offset for season-relative numbering
-   */
-  episode_offset: number;
-  id: number;
-  /**
-   * Mikan bangumi ID
-   */
-  mikan_id?: string | null;
-  /**
-   * Platform type (TV, Movie, OVA)
-   */
-  platform: Platform;
-  /**
-   * Poster image URL
-   */
-  poster_url?: string | null;
-  /**
-   * Season number
-   */
-  season: number;
-  /**
-   * Chinese title (primary display)
-   */
-  title_chinese: string;
-  /**
-   * Japanese original name
-   */
-  title_japanese?: string | null;
-  /**
-   * TMDB ID
-   */
-  tmdb_id?: number | null;
-  /**
-   * Last TMDB lookup attempt timestamp
-   */
-  tmdb_lookup_at?: string | null;
-  /**
-   * Total episodes (0=unknown)
-   */
-  total_episodes: number;
-  updated_at: string;
-  /**
-   * Year
-   */
-  year: number;
-};
 
 /**
  * Metadata data source identifier
@@ -611,6 +598,33 @@ export type SearchedMetadata = {
 };
 
 export type Season = "winter" | "spring" | "summer" | "fall";
+
+/**
+ * Series entity representing an anime franchise
+ * (e.g., "Re:Zero - Starting Life in Another World")
+ * Used to group different seasons of the same anime
+ */
+export type Series = {
+  created_at: string;
+  id: number;
+  /**
+   * Poster image URL
+   */
+  poster_url?: string | null;
+  /**
+   * Chinese title (primary display)
+   */
+  title_chinese: string;
+  /**
+   * Japanese original name
+   */
+  title_japanese?: string | null;
+  /**
+   * TMDB TV Show ID
+   */
+  tmdb_id?: number | null;
+  updated_at: string;
+};
 
 /**
  * Application settings stored in TOML file
@@ -873,7 +887,7 @@ export type UpdateBangumiRequest = {
    */
   auto_complete?: boolean | null;
   /**
-   * Episode offset for season-relative numbering (updates metadata)
+   * Episode offset for season-relative numbering
    */
   episode_offset?: number | null;
   /**
@@ -903,62 +917,6 @@ export type UpdateFilterSettings = {
    * Global RSS filters (replaces entire array if provided)
    */
   global_rss_filters?: Array<string> | null;
-};
-
-/**
- * Request body for updating metadata
- * For Clearable fields: null means clear the value, value means set new value, absent means unchanged
- */
-export type UpdateMetadata = {
-  /**
-   * First air date in YYYY-MM-DD format (null to clear)
-   */
-  air_date?: string | null;
-  /**
-   * Day of week when new episodes air (0=Sunday ~ 6=Saturday)
-   */
-  air_week?: number | null;
-  /**
-   * BGM.tv subject ID (null to clear)
-   */
-  bgmtv_id?: number | null;
-  /**
-   * Episode offset for season-relative numbering
-   */
-  episode_offset?: number | null;
-  /**
-   * Mikan bangumi ID (null to clear)
-   */
-  mikan_id?: string | null;
-  platform?: null | Platform;
-  /**
-   * Poster image URL (null to clear)
-   */
-  poster_url?: string | null;
-  /**
-   * Season number
-   */
-  season?: number | null;
-  /**
-   * Chinese title
-   */
-  title_chinese?: string | null;
-  /**
-   * Japanese original name (null to clear)
-   */
-  title_japanese?: string | null;
-  /**
-   * TMDB ID (null to clear)
-   */
-  tmdb_id?: number | null;
-  /**
-   * Total episodes
-   */
-  total_episodes?: number | null;
-  /**
-   * Year
-   */
-  year?: number | null;
 };
 
 /**
@@ -1178,7 +1136,7 @@ export type GetBangumiResponses = {
   /**
    * List of all bangumi
    */
-  200: Array<BangumiWithMetadata>;
+  200: Array<BangumiWithSeries>;
 };
 
 export type GetBangumiResponse = GetBangumiResponses[keyof GetBangumiResponses];
@@ -1194,7 +1152,7 @@ export type CreateBangumiResponses = {
   /**
    * Bangumi created successfully
    */
-  201: BangumiWithMetadata;
+  201: BangumiWithSeries;
 };
 
 export type CreateBangumiResponse =
@@ -1429,81 +1387,6 @@ export type StreamLogsResponses = {
    */
   200: unknown;
 };
-
-export type GetMetadataData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/api/metadata";
-};
-
-export type GetMetadataResponses = {
-  /**
-   * List of all metadata
-   */
-  200: Array<Metadata>;
-};
-
-export type GetMetadataResponse =
-  GetMetadataResponses[keyof GetMetadataResponses];
-
-export type GetMetadataByIdData = {
-  body?: never;
-  path: {
-    /**
-     * Metadata ID
-     */
-    id: number;
-  };
-  query?: never;
-  url: "/api/metadata/{id}";
-};
-
-export type GetMetadataByIdErrors = {
-  /**
-   * Metadata not found
-   */
-  404: unknown;
-};
-
-export type GetMetadataByIdResponses = {
-  /**
-   * Metadata details
-   */
-  200: Metadata;
-};
-
-export type GetMetadataByIdResponse =
-  GetMetadataByIdResponses[keyof GetMetadataByIdResponses];
-
-export type UpdateMetadataData = {
-  body: UpdateMetadata;
-  path: {
-    /**
-     * Metadata ID
-     */
-    id: number;
-  };
-  query?: never;
-  url: "/api/metadata/{id}";
-};
-
-export type UpdateMetadataErrors = {
-  /**
-   * Metadata not found
-   */
-  404: unknown;
-};
-
-export type UpdateMetadataResponses = {
-  /**
-   * Metadata updated successfully
-   */
-  200: Metadata;
-};
-
-export type UpdateMetadataResponse =
-  UpdateMetadataResponses[keyof UpdateMetadataResponses];
 
 export type GetMikanRssData = {
   body?: never;

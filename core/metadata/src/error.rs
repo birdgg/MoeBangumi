@@ -1,13 +1,8 @@
-//! Error types for metadata provider operations
+//! Error types for metadata operations
 
-use crate::MetadataSource;
-
-/// Errors that can occur when using metadata providers
+/// Errors that can occur when using metadata client
 #[derive(Debug, thiserror::Error)]
-pub enum ProviderError {
-    #[error("Data source {0:?} is not available")]
-    SourceNotAvailable(MetadataSource),
-
+pub enum MetadataError {
     #[error("BGM.tv error: {0}")]
     Bgmtv(#[from] bgmtv::BgmtvError),
 

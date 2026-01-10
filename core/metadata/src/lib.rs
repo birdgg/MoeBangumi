@@ -1,44 +1,45 @@
-//! Unified metadata provider abstraction layer
+//! Unified metadata client for TMDB and BGM.tv
 //!
-//! This crate provides a standardized interface for searching metadata
-//! from different data sources (BGM.tv, TMDB).
+//! This crate provides:
+//! 1. A new unified `MetadataClient` with `get_tv_detail`, `get_season_detail`,
+//!    `get_movie_detail`, and `search` methods
+//! 2. Compatibility layer for existing code (MetadataProvider trait, BgmtvProvider, TmdbProvider)
 //!
-//! See [README.md](../README.md) for detailed documentation.
-//!
-//! # Architecture
-//!
-//! ```text
-//! ┌─────────────────────────────────────────┐
-//! │           MetadataProvider trait        │
-//! │  search(&SearchQuery) -> Vec<Searched>  │
-//! │  find(&SearchQuery) -> Option<Searched> │
-//! └─────────────────────────────────────────┘
-//!              △                    △
-//!              │                    │
-//!    ┌─────────┴──────┐   ┌─────────┴──────┐
-//!    │  BgmtvProvider │   │  TmdbProvider  │
-//!    └────────────────┘   └────────────────┘
-//! ```
-//!
-//! # Example
+//! # New API Example
 //!
 //! ```ignore
-//! use metadata::{MetadataProvider, SearchQuery, BgmtvProvider};
+//! use metadata::MetadataClient;
 //! use std::sync::Arc;
 //!
-//! let provider = BgmtvProvider::new(Arc::new(client));
-//! let query = SearchQuery::new("葬送のフリーレン");
-//! let results = provider.search(&query).await?;
+//! let client = MetadataClient::new(tmdb_client, bgmtv_client);
+//!
+//! // Search (TMDB first, fallback to BGM.tv)
+//! let results = client.search("葬送のフリーレン").await?;
+//!
+//! // Get TV details
+//! let tv = client.get_tv_detail(12345).await?;
+//!
+//! // Get season details
+//! let season = client.get_season_detail(12345, 1).await?;
+//!
+//! // Get movie details
+//! let movie = client.get_movie_detail(67890).await?;
 //! ```
 
-mod adapters;
+mod client;
+mod compat;
 mod error;
-mod models;
-mod parsed_subject;
-mod provider;
+pub mod models;
 
-pub use adapters::{BgmtvProvider, TmdbProvider};
-pub use error::ProviderError;
-pub use models::{Episode, EpisodeType, MetadataSource, Platform, SearchQuery, SearchedMetadata};
-pub use parsed_subject::{parse_subject, parse_subject_detail, ParsedSubject};
-pub use provider::MetadataProvider;
+// New unified client
+pub use client::MetadataClient;
+pub use error::MetadataError;
+pub use models::{
+    EpisodeInfo, MediaType, MovieDetail, SearchResult, SeasonDetail, SeasonSummary, TvDetail,
+};
+
+// Compatibility exports for existing code
+pub use compat::{
+    BgmtvProvider, Episode, EpisodeType, MetadataProvider, MetadataSource, Platform,
+    ProviderError, SearchQuery, SearchedMetadata, TmdbProvider,
+};

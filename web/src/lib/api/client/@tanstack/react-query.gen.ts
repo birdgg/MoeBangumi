@@ -21,8 +21,6 @@ import {
   getCalendar,
   getEpisodes,
   getLogs,
-  getMetadata,
-  getMetadataById,
   getMetadataDetail,
   getMikanRss,
   getSettings,
@@ -41,7 +39,6 @@ import {
   testNotification,
   testProxy,
   updateBangumi,
-  updateMetadata,
   updateSettings,
 } from "../sdk.gen";
 import type {
@@ -66,12 +63,8 @@ import type {
   GetEpisodesResponse,
   GetLogsData,
   GetLogsResponse,
-  GetMetadataByIdData,
-  GetMetadataByIdResponse,
-  GetMetadataData,
   GetMetadataDetailData,
   GetMetadataDetailResponse,
-  GetMetadataResponse,
   GetMikanRssData,
   GetMikanRssResponse,
   GetSettingsData,
@@ -101,8 +94,6 @@ import type {
   TestProxyData,
   UpdateBangumiData,
   UpdateBangumiResponse,
-  UpdateMetadataData,
-  UpdateMetadataResponse,
   UpdateSettingsData,
   UpdateSettingsResponse,
 } from "../types.gen";
@@ -514,84 +505,6 @@ export const clearAllLogsMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await clearAllLogs({
-        ...options,
-        ...fnOptions,
-        throwOnError: true,
-      });
-      return data;
-    },
-  };
-  return mutationOptions;
-};
-
-export const getMetadataQueryKey = (options?: Options<GetMetadataData>) =>
-  createQueryKey("getMetadata", options);
-
-/**
- * Get all metadata
- */
-export const getMetadataOptions = (options?: Options<GetMetadataData>) =>
-  queryOptions<
-    GetMetadataResponse,
-    DefaultError,
-    GetMetadataResponse,
-    ReturnType<typeof getMetadataQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getMetadata({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getMetadataQueryKey(options),
-  });
-
-export const getMetadataByIdQueryKey = (
-  options: Options<GetMetadataByIdData>,
-) => createQueryKey("getMetadataById", options);
-
-/**
- * Get a metadata by ID
- */
-export const getMetadataByIdOptions = (options: Options<GetMetadataByIdData>) =>
-  queryOptions<
-    GetMetadataByIdResponse,
-    DefaultError,
-    GetMetadataByIdResponse,
-    ReturnType<typeof getMetadataByIdQueryKey>
-  >({
-    queryFn: async ({ queryKey, signal }) => {
-      const { data } = await getMetadataById({
-        ...options,
-        ...queryKey[0],
-        signal,
-        throwOnError: true,
-      });
-      return data;
-    },
-    queryKey: getMetadataByIdQueryKey(options),
-  });
-
-/**
- * Update a metadata
- */
-export const updateMetadataMutation = (
-  options?: Partial<Options<UpdateMetadataData>>,
-): UseMutationOptions<
-  UpdateMetadataResponse,
-  DefaultError,
-  Options<UpdateMetadataData>
-> => {
-  const mutationOptions: UseMutationOptions<
-    UpdateMetadataResponse,
-    DefaultError,
-    Options<UpdateMetadataData>
-  > = {
-    mutationFn: async (fnOptions) => {
-      const { data } = await updateMetadata({
         ...options,
         ...fnOptions,
         throwOnError: true,
