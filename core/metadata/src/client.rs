@@ -38,7 +38,7 @@ impl MetadataClient {
     }
 
     /// Search TMDB only
-    async fn search_tmdb(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
+    pub async fn search_tmdb(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
         let response = self.tmdb.search_multi(query).await?;
 
         Ok(response
@@ -74,7 +74,7 @@ impl MetadataClient {
     }
 
     /// Search BGM.tv only
-    async fn search_bgmtv(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
+    pub async fn search_bgmtv(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
         let results = self.bgmtv.search_bangumi(query).await?;
 
         Ok(results
@@ -191,6 +191,40 @@ impl MetadataClient {
         })
     }
 
+    /// Get episode offset for a BGM.tv subject
+    ///
+    /// Episode offset is used to convert absolute episode numbers (from RSS feeds)
+    /// to season-relative episode numbers. For example, if a second season starts
+    /// at episode 13 but should be numbered as episode 1, the offset would be 12.
+    ///
+    /// # Arguments
+    /// * `bgmtv_id` - BGM.tv subject ID
+    ///
+    /// # Returns
+    /// The episode offset (0 if no offset is needed or no episodes found)
+    pub async fn get_tv_offset(&self, bgmtv_id: i64) -> Result<i32, MetadataError> {
+        let response = self.bgmtv.get_episodes(bgmtv_id).await?;
+
+        // Find the first main episode (type = 0)
+        let first_main = response
+            .data
+            .iter()
+            .find(|ep| ep.episode_type == bgmtv::EpisodeType::Main);
+
+        let offset = match first_main {
+            Some(ep) => {
+                // ep.ep is the relative episode number (within season)
+                // ep.sort is the absolute episode number
+                // offset = sort - ep
+                let ep_num = ep.ep.unwrap_or(ep.sort);
+                (ep.sort - ep_num).floor() as i32
+            }
+            None => 0,
+        };
+
+        Ok(offset)
+    }
+
     /// Get access to the underlying TMDB client
     pub fn tmdb(&self) -> &TmdbClient {
         &self.tmdb
@@ -242,3 +276,29 @@ mod tests {
         assert!(!tv_results.is_empty(), "Should have TV results");
     }
 
+    #[tokio::test]
+    async fn test_get_tv_offset_rezero_s2() {
+        let client = create_test_client();
+
+        // Re:Zero Season 2 (BGM.tv subject ID: 278826)
+        // Season 2 starts at episode 26 (sort=26, ep=1), so offset should be 25
+        let offset = client.get_tv_offset(278826).await.unwrap();
+
+        println!("Re:Zero S2 offset: {}", offset);
+        assert!(offset >= 0, "Offset should be non-negative");
+        // Season 2 has offset of 25 (episodes 26-50 → 1-25)
+        assert_eq!(offset, 25, "Re:Zero S2 should have offset of 25");
+    }
+
+    #[tokio::test]
+    async fn test_get_tv_offset_rezero_s1() {
+        let client = create_test_client();
+
+        // Re:Zero Season 1 (BGM.tv subject ID: 129807)
+        // Season 1 starts at episode 1, so offset should be 0
+        let offset = client.get_tv_offset(129807).await.unwrap();
+
+        println!("Re:Zero S1 offset: {}", offset);
+        assert_eq!(offset, 0, "Re:Zero S1 should have offset of 0");
+    }
+}

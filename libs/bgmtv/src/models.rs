@@ -87,6 +87,12 @@ pub enum EpisodeType {
     Opening = 2,
     /// ED
     Ending = 3,
+    /// 预告/PV/CM
+    Preview = 4,
+    /// MAD
+    Mad = 5,
+    /// 其他
+    Other = 6,
 }
 
 /// Episode item

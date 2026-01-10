@@ -193,6 +193,8 @@ fn convert_episode(ep: bgmtv::Episode) -> Episode {
             bgmtv::EpisodeType::Special => EpisodeType::Special,
             bgmtv::EpisodeType::Opening => EpisodeType::Opening,
             bgmtv::EpisodeType::Ending => EpisodeType::Ending,
+            // Preview, Mad, Other are treated as Special
+            _ => EpisodeType::Special,
         },
         name: ep.name,
         name_cn: ep.name_cn,
