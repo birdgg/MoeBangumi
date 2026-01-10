@@ -38,6 +38,26 @@ pub trait MetadataProvider: Send + Sync {
 
 ## 使用
 
+### MetadataClient（推荐）
+
+```rust
+use metadata::{MetadataClient, MetadataSource, SearchQuery};
+
+let client = MetadataClient::new(bgmtv_provider, tmdb_provider);
+
+// 从 BGM.tv 搜索
+let query = SearchQuery::new("葬送のフリーレン").with_year(2023);
+let results = client.search(&query, MetadataSource::Bgmtv).await?;
+
+// 从 TMDB 获取详情
+let detail = client.get_detail("12345", MetadataSource::Tmdb).await?;
+
+// 获取 episode offset（仅 BGM.tv）
+let offset = client.get_offset("425651").await?;
+```
+
+### MetadataProvider Trait
+
 ```rust
 use metadata::{BgmtvProvider, TmdbProvider, MetadataProvider, SearchQuery};
 

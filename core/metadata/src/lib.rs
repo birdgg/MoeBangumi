@@ -32,12 +32,14 @@
 //! ```
 
 mod adapters;
+mod client;
 mod error;
 mod models;
 mod parsed_subject;
 mod provider;
 
 pub use adapters::{BgmtvProvider, TmdbProvider};
+pub use client::MetadataClient;
 pub use error::ProviderError;
 pub use models::{Episode, EpisodeType, MetadataSource, Platform, SearchQuery, SearchedMetadata};
 pub use parsed_subject::{parse_subject, parse_subject_detail, ParsedSubject};
