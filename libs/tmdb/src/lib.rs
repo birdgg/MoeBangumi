@@ -2,6 +2,9 @@ mod client;
 mod discover;
 mod error;
 pub mod models;
+mod movie;
+mod search;
+mod tv;
 
 pub use client::{ApiKey, TmdbClient};
 pub use discover::DiscoverBangumiParams;
