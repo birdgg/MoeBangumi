@@ -11,9 +11,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::config::Config;
-use crate::models::{BangumiWithMetadata, SourceType, Torrent};
+use crate::models::{BangumiWithSeries, SourceType, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
-use crate::services::{DownloaderHandle, NotificationService, Task, TaskFile};
+use crate::services::{DownloaderHandle, NotificationService, SettingsService, Task, TaskFile};
 
 /// Error type for rename operations
 #[derive(Debug, thiserror::Error)]
@@ -64,6 +64,7 @@ pub struct RenameService {
     downloader: Arc<DownloaderHandle>,
     notification: Arc<NotificationService>,
     config: Arc<Config>,
+    settings: Arc<SettingsService>,
     parser: Parser,
     /// Maximum number of concurrent rename tasks
     concurrency: usize,
@@ -76,12 +77,14 @@ impl RenameService {
         downloader: Arc<DownloaderHandle>,
         notification: Arc<NotificationService>,
         config: Arc<Config>,
+        settings: Arc<SettingsService>,
     ) -> Self {
         Self {
             db,
             downloader,
             notification,
             config,
+            settings,
             parser: Parser::new(),
             concurrency: 4,
         }
@@ -265,7 +268,7 @@ impl RenameService {
     }
 
     /// Get all completed tasks pending rename
-    async fn get_pending_tasks(&self) -> Result<Vec<(Task, Torrent, BangumiWithMetadata)>> {
+    async fn get_pending_tasks(&self) -> Result<Vec<(Task, Torrent, BangumiWithSeries)>> {
         // Query downloader for completed/seeding tasks with rename tag
         let all_tasks = self.downloader.get_rename_pending_tasks().await?;
 
@@ -274,16 +277,26 @@ impl RenameService {
         for task in all_tasks {
             // Find matching torrent in database by info_hash
             if let Some(torrent) = TorrentRepository::get_by_info_hash(&self.db, &task.id).await? {
-                // Get associated bangumi with metadata
-                if let Some(bangumi_with_metadata) =
-                    BangumiRepository::get_with_metadata_by_id(&self.db, torrent.bangumi_id).await?
-                {
-                    result.push((task, torrent, bangumi_with_metadata));
+                // Get associated bangumi IDs
+                let bangumi_ids = TorrentRepository::get_bangumi_ids(&self.db, torrent.id).await?;
+                if let Some(&bangumi_id) = bangumi_ids.first() {
+                    // Get associated bangumi with series
+                    if let Some(bangumi_with_series) =
+                        BangumiRepository::get_with_series_by_id(&self.db, bangumi_id).await?
+                    {
+                        result.push((task, torrent, bangumi_with_series));
+                    } else {
+                        tracing::warn!(
+                            "Bangumi not found for torrent {} (bangumi_id: {})",
+                            task.id,
+                            bangumi_id
+                        );
+                    }
                 } else {
                     tracing::warn!(
-                        "Bangumi not found for torrent {} (bangumi_id: {})",
+                        "No bangumi associated with torrent {} ({})",
                         task.id,
-                        torrent.bangumi_id
+                        torrent.id
                     );
                 }
             } else {
@@ -306,26 +319,47 @@ impl RenameService {
         &self,
         task: &Task,
         torrent: &Torrent,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &BangumiWithSeries,
     ) -> Result<RenameTaskResult> {
         tracing::info!(
             "Processing task: {} ({}) for bangumi: {}",
             task.name,
             task.id,
-            bangumi.metadata.title_chinese
+            bangumi.bangumi.title_chinese
         );
 
         // Check if task is in temporary directory and move to final location first
         use crate::utils::is_temp_download_path;
         if is_temp_download_path(&task.save_path) {
-            let final_path = &bangumi.bangumi.save_path;
+            // Get save path from settings
+            let base_save_path = &self.settings.get().downloader.save_path;
+
+            // Generate final path dynamically
+            let final_path = pathgen::generate_directory(
+                base_save_path,
+                &bangumi.series.title_chinese,
+                bangumi.bangumi.year,
+                bangumi.bangumi.season,
+                bangumi.series.tmdb_id,
+                Some(bangumi.bangumi.platform.as_str()),
+            )
+            .unwrap_or_else(|_| {
+                format!(
+                    "{}/{} ({})/Season {:02}",
+                    base_save_path,
+                    bangumi.series.title_chinese,
+                    bangumi.bangumi.year,
+                    bangumi.bangumi.season
+                )
+            });
+
             tracing::info!(
                 "Moving task from temporary location {} to final location {}",
                 task.save_path,
                 final_path
             );
 
-            match self.downloader.set_location(&task.id, final_path).await {
+            match self.downloader.set_location(&task.id, &final_path).await {
                 Ok(()) => {
                     tracing::info!("Successfully moved task {} to {}", task.id, final_path);
                 }
@@ -354,9 +388,9 @@ impl RenameService {
             self.finalize_task(&task.id).await?;
             return Ok(RenameTaskResult {
                 bangumi_id: bangumi.bangumi.id,
-                bangumi_title: bangumi.metadata.title_chinese.clone(),
-                poster_url: bangumi.metadata.poster_url.clone(),
-                total_episodes: bangumi.metadata.total_episodes,
+                bangumi_title: bangumi.bangumi.title_chinese.clone(),
+                poster_url: bangumi.bangumi.poster_url.clone(),
+                total_episodes: bangumi.bangumi.total_episodes,
                 renamed_episodes: Vec::new(),
             });
         }
@@ -379,9 +413,9 @@ impl RenameService {
         tracing::info!("Successfully renamed task: {}", task.name);
         Ok(RenameTaskResult {
             bangumi_id: bangumi.bangumi.id,
-            bangumi_title: bangumi.metadata.title_chinese.clone(),
-            poster_url: bangumi.metadata.poster_url.clone(),
-            total_episodes: bangumi.metadata.total_episodes,
+            bangumi_title: bangumi.bangumi.title_chinese.clone(),
+            poster_url: bangumi.bangumi.poster_url.clone(),
+            total_episodes: bangumi.bangumi.total_episodes,
             renamed_episodes,
         })
     }
@@ -391,7 +425,7 @@ impl RenameService {
     /// 1. User marked source_type as BDRip
     /// 2. Torrent title contains "bdrip" (case insensitive)
     /// 3. Directory structure contains BDRip indicators (SPs, CDs, Scans)
-    fn is_bdrip(&self, task: &Task, bangumi: &BangumiWithMetadata, files: &[TaskFile]) -> bool {
+    fn is_bdrip(&self, task: &Task, bangumi: &BangumiWithSeries, files: &[TaskFile]) -> bool {
         // 1. User marked as BDRip
         if bangumi.bangumi.source_type == SourceType::BDRip {
             return true;
@@ -428,17 +462,19 @@ impl RenameService {
         task: &Task,
         video_files: &[&TaskFile],
         torrent: &Torrent,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &BangumiWithSeries,
         all_files: &[TaskFile],
     ) -> Result<Vec<i32>> {
         let mut renamed_episodes = Vec::new();
 
+        // Try to parse episode number from torrent_url first (for single-file fallback)
+        let torrent_episode = self.parse_episode_number(&torrent.torrent_url);
+
         for video_file in video_files {
-            // If single video file and torrent has episode_number, use it as fallback
+            // If single video file, try torrent_url episode as fallback
             let episode = if video_files.len() == 1 {
-                torrent
-                    .episode_number
-                    .or_else(|| self.parse_episode_number(&video_file.path))
+                self.parse_episode_number(&video_file.path)
+                    .or(torrent_episode)
             } else {
                 // Multiple files - always parse from filename
                 self.parse_episode_number(&video_file.path)
@@ -468,7 +504,7 @@ impl RenameService {
         &self,
         task: &Task,
         video_files: &[&TaskFile],
-        bangumi: &BangumiWithMetadata,
+        bangumi: &BangumiWithSeries,
         all_files: &[TaskFile],
     ) -> Result<Vec<i32>> {
         let mut renamed_episodes = Vec::new();
@@ -505,7 +541,7 @@ impl RenameService {
                 }
                 BDRipContentType::Episode => {
                     // Process regular episode
-                    let season = parse_result.season.unwrap_or(bangumi.metadata.season);
+                    let season = parse_result.season.unwrap_or(bangumi.bangumi.season);
 
                     if let Some(episode) = parse_result.number {
                         if self
@@ -541,7 +577,7 @@ impl RenameService {
         &self,
         task: &Task,
         file: &TaskFile,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &BangumiWithSeries,
         season: i32,
         episode: i32,
         all_files: &[TaskFile],
@@ -550,17 +586,17 @@ impl RenameService {
 
         // BDRip episode numbers are already season-relative, no offset needed
         let new_filename_base = pathgen::generate_filename(
-            &bangumi.metadata.title_chinese,
+            &bangumi.bangumi.title_chinese,
             season,
             episode,
-            Some(bangumi.metadata.platform.as_str()),
+            Some(bangumi.bangumi.platform.as_str()),
         );
 
         // Build the full destination path
         let new_path = Self::build_bdrip_path(
-            &bangumi.metadata.title_chinese,
-            bangumi.metadata.year,
-            bangumi.metadata.tmdb_id,
+            &bangumi.series.title_chinese,
+            bangumi.bangumi.year,
+            bangumi.series.tmdb_id,
             season,
             &new_filename_base,
             ext,
@@ -586,21 +622,21 @@ impl RenameService {
         &self,
         task: &Task,
         file: &TaskFile,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &BangumiWithSeries,
         sp_number: i32,
         all_files: &[TaskFile],
     ) -> Result<()> {
         let ext = file.extension().unwrap_or("mkv");
 
         // Generate special filename: Title - s00eXX
-        let title = pathgen::sanitize(&bangumi.metadata.title_chinese);
+        let title = pathgen::sanitize(&bangumi.bangumi.title_chinese);
         let new_filename_base = format!("{} - s00e{:02}", title, sp_number);
 
         // Build the full destination path with Specials directory
         let new_path = Self::build_special_path(
-            &bangumi.metadata.title_chinese,
-            bangumi.metadata.year,
-            bangumi.metadata.tmdb_id,
+            &bangumi.series.title_chinese,
+            bangumi.bangumi.year,
+            bangumi.series.tmdb_id,
             &new_filename_base,
             ext,
         );
@@ -660,7 +696,7 @@ impl RenameService {
         &self,
         task: &Task,
         file: &TaskFile,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &BangumiWithSeries,
         episode: i32,
         all_files: &[TaskFile],
     ) -> Result<()> {
@@ -670,14 +706,14 @@ impl RenameService {
         let ext = file.extension().unwrap_or("mkv");
 
         // Apply episode offset to convert RSS episode number to season-relative episode
-        let adjusted_episode = bangumi.metadata.adjust_episode(episode);
+        let adjusted_episode = bangumi.bangumi.adjust_episode(episode);
 
         // Generate new filename using pathgen
         let new_filename_base = pathgen::generate_filename(
-            &bangumi.metadata.title_chinese,
-            bangumi.metadata.season,
+            &bangumi.bangumi.title_chinese,
+            bangumi.bangumi.season,
             adjusted_episode,
-            Some(bangumi.metadata.platform.as_str()),
+            Some(bangumi.bangumi.platform.as_str()),
         );
 
         let new_filename = format!("{}.{}", new_filename_base, ext);

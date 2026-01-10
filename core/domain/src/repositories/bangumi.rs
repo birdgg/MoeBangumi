@@ -1,42 +1,52 @@
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
 
-use crate::models::{Bangumi, BangumiWithMetadata, Metadata, UpdateBangumi};
+use crate::models::{Bangumi, BangumiWithSeries, Series, UpdateBangumi};
 
 /// Common SELECT fields for bangumi queries
 const SELECT_BANGUMI: &str = r#"
     SELECT
         id, created_at, updated_at,
-        metadata_id, current_episode,
-        auto_complete, save_path, source_type
+        series_id, mikan_id, bgmtv_id,
+        title_chinese, title_japanese, season, year,
+        total_episodes, poster_url, air_date, air_week, platform,
+        current_episode, episode_offset, auto_complete, source_type
     FROM bangumi
 "#;
 
-/// SELECT for bangumi with metadata JOIN
-const SELECT_BANGUMI_WITH_METADATA: &str = r#"
+/// SELECT for bangumi with series JOIN
+const SELECT_BANGUMI_WITH_SERIES: &str = r#"
     SELECT
         b.id, b.created_at, b.updated_at,
-        b.metadata_id, b.current_episode,
-        b.auto_complete, b.save_path, b.source_type,
-        m.id as m_id, m.created_at as m_created_at, m.updated_at as m_updated_at,
-        m.mikan_id, m.bgmtv_id, m.tmdb_id,
-        m.title_chinese, m.title_japanese,
-        m.season, m.year, m.platform,
-        m.total_episodes, m.poster_url, m.air_date, m.air_week,
-        m.tmdb_lookup_at as m_tmdb_lookup_at,
-        m.episode_offset as m_episode_offset
+        b.series_id, b.mikan_id, b.bgmtv_id,
+        b.title_chinese, b.title_japanese, b.season, b.year,
+        b.total_episodes, b.poster_url, b.air_date, b.air_week, b.platform,
+        b.current_episode, b.episode_offset, b.auto_complete, b.source_type,
+        s.id as s_id, s.created_at as s_created_at, s.updated_at as s_updated_at,
+        s.tmdb_id as s_tmdb_id, s.title_chinese as s_title_chinese,
+        s.title_japanese as s_title_japanese, s.poster_url as s_poster_url
     FROM bangumi b
-    INNER JOIN metadata m ON b.metadata_id = m.id
+    INNER JOIN series s ON b.series_id = s.id
 "#;
 
 /// Data required to create a new bangumi
 pub struct CreateBangumiData {
-    pub metadata_id: i64,
+    pub series_id: i64,
+    pub mikan_id: Option<String>,
+    pub bgmtv_id: Option<i64>,
+    pub title_chinese: String,
+    pub title_japanese: Option<String>,
+    pub season: i32,
+    pub year: i32,
+    pub total_episodes: i32,
+    pub poster_url: Option<String>,
+    pub air_date: Option<String>,
+    pub air_week: i32,
+    pub platform: String,
+    pub current_episode: i32,
+    pub episode_offset: i32,
     pub auto_complete: bool,
-    pub save_path: String,
     pub source_type: String,
-    /// Initial current episode (defaults to 0 if None)
-    pub current_episode: Option<i32>,
 }
 
 pub struct BangumiRepository;
@@ -50,17 +60,31 @@ impl BangumiRepository {
         let result = sqlx::query(
             r#"
             INSERT INTO bangumi (
-                metadata_id, auto_complete, save_path, source_type, current_episode
+                series_id, mikan_id, bgmtv_id,
+                title_chinese, title_japanese, season, year,
+                total_episodes, poster_url, air_date, air_week, platform,
+                current_episode, episode_offset, auto_complete, source_type
             )
-            VALUES ($1, $2, $3, $4, COALESCE($5, 0))
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING id
             "#,
         )
-        .bind(data.metadata_id)
-        .bind(data.auto_complete)
-        .bind(&data.save_path)
-        .bind(&data.source_type)
+        .bind(data.series_id)
+        .bind(&data.mikan_id)
+        .bind(data.bgmtv_id)
+        .bind(&data.title_chinese)
+        .bind(&data.title_japanese)
+        .bind(data.season)
+        .bind(data.year)
+        .bind(data.total_episodes)
+        .bind(&data.poster_url)
+        .bind(&data.air_date)
+        .bind(data.air_week)
+        .bind(&data.platform)
         .bind(data.current_episode)
+        .bind(data.episode_offset)
+        .bind(data.auto_complete)
+        .bind(&data.source_type)
         .fetch_one(pool)
         .await?;
 
@@ -81,27 +105,55 @@ impl BangumiRepository {
         Ok(row.map(Into::into))
     }
 
-    /// Get a bangumi by metadata_id
-    pub async fn get_by_metadata_id(
+    /// Get a bangumi by Mikan ID
+    pub async fn get_by_mikan_id(
         pool: &SqlitePool,
-        metadata_id: i64,
+        mikan_id: &str,
     ) -> Result<Option<Bangumi>, sqlx::Error> {
-        let query = format!("{} WHERE metadata_id = $1", SELECT_BANGUMI);
+        let query = format!("{} WHERE mikan_id = $1", SELECT_BANGUMI);
         let row = sqlx::query_as::<_, BangumiRow>(&query)
-            .bind(metadata_id)
+            .bind(mikan_id)
             .fetch_optional(pool)
             .await?;
 
         Ok(row.map(Into::into))
     }
 
-    /// Get bangumi with metadata by ID
-    pub async fn get_with_metadata_by_id(
+    /// Get a bangumi by BGM.tv ID
+    pub async fn get_by_bgmtv_id(
+        pool: &SqlitePool,
+        bgmtv_id: i64,
+    ) -> Result<Option<Bangumi>, sqlx::Error> {
+        let query = format!("{} WHERE bgmtv_id = $1", SELECT_BANGUMI);
+        let row = sqlx::query_as::<_, BangumiRow>(&query)
+            .bind(bgmtv_id)
+            .fetch_optional(pool)
+            .await?;
+
+        Ok(row.map(Into::into))
+    }
+
+    /// Get a bangumi by series_id
+    pub async fn get_by_series_id(
+        pool: &SqlitePool,
+        series_id: i64,
+    ) -> Result<Vec<Bangumi>, sqlx::Error> {
+        let query = format!("{} WHERE series_id = $1 ORDER BY season ASC", SELECT_BANGUMI);
+        let rows = sqlx::query_as::<_, BangumiRow>(&query)
+            .bind(series_id)
+            .fetch_all(pool)
+            .await?;
+
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    /// Get bangumi with series by ID
+    pub async fn get_with_series_by_id(
         pool: &SqlitePool,
         id: i64,
-    ) -> Result<Option<BangumiWithMetadata>, sqlx::Error> {
-        let query = format!("{} WHERE b.id = $1", SELECT_BANGUMI_WITH_METADATA);
-        let row = sqlx::query_as::<_, BangumiWithMetadataRow>(&query)
+    ) -> Result<Option<BangumiWithSeries>, sqlx::Error> {
+        let query = format!("{} WHERE b.id = $1", SELECT_BANGUMI_WITH_SERIES);
+        let row = sqlx::query_as::<_, BangumiWithSeriesRow>(&query)
             .bind(id)
             .fetch_optional(pool)
             .await?;
@@ -119,12 +171,12 @@ impl BangumiRepository {
         Ok(rows.into_iter().map(Into::into).collect())
     }
 
-    /// Get all bangumi with metadata
-    pub async fn get_all_with_metadata(
+    /// Get all bangumi with series
+    pub async fn get_all_with_series(
         pool: &SqlitePool,
-    ) -> Result<Vec<BangumiWithMetadata>, sqlx::Error> {
-        let query = format!("{} ORDER BY b.created_at DESC", SELECT_BANGUMI_WITH_METADATA);
-        let rows = sqlx::query_as::<_, BangumiWithMetadataRow>(&query)
+    ) -> Result<Vec<BangumiWithSeries>, sqlx::Error> {
+        let query = format!("{} ORDER BY b.created_at DESC", SELECT_BANGUMI_WITH_SERIES);
+        let rows = sqlx::query_as::<_, BangumiWithSeriesRow>(&query)
             .fetch_all(pool)
             .await?;
 
@@ -132,22 +184,56 @@ impl BangumiRepository {
     }
 
     /// Update a bangumi
-    /// Uses COALESCE for atomic update to avoid read-modify-write race conditions
     pub async fn update(
         pool: &SqlitePool,
         id: i64,
         data: UpdateBangumi,
     ) -> Result<Option<Bangumi>, sqlx::Error> {
+        let mikan_id_update = data.mikan_id.should_update();
+        let bgmtv_id_update = data.bgmtv_id.should_update();
+        let title_japanese_update = data.title_japanese.should_update();
+        let poster_url_update = data.poster_url.should_update();
+        let air_date_update = data.air_date.should_update();
+
         let result = sqlx::query(
             r#"
             UPDATE bangumi SET
-                current_episode = COALESCE($1, current_episode),
-                auto_complete = COALESCE($2, auto_complete),
-                source_type = COALESCE($3, source_type)
-            WHERE id = $4
+                mikan_id = CASE WHEN $1 THEN $2 ELSE mikan_id END,
+                bgmtv_id = CASE WHEN $3 THEN $4 ELSE bgmtv_id END,
+                title_chinese = COALESCE($5, title_chinese),
+                title_japanese = CASE WHEN $6 THEN $7 ELSE title_japanese END,
+                season = COALESCE($8, season),
+                year = COALESCE($9, year),
+                total_episodes = COALESCE($10, total_episodes),
+                poster_url = CASE WHEN $11 THEN $12 ELSE poster_url END,
+                air_date = CASE WHEN $13 THEN $14 ELSE air_date END,
+                air_week = COALESCE($15, air_week),
+                platform = COALESCE($16, platform),
+                current_episode = COALESCE($17, current_episode),
+                episode_offset = COALESCE($18, episode_offset),
+                auto_complete = COALESCE($19, auto_complete),
+                source_type = COALESCE($20, source_type)
+            WHERE id = $21
             "#,
         )
+        .bind(mikan_id_update)
+        .bind(data.mikan_id.into_value())
+        .bind(bgmtv_id_update)
+        .bind(data.bgmtv_id.into_value())
+        .bind(&data.title_chinese)
+        .bind(title_japanese_update)
+        .bind(data.title_japanese.into_value())
+        .bind(data.season)
+        .bind(data.year)
+        .bind(data.total_episodes)
+        .bind(poster_url_update)
+        .bind(data.poster_url.into_value())
+        .bind(air_date_update)
+        .bind(data.air_date.into_value())
+        .bind(data.air_week)
+        .bind(data.platform.map(|p| p.as_str().to_string()))
         .bind(data.current_episode)
+        .bind(data.episode_offset)
         .bind(data.auto_complete)
         .bind(data.source_type.map(|s| s.as_str().to_string()))
         .bind(id)
@@ -202,6 +288,103 @@ impl BangumiRepository {
 
         Ok(result.rows_affected() > 0)
     }
+
+    /// Check if Mikan ID exists
+    pub async fn mikan_id_exists(pool: &SqlitePool, mikan_id: &str) -> Result<bool, sqlx::Error> {
+        let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM bangumi WHERE mikan_id = $1")
+            .bind(mikan_id)
+            .fetch_one(pool)
+            .await?;
+        Ok(count.0 > 0)
+    }
+
+    /// Update poster URL for bangumi
+    pub async fn update_poster_url(
+        pool: &SqlitePool,
+        id: i64,
+        poster_url: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("UPDATE bangumi SET poster_url = $1 WHERE id = $2")
+            .bind(poster_url)
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Get bangumi records that need poster syncing (remote poster URL)
+    pub async fn get_bangumi_to_sync(
+        pool: &SqlitePool,
+        limit: i64,
+        after_id: i64,
+    ) -> Result<Vec<BangumiToSync>, sqlx::Error> {
+        let rows: Vec<BangumiToSync> = sqlx::query_as(
+            r#"
+            SELECT id, title_chinese, poster_url
+            FROM bangumi
+            WHERE id > $2
+              AND poster_url IS NOT NULL
+              AND poster_url != ''
+              AND poster_url NOT LIKE '/posters/%'
+            ORDER BY id ASC
+            LIMIT $1
+            "#,
+        )
+        .bind(limit)
+        .bind(after_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    /// Count bangumi records that need poster syncing
+    pub async fn count_bangumi_to_sync(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
+        let result: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)
+            FROM bangumi
+            WHERE poster_url IS NOT NULL
+              AND poster_url != ''
+              AND poster_url NOT LIKE '/posters/%'
+            "#,
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(result.0)
+    }
+
+    /// Batch update poster URLs for multiple bangumi
+    pub async fn batch_update_poster_urls(
+        pool: &SqlitePool,
+        updates: &[(i64, String)],
+    ) -> Result<u64, sqlx::Error> {
+        if updates.is_empty() {
+            return Ok(0);
+        }
+
+        let mut affected = 0u64;
+        for (id, poster_url) in updates {
+            let result = sqlx::query("UPDATE bangumi SET poster_url = $1 WHERE id = $2")
+                .bind(poster_url)
+                .bind(id)
+                .execute(pool)
+                .await?;
+            affected += result.rows_affected();
+        }
+
+        Ok(affected)
+    }
+}
+
+/// Bangumi record that needs syncing
+#[derive(Debug, sqlx::FromRow)]
+pub struct BangumiToSync {
+    pub id: i64,
+    pub title_chinese: String,
+    pub poster_url: Option<String>,
 }
 
 /// Internal row type for mapping SQLite results
@@ -210,10 +393,21 @@ struct BangumiRow {
     id: i64,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
-    metadata_id: i64,
+    series_id: i64,
+    mikan_id: Option<String>,
+    bgmtv_id: Option<i64>,
+    title_chinese: String,
+    title_japanese: Option<String>,
+    season: i32,
+    year: i32,
+    total_episodes: i32,
+    poster_url: Option<String>,
+    air_date: Option<String>,
+    air_week: i32,
+    platform: String,
     current_episode: i32,
+    episode_offset: i32,
     auto_complete: bool,
-    save_path: String,
     source_type: String,
 }
 
@@ -223,78 +417,91 @@ impl From<BangumiRow> for Bangumi {
             id: row.id,
             created_at: row.created_at,
             updated_at: row.updated_at,
-            metadata_id: row.metadata_id,
+            series_id: row.series_id,
+            mikan_id: row.mikan_id,
+            bgmtv_id: row.bgmtv_id,
+            title_chinese: row.title_chinese,
+            title_japanese: row.title_japanese,
+            season: row.season,
+            year: row.year,
+            total_episodes: row.total_episodes,
+            poster_url: row.poster_url,
+            air_date: row.air_date,
+            air_week: row.air_week,
+            platform: row.platform.parse().unwrap_or_default(),
             current_episode: row.current_episode,
+            episode_offset: row.episode_offset,
             auto_complete: row.auto_complete,
-            save_path: row.save_path,
             source_type: row.source_type.parse().unwrap_or_default(),
         }
     }
 }
 
-/// Internal row type for bangumi with metadata JOIN
+/// Internal row type for bangumi with series JOIN
 #[derive(Debug, sqlx::FromRow)]
-struct BangumiWithMetadataRow {
+struct BangumiWithSeriesRow {
     // Bangumi fields
     id: i64,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
-    metadata_id: i64,
-    current_episode: i32,
-    auto_complete: bool,
-    save_path: String,
-    source_type: String,
-    // Metadata fields (prefixed with m_)
-    m_id: i64,
-    m_created_at: DateTime<Utc>,
-    m_updated_at: DateTime<Utc>,
+    series_id: i64,
     mikan_id: Option<String>,
     bgmtv_id: Option<i64>,
-    tmdb_id: Option<i64>,
     title_chinese: String,
     title_japanese: Option<String>,
     season: i32,
     year: i32,
-    platform: String,
     total_episodes: i32,
     poster_url: Option<String>,
     air_date: Option<String>,
     air_week: i32,
-    m_tmdb_lookup_at: Option<DateTime<Utc>>,
-    m_episode_offset: i32,
+    platform: String,
+    current_episode: i32,
+    episode_offset: i32,
+    auto_complete: bool,
+    source_type: String,
+    // Series fields (prefixed with s_)
+    s_id: i64,
+    s_created_at: DateTime<Utc>,
+    s_updated_at: DateTime<Utc>,
+    s_tmdb_id: Option<i64>,
+    s_title_chinese: String,
+    s_title_japanese: Option<String>,
+    s_poster_url: Option<String>,
 }
 
-impl From<BangumiWithMetadataRow> for BangumiWithMetadata {
-    fn from(row: BangumiWithMetadataRow) -> Self {
+impl From<BangumiWithSeriesRow> for BangumiWithSeries {
+    fn from(row: BangumiWithSeriesRow) -> Self {
         Self {
             bangumi: Bangumi {
                 id: row.id,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
-                metadata_id: row.metadata_id,
-                current_episode: row.current_episode,
-                auto_complete: row.auto_complete,
-                save_path: row.save_path,
-                source_type: row.source_type.parse().unwrap_or_default(),
-            },
-            metadata: Metadata {
-                id: row.m_id,
-                created_at: row.m_created_at,
-                updated_at: row.m_updated_at,
+                series_id: row.series_id,
                 mikan_id: row.mikan_id,
                 bgmtv_id: row.bgmtv_id,
-                tmdb_id: row.tmdb_id,
                 title_chinese: row.title_chinese,
                 title_japanese: row.title_japanese,
                 season: row.season,
                 year: row.year,
-                platform: row.platform.parse().unwrap_or_default(),
                 total_episodes: row.total_episodes,
                 poster_url: row.poster_url,
                 air_date: row.air_date,
                 air_week: row.air_week,
-                tmdb_lookup_at: row.m_tmdb_lookup_at,
-                episode_offset: row.m_episode_offset,
+                platform: row.platform.parse().unwrap_or_default(),
+                current_episode: row.current_episode,
+                episode_offset: row.episode_offset,
+                auto_complete: row.auto_complete,
+                source_type: row.source_type.parse().unwrap_or_default(),
+            },
+            series: Series {
+                id: row.s_id,
+                created_at: row.s_created_at,
+                updated_at: row.s_updated_at,
+                tmdb_id: row.s_tmdb_id,
+                title_chinese: row.s_title_chinese,
+                title_japanese: row.s_title_japanese,
+                poster_url: row.s_poster_url,
             },
         }
     }

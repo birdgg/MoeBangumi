@@ -88,12 +88,6 @@ pub fn create_router(state: AppState) -> Router {
             "/api/bangumi/{id}",
             get(handlers::get_bangumi_by_id).patch(handlers::update_bangumi),
         )
-        // Metadata endpoints
-        .route("/api/metadata", get(handlers::get_metadata))
-        .route(
-            "/api/metadata/{id}",
-            get(handlers::get_metadata_by_id).patch(handlers::update_metadata),
-        )
         // Episodes endpoint
         .route("/api/episodes/{subject_id}", get(handlers::get_episodes))
         // Settings endpoints

@@ -4,7 +4,7 @@
 //! based on subtitle group, language, and resolution settings.
 
 use downloader::DownloaderError;
-use parser::ParseResult;
+use parser::{ParseResult, Parser};
 use sqlx::SqlitePool;
 use std::sync::Arc;
 
@@ -48,6 +48,7 @@ pub struct WashingService {
     db: SqlitePool,
     downloader: Arc<DownloaderHandle>,
     settings: Arc<SettingsService>,
+    parser: Parser,
 }
 
 impl WashingService {
@@ -61,6 +62,31 @@ impl WashingService {
             db,
             downloader,
             settings,
+            parser: Parser::new(),
+        }
+    }
+
+    /// Parse torrent metadata from qBittorrent's actual content filename
+    ///
+    /// Fetches file list from qBittorrent and parses the first video file's name.
+    /// Returns empty metadata if qBittorrent query fails or no video file found.
+    async fn parse_torrent_metadata(&self, torrent: &Torrent) -> ComparableTorrent {
+        // Get actual filename from qBittorrent
+        if let Ok(files) = self.downloader.get_task_files(&torrent.info_hash).await {
+            // Find first video file
+            if let Some(video_file) = files.iter().find(|f| f.is_video()) {
+                if let Ok(result) = self.parser.parse(&video_file.path) {
+                    return ComparableTorrent {
+                        subtitle_group: result.subtitle_group,
+                        subtitle_languages: result.subtitle_language,
+                    };
+                }
+            }
+        }
+
+        ComparableTorrent {
+            subtitle_group: None,
+            subtitle_languages: Vec::new(),
         }
     }
 
@@ -68,7 +94,7 @@ impl WashingService {
     ///
     /// Returns true only if the new torrent has higher priority than
     /// the best existing torrent (comparing subtitle group, language, resolution).
-    pub fn should_wash(
+    pub async fn should_wash(
         &self,
         existing_torrents: &[Torrent],
         new_parse_result: &ParseResult,
@@ -88,11 +114,11 @@ impl WashingService {
             subtitle_languages: new_parse_result.subtitle_language.clone(),
         };
 
-        // Convert existing torrents to comparable form
-        let existing_comparables: Vec<ComparableTorrent> = existing_torrents
-            .iter()
-            .map(|t| t.to_comparable())
-            .collect();
+        // Convert existing torrents to comparable form (parse from qBittorrent actual filename)
+        let mut existing_comparables = Vec::with_capacity(existing_torrents.len());
+        for torrent in existing_torrents {
+            existing_comparables.push(self.parse_torrent_metadata(torrent).await);
+        }
 
         // Find the best existing torrent
         let best_existing = match calculator.find_best(&existing_comparables) {
@@ -141,16 +167,12 @@ impl WashingService {
             TorrentRepository::delete_with_executor(&mut *tx, existing.id).await?;
         }
 
-        // 2. Create new torrent in transaction (with parsed metadata)
+        // 2. Create new torrent in transaction
         let new_torrent = CreateTorrent {
-            bangumi_id: params.bangumi_id,
             rss_id: params.rss_id,
             info_hash: params.info_hash.to_string(),
             torrent_url: params.torrent_url.to_string(),
-            episode_number: Some(params.episode),
-            subtitle_group: params.parse_result.subtitle_group.clone(),
-            subtitle_languages: params.parse_result.subtitle_language.clone(),
-            resolution: params.parse_result.resolution.clone(),
+            bangumi_ids: vec![params.bangumi_id],
         };
 
         TorrentRepository::create_with_executor(&mut *tx, new_torrent).await?;

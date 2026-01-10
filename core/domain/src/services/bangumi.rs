@@ -4,12 +4,11 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::models::{
-    format_rss_title, BangumiWithMetadata, BangumiWithRss, CreateBangumi, CreateRss, RssEntry,
-    UpdateBangumi, UpdateBangumiRequest, UpdateMetadata,
+    format_rss_title, BangumiWithRss, BangumiWithSeries, CreateBangumi, CreateRss, CreateSeries,
+    RssEntry, UpdateBangumi, UpdateBangumiRequest,
 };
-use crate::repositories::{BangumiRepository, CreateBangumiData, RssRepository};
+use crate::repositories::{BangumiRepository, CreateBangumiData, RssRepository, SeriesRepository};
 use crate::services::{RssProcessingService, SettingsService};
-use crate::services::actors::metadata::{MetadataError, MetadataService};
 
 #[derive(Debug, Error)]
 pub enum BangumiError {
@@ -17,18 +16,15 @@ pub enum BangumiError {
     Database(#[from] sqlx::Error),
     #[error("Bangumi not found")]
     NotFound,
-    #[error("Metadata error: {0}")]
-    Metadata(#[from] MetadataError),
     #[error("Path generation failed: {0}")]
     PathGeneration(#[from] pathgen::PathGenError),
-    #[error("Missing metadata: either metadata_id or metadata must be provided")]
-    MissingMetadata,
+    #[error("Missing series: either series_id or series must be provided")]
+    MissingSeries,
 }
 
 /// Service for managing Bangumi entities and their RSS subscriptions
 pub struct BangumiService {
     db: SqlitePool,
-    metadata: Arc<MetadataService>,
     rss_processing: Arc<RssProcessingService>,
     settings: Arc<SettingsService>,
 }
@@ -37,62 +33,63 @@ impl BangumiService {
     /// Create a new BangumiService
     pub fn new(
         db: SqlitePool,
-        metadata: Arc<MetadataService>,
         rss_processing: Arc<RssProcessingService>,
         settings: Arc<SettingsService>,
     ) -> Self {
         Self {
             db,
-            metadata,
             rss_processing,
             settings,
         }
     }
 
     /// Create a new bangumi with optional RSS subscriptions
-    pub async fn create(&self, data: CreateBangumi) -> Result<BangumiWithMetadata, BangumiError> {
+    pub async fn create(&self, data: CreateBangumi) -> Result<BangumiWithSeries, BangumiError> {
         // Extract RSS entries
         let rss_entries = data.rss_entries.clone();
 
-        // Get or create/update metadata
-        let mut metadata = if let Some(metadata_id) = data.metadata_id {
-            // Use existing metadata
-            self.metadata.get_by_id(metadata_id).await?
-        } else if let Some(create_metadata) = data.metadata {
-            // Create new metadata or update existing by external ID
-            self.metadata.find_or_update(create_metadata).await?
+        // Get or create series
+        let series = if let Some(series_id) = data.series_id {
+            // Use existing series
+            SeriesRepository::get_by_id(&self.db, series_id)
+                .await?
+                .ok_or(BangumiError::MissingSeries)?
+        } else if let Some(create_series) = data.series {
+            // Find or create series
+            let (series, _created) =
+                SeriesRepository::find_or_create(&self.db, create_series).await?;
+            series
         } else {
-            return Err(BangumiError::MissingMetadata);
-        };
-
-        // Update episode_offset if provided at top level (overrides metadata value)
-        if let Some(episode_offset) = data.episode_offset {
-            let metadata_update = UpdateMetadata {
-                episode_offset: Some(episode_offset),
-                ..Default::default()
+            // Create series from bangumi data
+            let create_series = CreateSeries {
+                tmdb_id: None,
+                title_chinese: data.title_chinese.clone(),
+                title_japanese: data.title_japanese.clone(),
+                poster_url: data.poster_url.clone(),
             };
-            metadata = self.metadata.update(metadata.id, metadata_update).await?;
-        }
-
-        // Generate save_path using pathgen with metadata
-        let settings = self.settings.get();
-        let base_path = &settings.downloader.save_path;
-        let save_path = pathgen::generate_directory(
-            base_path,
-            &metadata.title_chinese,
-            metadata.year,
-            metadata.season,
-            metadata.tmdb_id,
-            Some(metadata.platform.as_str()),
-        )?;
+            let (series, _created) =
+                SeriesRepository::find_or_create(&self.db, create_series).await?;
+            series
+        };
 
         // Create bangumi
         let create_data = CreateBangumiData {
-            metadata_id: metadata.id,
-            auto_complete: data.auto_complete,
-            save_path,
-            source_type: data.source_type.as_str().to_string(),
+            series_id: series.id,
+            mikan_id: data.mikan_id,
+            bgmtv_id: data.bgmtv_id,
+            title_chinese: data.title_chinese,
+            title_japanese: data.title_japanese,
+            season: data.season,
+            year: data.year,
+            total_episodes: data.total_episodes,
+            poster_url: data.poster_url,
+            air_date: data.air_date,
+            air_week: data.air_week,
+            platform: data.platform.as_str().to_string(),
             current_episode: data.current_episode,
+            episode_offset: data.episode_offset,
+            auto_complete: data.auto_complete,
+            source_type: data.source_type.as_str().to_string(),
         };
 
         let bangumi = BangumiRepository::create(&self.db, create_data).await?;
@@ -104,8 +101,8 @@ impl BangumiService {
         for entry in rss_entries {
             // Generate title: [subtitle_group] {bangumi} S{season} or {bangumi} S{season}
             let title = format_rss_title(
-                &metadata.title_chinese,
-                metadata.season,
+                &bangumi.title_chinese,
+                bangumi.season,
                 entry.subtitle_group.as_deref(),
             );
 
@@ -134,32 +131,32 @@ impl BangumiService {
             self.rss_processing.spawn_background(new_rss_ids);
         }
 
-        Ok(BangumiWithMetadata { bangumi, metadata })
+        Ok(BangumiWithSeries { bangumi, series })
     }
 
-    /// Get all bangumi with metadata
-    pub async fn get_all(&self) -> Result<Vec<BangumiWithMetadata>, BangumiError> {
-        Ok(BangumiRepository::get_all_with_metadata(&self.db).await?)
+    /// Get all bangumi with series
+    pub async fn get_all(&self) -> Result<Vec<BangumiWithSeries>, BangumiError> {
+        Ok(BangumiRepository::get_all_with_series(&self.db).await?)
     }
 
-    /// Get a bangumi by ID with metadata and RSS subscriptions
+    /// Get a bangumi by ID with series and RSS subscriptions
     pub async fn get_with_rss(&self, id: i64) -> Result<BangumiWithRss, BangumiError> {
-        let bangumi_with_metadata = BangumiRepository::get_with_metadata_by_id(&self.db, id)
+        let bangumi_with_series = BangumiRepository::get_with_series_by_id(&self.db, id)
             .await?
             .ok_or(BangumiError::NotFound)?;
 
         let rss_entries = RssRepository::get_by_bangumi_id(&self.db, id).await?;
 
         Ok(BangumiWithRss {
-            bangumi: bangumi_with_metadata.bangumi,
-            metadata: bangumi_with_metadata.metadata,
+            bangumi: bangumi_with_series.bangumi,
+            series: bangumi_with_series.series,
             rss_entries,
         })
     }
 
-    /// Get a bangumi by ID with metadata
-    pub async fn get_by_id(&self, id: i64) -> Result<BangumiWithMetadata, BangumiError> {
-        BangumiRepository::get_with_metadata_by_id(&self.db, id)
+    /// Get a bangumi by ID with series
+    pub async fn get_by_id(&self, id: i64) -> Result<BangumiWithSeries, BangumiError> {
+        BangumiRepository::get_with_series_by_id(&self.db, id)
             .await?
             .ok_or(BangumiError::NotFound)
     }
@@ -170,28 +167,20 @@ impl BangumiService {
         id: i64,
         request: UpdateBangumiRequest,
     ) -> Result<BangumiWithRss, BangumiError> {
-        // Check if bangumi exists and get metadata_id
-        let bangumi = BangumiRepository::get_by_id(&self.db, id)
+        // Check if bangumi exists
+        let _bangumi = BangumiRepository::get_by_id(&self.db, id)
             .await?
             .ok_or(BangumiError::NotFound)?;
 
         // Build update data
         let update_data = UpdateBangumi {
             auto_complete: request.auto_complete,
+            episode_offset: request.episode_offset,
             ..Default::default()
         };
 
         // Update bangumi
         BangumiRepository::update(&self.db, id, update_data).await?;
-
-        // Update episode_offset in metadata if provided
-        if let Some(episode_offset) = request.episode_offset {
-            let metadata_update = UpdateMetadata {
-                episode_offset: Some(episode_offset),
-                ..Default::default()
-            };
-            self.metadata.update(bangumi.metadata_id, metadata_update).await?;
-        }
 
         // Sync RSS entries if provided
         if let Some(rss_entries) = request.rss_entries {
@@ -216,6 +205,23 @@ impl BangumiService {
         Ok(BangumiRepository::delete(&self.db, id).await?)
     }
 
+    /// Generate save path for a bangumi
+    pub fn generate_save_path(&self, bangumi: &BangumiWithSeries) -> Result<String, BangumiError> {
+        let settings = self.settings.get();
+        let base_path = &settings.downloader.save_path;
+
+        let save_path = pathgen::generate_directory(
+            base_path,
+            &bangumi.series.title_chinese,
+            bangumi.bangumi.year,
+            bangumi.bangumi.season,
+            bangumi.series.tmdb_id,
+            Some(bangumi.bangumi.platform.as_str()),
+        )?;
+
+        Ok(save_path)
+    }
+
     /// Synchronize RSS entries for a bangumi (delete all and recreate)
     /// Returns the IDs of newly added RSS subscriptions
     async fn sync_rss_entries(
@@ -223,12 +229,12 @@ impl BangumiService {
         bangumi_id: i64,
         entries: Vec<RssEntry>,
     ) -> Result<Vec<i64>, BangumiError> {
-        // Get bangumi with metadata info to generate RSS titles
-        let bangumi_with_metadata = BangumiRepository::get_with_metadata_by_id(&self.db, bangumi_id)
+        // Get bangumi with series info to generate RSS titles
+        let bangumi_with_series = BangumiRepository::get_with_series_by_id(&self.db, bangumi_id)
             .await?
             .ok_or(BangumiError::NotFound)?;
 
-        let metadata = &bangumi_with_metadata.metadata;
+        let bangumi = &bangumi_with_series.bangumi;
 
         // Get existing RSS URLs to identify new ones
         let existing_rss = RssRepository::get_by_bangumi_id(&self.db, bangumi_id).await?;
@@ -245,8 +251,8 @@ impl BangumiService {
 
             // Generate title: [subtitle_group] {bangumi} S{season} or {bangumi} S{season}
             let title = format_rss_title(
-                &metadata.title_chinese,
-                metadata.season,
+                &bangumi.title_chinese,
+                bangumi.season,
                 entry.subtitle_group.as_deref(),
             );
 

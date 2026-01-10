@@ -5,7 +5,7 @@ use crate::models::{CalendarSubject, Platform};
 /// Calendar entry for batch insert
 #[derive(Debug, Clone)]
 pub struct CalendarEntry {
-    pub metadata_id: i64,
+    pub bangumi_id: i64,
     pub year: i32,
     pub season: String,
     pub priority: i64,
@@ -25,14 +25,14 @@ impl CalendarRepository {
         for entry in entries {
             let result = sqlx::query(
                 r#"
-                INSERT INTO calendar (metadata_id, year, season, priority)
+                INSERT INTO calendar (bangumi_id, year, season, priority)
                 VALUES ($1, $2, $3, $4)
-                ON CONFLICT(metadata_id, year, season) DO UPDATE SET
+                ON CONFLICT(bangumi_id, year, season) DO UPDATE SET
                     priority = excluded.priority,
                     updated_at = CURRENT_TIMESTAMP
                 "#,
             )
-            .bind(entry.metadata_id)
+            .bind(entry.bangumi_id)
             .bind(entry.year)
             .bind(&entry.season)
             .bind(entry.priority)
@@ -46,35 +46,35 @@ impl CalendarRepository {
         Ok(count)
     }
 
-    /// Get calendar entries with metadata for a specific season
+    /// Get calendar entries with bangumi for a specific season
     pub async fn get_by_season(
         pool: &SqlitePool,
         year: i32,
         season: &str,
-    ) -> Result<Vec<CalendarWithMetadata>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, CalendarWithMetadataRow>(
+    ) -> Result<Vec<CalendarWithBangumi>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, CalendarWithBangumiRow>(
             r#"
             SELECT
                 c.id as calendar_id,
-                c.metadata_id,
+                c.bangumi_id,
                 c.year as calendar_year,
                 c.season as calendar_season,
                 c.priority,
-                m.mikan_id,
-                m.bgmtv_id,
-                m.title_chinese,
-                m.title_japanese,
-                m.season as metadata_season,
-                m.year as metadata_year,
-                m.platform,
-                m.total_episodes,
-                m.poster_url,
-                m.air_date,
-                m.air_week
+                b.mikan_id,
+                b.bgmtv_id,
+                b.title_chinese,
+                b.title_japanese,
+                b.season as bangumi_season,
+                b.year as bangumi_year,
+                b.platform,
+                b.total_episodes,
+                b.poster_url,
+                b.air_date,
+                b.air_week
             FROM calendar c
-            INNER JOIN metadata m ON c.metadata_id = m.id
+            INNER JOIN bangumi b ON c.bangumi_id = b.id
             WHERE c.year = $1 AND c.season = $2
-            ORDER BY c.priority DESC, m.air_week, m.title_chinese
+            ORDER BY c.priority DESC, b.air_week, b.title_chinese
             "#,
         )
         .bind(year)
@@ -119,18 +119,18 @@ impl CalendarRepository {
         Ok(result.rows_affected())
     }
 
-    /// Delete calendar entries not in the provided list of metadata_ids (for a specific season)
+    /// Delete calendar entries not in the provided list of bangumi_ids (for a specific season)
     pub async fn delete_except(
         pool: &SqlitePool,
         year: i32,
         season: &str,
-        keep_metadata_ids: &[i64],
+        keep_bangumi_ids: &[i64],
     ) -> Result<u64, sqlx::Error> {
-        if keep_metadata_ids.is_empty() {
+        if keep_bangumi_ids.is_empty() {
             return Self::delete_by_season(pool, year, season).await;
         }
 
-        let placeholders = keep_metadata_ids
+        let placeholders = keep_bangumi_ids
             .iter()
             .enumerate()
             .map(|(i, _)| format!("${}", i + 3))
@@ -138,12 +138,12 @@ impl CalendarRepository {
             .join(",");
 
         let query = format!(
-            "DELETE FROM calendar WHERE year = $1 AND season = $2 AND metadata_id NOT IN ({})",
+            "DELETE FROM calendar WHERE year = $1 AND season = $2 AND bangumi_id NOT IN ({})",
             placeholders
         );
 
         let mut q = sqlx::query(&query).bind(year).bind(season);
-        for id in keep_metadata_ids {
+        for id in keep_bangumi_ids {
             q = q.bind(id);
         }
 
@@ -152,11 +152,11 @@ impl CalendarRepository {
     }
 }
 
-/// Calendar entry with joined metadata
+/// Calendar entry with joined bangumi
 #[derive(Debug, Clone)]
-pub struct CalendarWithMetadata {
+pub struct CalendarWithBangumi {
     pub calendar_id: i64,
-    pub metadata_id: i64,
+    pub bangumi_id: i64,
     pub calendar_year: i32,
     pub calendar_season: String,
     pub priority: i64,
@@ -164,8 +164,8 @@ pub struct CalendarWithMetadata {
     pub bgmtv_id: Option<i64>,
     pub title_chinese: String,
     pub title_japanese: Option<String>,
-    pub metadata_season: i32,
-    pub metadata_year: i32,
+    pub bangumi_season: i32,
+    pub bangumi_year: i32,
     pub platform: String,
     pub total_episodes: i32,
     pub poster_url: Option<String>,
@@ -173,7 +173,7 @@ pub struct CalendarWithMetadata {
     pub air_week: i32,
 }
 
-impl CalendarWithMetadata {
+impl CalendarWithBangumi {
     /// Convert air_week (0=Sunday, 1-6=Mon-Sat) to BGM.tv air_weekday (1-7=Mon-Sun)
     pub fn air_weekday(&self) -> i32 {
         match self.air_week {
@@ -181,9 +181,9 @@ impl CalendarWithMetadata {
             1..=6 => self.air_week, // Monday-Saturday -> 1-6
             invalid => {
                 tracing::warn!(
-                    "Invalid air_week {} for metadata_id {}, defaulting to Monday",
+                    "Invalid air_week {} for bangumi_id {}, defaulting to Monday",
                     invalid,
-                    self.metadata_id
+                    self.bangumi_id
                 );
                 1 // fallback to Monday
             }
@@ -203,7 +203,7 @@ impl CalendarWithMetadata {
             mikan_id: self.mikan_id.clone(),
             title_chinese: self.title_chinese.clone(),
             title_japanese: self.title_japanese.clone(),
-            season: self.metadata_season,
+            season: self.bangumi_season,
             air_date: self.air_date.clone(),
             air_week: self.air_week,
             poster_url: self.poster_url.clone(),
@@ -215,9 +215,9 @@ impl CalendarWithMetadata {
 
 /// Internal row type for mapping SQLite results
 #[derive(Debug, sqlx::FromRow)]
-struct CalendarWithMetadataRow {
+struct CalendarWithBangumiRow {
     calendar_id: i64,
-    metadata_id: i64,
+    bangumi_id: i64,
     calendar_year: i32,
     calendar_season: String,
     priority: i64,
@@ -225,8 +225,8 @@ struct CalendarWithMetadataRow {
     bgmtv_id: Option<i64>,
     title_chinese: String,
     title_japanese: Option<String>,
-    metadata_season: i32,
-    metadata_year: i32,
+    bangumi_season: i32,
+    bangumi_year: i32,
     platform: String,
     total_episodes: i32,
     poster_url: Option<String>,
@@ -234,11 +234,11 @@ struct CalendarWithMetadataRow {
     air_week: i32,
 }
 
-impl From<CalendarWithMetadataRow> for CalendarWithMetadata {
-    fn from(row: CalendarWithMetadataRow) -> Self {
+impl From<CalendarWithBangumiRow> for CalendarWithBangumi {
+    fn from(row: CalendarWithBangumiRow) -> Self {
         Self {
             calendar_id: row.calendar_id,
-            metadata_id: row.metadata_id,
+            bangumi_id: row.bangumi_id,
             calendar_year: row.calendar_year,
             calendar_season: row.calendar_season,
             priority: row.priority,
@@ -246,8 +246,8 @@ impl From<CalendarWithMetadataRow> for CalendarWithMetadata {
             bgmtv_id: row.bgmtv_id,
             title_chinese: row.title_chinese,
             title_japanese: row.title_japanese,
-            metadata_season: row.metadata_season,
-            metadata_year: row.metadata_year,
+            bangumi_season: row.bangumi_season,
+            bangumi_year: row.bangumi_year,
             platform: row.platform,
             total_episodes: row.total_episodes,
             poster_url: row.poster_url,

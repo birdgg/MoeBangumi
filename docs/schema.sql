@@ -1,7 +1,14 @@
+-- ==================== 新表结构设计 ====================
+-- 版本: v2
+-- 主要变化:
+--   1. 删除 metadata 表，合并到 bangumi
+--   2. 新增 series 表，关联同系列不同季
+--   3. 新增 torrent_bangumi 表，支持 BDRip 多季关联
+
 -- ==================== Series 系列表 ====================
 -- 代表一个动画系列（如 Re:Zero 从零开始的异世界生活）
 -- 用于关联同系列的不同季
-CREATE TABLE IF NOT EXISTS series (
+CREATE TABLE series (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -15,9 +22,9 @@ CREATE TABLE IF NOT EXISTS series (
     poster_url TEXT                         -- 海报 URL
 );
 
-CREATE INDEX IF NOT EXISTS idx_series_title_chinese ON series(title_chinese);
+CREATE INDEX idx_series_title_chinese ON series(title_chinese);
 
-CREATE TRIGGER IF NOT EXISTS update_series_timestamp
+CREATE TRIGGER update_series_timestamp
 AFTER UPDATE ON series
 FOR EACH ROW
 BEGIN
@@ -27,7 +34,7 @@ END;
 -- ==================== Bangumi 番剧表 ====================
 -- 合并原 metadata + bangumi 表
 -- 代表一个具体的季/作品（如 Re:Zero 第二季）
-CREATE TABLE IF NOT EXISTS bangumi (
+CREATE TABLE bangumi (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,15 +66,15 @@ CREATE TABLE IF NOT EXISTS bangumi (
     -- 注：save_path 动态计算 = {base_path}/{series.title_chinese} ({series.year}) {tmdb-{series.tmdb_id}}/Season {season:02}/
 );
 
-CREATE INDEX IF NOT EXISTS idx_bangumi_series_id ON bangumi(series_id);
-CREATE INDEX IF NOT EXISTS idx_bangumi_title_chinese ON bangumi(title_chinese);
-CREATE INDEX IF NOT EXISTS idx_bangumi_year ON bangumi(year);
-CREATE INDEX IF NOT EXISTS idx_bangumi_season ON bangumi(season);
-CREATE INDEX IF NOT EXISTS idx_bangumi_air_week ON bangumi(air_week);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bangumi_mikan_id ON bangumi(mikan_id) WHERE mikan_id IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bangumi_bgmtv_id ON bangumi(bgmtv_id) WHERE bgmtv_id IS NOT NULL AND bgmtv_id != 0;
+CREATE INDEX idx_bangumi_series_id ON bangumi(series_id);
+CREATE INDEX idx_bangumi_title_chinese ON bangumi(title_chinese);
+CREATE INDEX idx_bangumi_year ON bangumi(year);
+CREATE INDEX idx_bangumi_season ON bangumi(season);
+CREATE INDEX idx_bangumi_air_week ON bangumi(air_week);
+CREATE UNIQUE INDEX idx_bangumi_mikan_id ON bangumi(mikan_id) WHERE mikan_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_bangumi_bgmtv_id ON bangumi(bgmtv_id) WHERE bgmtv_id IS NOT NULL AND bgmtv_id != 0;
 
-CREATE TRIGGER IF NOT EXISTS update_bangumi_timestamp
+CREATE TRIGGER update_bangumi_timestamp
 AFTER UPDATE ON bangumi
 FOR EACH ROW
 BEGIN
@@ -75,7 +82,7 @@ BEGIN
 END;
 
 -- ==================== RSS 订阅表 ====================
-CREATE TABLE IF NOT EXISTS rss (
+CREATE TABLE rss (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -97,10 +104,10 @@ CREATE TABLE IF NOT EXISTS rss (
     last_pub_date TEXT                      -- 最后处理的 pubDate
 );
 
-CREATE INDEX IF NOT EXISTS idx_rss_bangumi_id ON rss(bangumi_id);
-CREATE INDEX IF NOT EXISTS idx_rss_enabled ON rss(enabled);
+CREATE INDEX idx_rss_bangumi_id ON rss(bangumi_id);
+CREATE INDEX idx_rss_enabled ON rss(enabled);
 
-CREATE TRIGGER IF NOT EXISTS update_rss_timestamp
+CREATE TRIGGER update_rss_timestamp
 AFTER UPDATE ON rss
 FOR EACH ROW
 BEGIN
@@ -110,7 +117,7 @@ END;
 -- ==================== Torrent 种子表 ====================
 -- 所有元数据（episode, subtitle_group, subtitle_languages, resolution）
 -- 都从 torrent_url 实时解析，不存储
-CREATE TABLE IF NOT EXISTS torrent (
+CREATE TABLE torrent (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -121,10 +128,10 @@ CREATE TABLE IF NOT EXISTS torrent (
     torrent_url TEXT NOT NULL               -- Torrent URL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_torrent_info_hash ON torrent(info_hash);
-CREATE INDEX IF NOT EXISTS idx_torrent_rss_id ON torrent(rss_id);
+CREATE UNIQUE INDEX idx_torrent_info_hash ON torrent(info_hash);
+CREATE INDEX idx_torrent_rss_id ON torrent(rss_id);
 
-CREATE TRIGGER IF NOT EXISTS update_torrent_timestamp
+CREATE TRIGGER update_torrent_timestamp
 AFTER UPDATE ON torrent
 FOR EACH ROW
 BEGIN
@@ -135,16 +142,16 @@ END;
 -- 统一管理 torrent 和 bangumi 的关系
 -- WebRip: 一条记录 (torrent_id, bangumi_id)
 -- BDRip: 多条记录 (torrent_id, bangumi_1), (torrent_id, bangumi_2), ...
-CREATE TABLE IF NOT EXISTS torrent_bangumi (
+CREATE TABLE torrent_bangumi (
     torrent_id INTEGER NOT NULL REFERENCES torrent(id) ON DELETE CASCADE,
     bangumi_id INTEGER NOT NULL REFERENCES bangumi(id) ON DELETE CASCADE,
     PRIMARY KEY (torrent_id, bangumi_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_torrent_bangumi_bangumi_id ON torrent_bangumi(bangumi_id);
+CREATE INDEX idx_torrent_bangumi_bangumi_id ON torrent_bangumi(bangumi_id);
 
 -- ==================== Calendar 日历表 ====================
-CREATE TABLE IF NOT EXISTS calendar (
+CREATE TABLE calendar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -158,11 +165,11 @@ CREATE TABLE IF NOT EXISTS calendar (
     priority INTEGER NOT NULL DEFAULT 0     -- 优先级（基于 BGM.tv 收藏数）
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_calendar_bangumi_season ON calendar(bangumi_id, year, season);
-CREATE INDEX IF NOT EXISTS idx_calendar_season ON calendar(year, season);
-CREATE INDEX IF NOT EXISTS idx_calendar_priority ON calendar(priority DESC);
+CREATE UNIQUE INDEX idx_calendar_bangumi_season ON calendar(bangumi_id, year, season);
+CREATE INDEX idx_calendar_season ON calendar(year, season);
+CREATE INDEX idx_calendar_priority ON calendar(priority DESC);
 
-CREATE TRIGGER IF NOT EXISTS update_calendar_timestamp
+CREATE TRIGGER update_calendar_timestamp
 AFTER UPDATE ON calendar
 FOR EACH ROW
 BEGIN
@@ -170,22 +177,22 @@ BEGIN
 END;
 
 -- ==================== Cache 缓存表 ====================
-CREATE TABLE IF NOT EXISTS cache (
+CREATE TABLE cache (
     cache_key TEXT PRIMARY KEY,
     data TEXT NOT NULL,
     fetched_at INTEGER NOT NULL             -- Unix timestamp
 );
 
-CREATE INDEX IF NOT EXISTS idx_cache_fetched_at ON cache(fetched_at);
+CREATE INDEX idx_cache_fetched_at ON cache(fetched_at);
 
 -- ==================== Log 日志表 ====================
-CREATE TABLE IF NOT EXISTS log (
+CREATE TABLE log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     level TEXT NOT NULL CHECK(level IN ('info', 'warning', 'error')),
     message TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_log_created_at ON log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_log_level ON log(level);
-CREATE INDEX IF NOT EXISTS idx_log_level_created ON log(level, created_at DESC);
+CREATE INDEX idx_log_created_at ON log(created_at DESC);
+CREATE INDEX idx_log_level ON log(level);
+CREATE INDEX idx_log_level_created ON log(level, created_at DESC);
