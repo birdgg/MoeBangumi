@@ -302,4 +302,87 @@ mod tests {
         assert_eq!(BDRipParser::parse_special_number("特典01.mkv"), Some(1));
         assert_eq!(BDRipParser::parse_special_number("[SP03].mkv"), Some(3));
     }
+
+    /// Test VCB-Studio typical directory structure:
+    /// ```
+    /// [VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu
+    /// └── [VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu 2nd Season [Ma10p_1080p]
+    ///     ├── CDs/
+    ///     ├── SPs/
+    ///     │   └── [VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu 2nd Season [SP01][Ma10p_1080p][x265_flac_aac].mkv
+    ///     └── [VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu 2nd Season [26][Ma10p_1080p][x265_flac_aac].mkv
+    /// ```
+    mod vcb_studio_structure {
+        use super::*;
+
+        const BASE_DIR: &str = "[VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu";
+        const SEASON_DIR: &str =
+            "[VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu 2nd Season [Ma10p_1080p]";
+
+        #[test]
+        fn test_vcb_episode_parsing() {
+            let path = format!(
+                "{}/{}/[VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu 2nd Season [26][Ma10p_1080p][x265_flac_aac].mkv",
+                BASE_DIR, SEASON_DIR
+            );
+
+            let result = BDRipParser::parse(&path);
+
+            assert_eq!(result.content_type, BDRipContentType::Episode);
+            assert_eq!(result.season, Some(2), "Should extract season 2 from '2nd Season'");
+            assert_eq!(result.number, Some(26), "Should extract episode 26 from [26]");
+        }
+
+        #[test]
+        fn test_vcb_special_in_sps_dir() {
+            let path = format!(
+                "{}/{}/SPs/[VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu 2nd Season [SP01][Ma10p_1080p][x265_flac_aac].mkv",
+                BASE_DIR, SEASON_DIR
+            );
+
+            let result = BDRipParser::parse(&path);
+
+            assert_eq!(result.content_type, BDRipContentType::Special);
+            assert_eq!(result.season, Some(2), "Should extract season 2 from '2nd Season'");
+            assert_eq!(result.number, Some(1), "Should extract SP number 1 from [SP01]");
+        }
+
+        #[test]
+        fn test_vcb_cds_non_video() {
+            let path = format!(
+                "{}/{}/CDs/[VCB-Studio] Re Zero OST [FLAC].flac",
+                BASE_DIR, SEASON_DIR
+            );
+
+            let result = BDRipParser::parse(&path);
+
+            assert_eq!(result.content_type, BDRipContentType::NonVideo);
+        }
+
+        #[test]
+        fn test_vcb_first_episode() {
+            let path = format!(
+                "{}/{}/[VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu 2nd Season [01][Ma10p_1080p][x265_flac_aac].mkv",
+                BASE_DIR, SEASON_DIR
+            );
+
+            let result = BDRipParser::parse(&path);
+
+            assert_eq!(result.content_type, BDRipContentType::Episode);
+            assert_eq!(result.season, Some(2));
+            assert_eq!(result.number, Some(1));
+        }
+
+        #[test]
+        fn test_vcb_season_1_no_season_marker() {
+            // First season typically doesn't have "1st Season" in the name
+            let path = "[VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu [Ma10p_1080p]/[VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu [12][Ma10p_1080p][x265_flac_aac].mkv";
+
+            let result = BDRipParser::parse(path);
+
+            assert_eq!(result.content_type, BDRipContentType::Episode);
+            assert_eq!(result.season, None, "Season 1 typically has no marker, should be None");
+            assert_eq!(result.number, Some(12));
+        }
+    }
 }
