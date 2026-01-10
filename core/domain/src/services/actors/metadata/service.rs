@@ -7,8 +7,7 @@ use metadata::{
 use sqlx::SqlitePool;
 
 use super::error::MetadataError;
-use crate::models::{CreateMetadata, Metadata, Platform, UpdateMetadata};
-use crate::repositories::MetadataRepository;
+use crate::models::Platform;
 
 /// Fetched metadata from BGM.tv (not persisted yet)
 #[derive(Debug, Clone)]
@@ -24,8 +23,13 @@ pub struct FetchedMetadata {
     pub platform: Option<Platform>,
 }
 
-/// Service for managing Metadata entities
+/// Service for querying external metadata providers (BGM.tv, TMDB)
+///
+/// This service provides a unified interface for fetching metadata from
+/// external sources. It does NOT manage the metadata database - that's
+/// handled by BangumiRepository directly.
 pub struct MetadataService {
+    #[allow(dead_code)]
     db: SqlitePool,
     bgmtv_provider: Arc<BgmtvProvider>,
     tmdb_provider: Arc<TmdbProvider>,
@@ -85,125 +89,6 @@ impl MetadataService {
 
         let result = self.tmdb_provider.find(&query).await?;
         Ok(result.and_then(|r| r.external_id.parse().ok()))
-    }
-
-    /// Create new metadata
-    pub async fn create(&self, data: CreateMetadata) -> Result<Metadata, MetadataError> {
-        Ok(MetadataRepository::create(&self.db, data).await?)
-    }
-
-    /// Get metadata by ID
-    pub async fn get_by_id(&self, id: i64) -> Result<Metadata, MetadataError> {
-        MetadataRepository::get_by_id(&self.db, id)
-            .await?
-            .ok_or(MetadataError::NotFound(id))
-    }
-
-    /// Get metadata by external ID (priority: mikan_id > bgmtv_id > tmdb_id)
-    pub async fn get_by_external_id(
-        &self,
-        mikan_id: Option<&str>,
-        bgmtv_id: Option<i64>,
-        tmdb_id: Option<i64>,
-    ) -> Result<Option<Metadata>, MetadataError> {
-        // Try mikan_id first
-        if let Some(mikan_id) = mikan_id {
-            if let Some(metadata) = MetadataRepository::get_by_mikan_id(&self.db, mikan_id).await? {
-                return Ok(Some(metadata));
-            }
-        }
-
-        // Try bgmtv_id
-        if let Some(bgmtv_id) = bgmtv_id {
-            if let Some(metadata) = MetadataRepository::get_by_bgmtv_id(&self.db, bgmtv_id).await? {
-                return Ok(Some(metadata));
-            }
-        }
-
-        // Try tmdb_id
-        if let Some(tmdb_id) = tmdb_id {
-            if let Some(metadata) = MetadataRepository::get_by_tmdb_id(&self.db, tmdb_id).await? {
-                return Ok(Some(metadata));
-            }
-        }
-
-        Ok(None)
-    }
-
-    /// Find existing metadata by external ID or create new
-    pub async fn find_or_create(&self, data: CreateMetadata) -> Result<Metadata, MetadataError> {
-        // Try to find existing metadata by external IDs
-        if let Some(existing) = self
-            .get_by_external_id(
-                data.mikan_id.as_deref(),
-                data.bgmtv_id,
-                data.tmdb_id,
-            )
-            .await?
-        {
-            return Ok(existing);
-        }
-
-        // Create new metadata
-        self.create(data).await
-    }
-
-    /// Find existing metadata by external ID and update it, or create new if not found.
-    ///
-    /// This method implements a "merge update" strategy:
-    /// - If metadata with matching external ID (mikan_id, bgmtv_id, or tmdb_id) exists,
-    ///   update it with the new data while preserving unspecified optional fields.
-    /// - If no matching metadata exists, create a new record.
-    ///
-    /// # Merge Behavior
-    /// When updating existing metadata, only fields provided in `CreateMetadata` are updated.
-    /// Optional fields that are `None` in the input will preserve their existing values.
-    /// This allows partial updates when creating Bangumi with incomplete metadata.
-    ///
-    /// # Note
-    /// If multiple Bangumi share the same metadata (via metadata_id), updating through
-    /// this method will affect all of them. This is intentional as metadata represents
-    /// the canonical information about an anime.
-    pub async fn find_or_update(&self, data: CreateMetadata) -> Result<Metadata, MetadataError> {
-        // Try to find existing metadata by external IDs
-        if let Some(existing) = self
-            .get_by_external_id(data.mikan_id.as_deref(), data.bgmtv_id, data.tmdb_id)
-            .await?
-        {
-            // Convert CreateMetadata to UpdateMetadata and merge
-            let update_data = data.into_update();
-            return self.update(existing.id, update_data).await;
-        }
-
-        // Create new metadata
-        self.create(data).await
-    }
-
-    /// Update metadata
-    pub async fn update(&self, id: i64, data: UpdateMetadata) -> Result<Metadata, MetadataError> {
-        MetadataRepository::update(&self.db, id, data)
-            .await?
-            .ok_or(MetadataError::NotFound(id))
-    }
-
-    /// Update poster URL
-    pub async fn update_poster_url(&self, id: i64, poster_url: &str) -> Result<bool, MetadataError> {
-        Ok(MetadataRepository::update_poster_url(&self.db, id, poster_url).await?)
-    }
-
-    /// Get all metadata
-    pub async fn get_all(&self) -> Result<Vec<Metadata>, MetadataError> {
-        Ok(MetadataRepository::get_all(&self.db).await?)
-    }
-
-    /// Delete metadata by ID
-    pub async fn delete(&self, id: i64) -> Result<bool, MetadataError> {
-        Ok(MetadataRepository::delete(&self.db, id).await?)
-    }
-
-    /// Get database pool reference (for repositories that need direct access)
-    pub fn pool(&self) -> &SqlitePool {
-        &self.db
     }
 
     // ============ Unified Provider Interface ============

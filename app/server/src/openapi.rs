@@ -2,11 +2,10 @@ use utoipa::OpenApi;
 
 use crate::api::handlers::{DeleteTorrentsRequest, UpdateResponse};
 use crate::models::{
-    Bangumi, BangumiWithMetadata, BangumiWithRss, CalendarDay, CalendarSubject, CreateBangumi,
-    CreateMetadata, DownloaderSettings, FilterSettings, Log, LogLevel, Metadata, Platform,
-    PrioritySettings, Rss, RssEntry, Settings, SourceType, UpdateBangumiRequest,
-    UpdateDownloaderSettings, UpdateFilterSettings, UpdatePrioritySettings, UpdateSettings,
-    Weekday,
+    Bangumi, BangumiWithRss, BangumiWithSeries, CalendarDay, CalendarSubject, CreateBangumi,
+    DownloaderSettings, FilterSettings, Log, LogLevel, Platform, PrioritySettings, Rss, RssEntry,
+    Series, Settings, SourceType, UpdateBangumiRequest, UpdateDownloaderSettings,
+    UpdateFilterSettings, UpdatePrioritySettings, UpdateSettings, Weekday,
 };
 use crate::services::{Task, TaskStatus};
 use updater::{UpdateStatus, VersionInfo};
@@ -20,7 +19,6 @@ use updater::{UpdateStatus, VersionInfo};
     tags(
         (name = "search", description = "Bangumi search endpoints"),
         (name = "bangumi", description = "Bangumi management endpoints"),
-        (name = "metadata", description = "Metadata management endpoints"),
         (name = "calendar", description = "Anime calendar endpoints"),
         (name = "settings", description = "Application settings endpoints"),
         (name = "logs", description = "System logs endpoints"),
@@ -36,14 +34,13 @@ use updater::{UpdateStatus, VersionInfo};
         CalendarDay,
         CalendarSubject,
         Weekday,
-        Metadata,
-        CreateMetadata,
         Bangumi,
-        BangumiWithMetadata,
+        BangumiWithSeries,
         BangumiWithRss,
         CreateBangumi,
         RssEntry,
         Rss,
+        Series,
         SourceType,
         UpdateBangumiRequest,
         Settings,

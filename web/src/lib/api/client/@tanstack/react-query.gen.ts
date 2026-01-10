@@ -29,6 +29,7 @@ import {
   getVersion,
   listTorrents,
   type Options,
+  performUpdate,
   refreshCalendar,
   resetSettings,
   scanImport,
@@ -79,6 +80,8 @@ import type {
   GetVersionResponse,
   ListTorrentsData,
   ListTorrentsResponse,
+  PerformUpdateData,
+  PerformUpdateResponse,
   RefreshCalendarData,
   RefreshCalendarResponse,
   ResetSettingsData,
@@ -1012,7 +1015,7 @@ export const getVersionOptions = (options?: Options<GetVersionData>) =>
   });
 
 /**
- * Check for updates (triggers auto-update if available)
+ * Check for updates (check only, does not auto-update)
  */
 export const checkUpdateMutation = (
   options?: Partial<Options<CheckUpdateData>>,
@@ -1028,6 +1031,33 @@ export const checkUpdateMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await checkUpdate({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+/**
+ * Perform update (download and install)
+ */
+export const performUpdateMutation = (
+  options?: Partial<Options<PerformUpdateData>>,
+): UseMutationOptions<
+  PerformUpdateResponse,
+  DefaultError,
+  Options<PerformUpdateData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    PerformUpdateResponse,
+    DefaultError,
+    Options<PerformUpdateData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await performUpdate({
         ...options,
         ...fnOptions,
         throwOnError: true,

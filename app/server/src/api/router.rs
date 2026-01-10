@@ -26,8 +26,6 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::create_bangumi))
         .routes(routes!(handlers::get_bangumi))
         .routes(routes!(handlers::get_bangumi_by_id, handlers::update_bangumi))
-        .routes(routes!(handlers::get_metadata))
-        .routes(routes!(handlers::get_metadata_by_id, handlers::update_metadata))
         .routes(routes!(handlers::get_episodes))
         .routes(routes!(handlers::get_settings))
         .routes(routes!(handlers::update_settings))
@@ -43,6 +41,7 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         // Version/update endpoints
         .routes(routes!(handlers::get_version))
         .routes(routes!(handlers::check_update))
+        .routes(routes!(handlers::perform_update))
         // Scan endpoints
         .routes(routes!(handlers::scan_import))
         .with_state(state)
@@ -87,12 +86,6 @@ pub fn create_router(state: AppState) -> Router {
             "/api/bangumi/{id}",
             get(handlers::get_bangumi_by_id).patch(handlers::update_bangumi),
         )
-        // Metadata endpoints
-        .route("/api/metadata", get(handlers::get_metadata))
-        .route(
-            "/api/metadata/{id}",
-            get(handlers::get_metadata_by_id).patch(handlers::update_metadata),
-        )
         // Episodes endpoint
         .route("/api/episodes/{subject_id}", get(handlers::get_episodes))
         // Settings endpoints
@@ -121,6 +114,7 @@ pub fn create_router(state: AppState) -> Router {
         // Version/update endpoints
         .route("/api/version", get(handlers::get_version))
         .route("/api/version/check", post(handlers::check_update))
+        .route("/api/version/update", post(handlers::perform_update))
         // Scan endpoints
         .route("/api/scan/import", post(handlers::scan_import))
         .with_state(state)

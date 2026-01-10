@@ -164,7 +164,6 @@ pub fn build_services(
     // Bangumi and notification services
     let bangumi = Arc::new(BangumiService::new(
         db.clone(),
-        Arc::clone(&metadata),
         Arc::clone(&rss_processing),
         Arc::clone(settings),
     ));
@@ -179,6 +178,7 @@ pub fn build_services(
         Arc::clone(&downloader),
         Arc::clone(&notification),
         Arc::clone(config),
+        Arc::clone(settings),
     ));
     let calendar = Arc::new(CalendarService::new(
         db.clone(),

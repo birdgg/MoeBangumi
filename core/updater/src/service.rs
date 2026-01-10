@@ -17,6 +17,10 @@ use crate::models::{ReleaseAsset, ReleaseInfo, UpdateStatus, VersionInfo};
 pub enum UpdateMessage {
     /// Check for updates (and auto-update if available)
     CheckForUpdates,
+    /// Check for updates only (no auto-update)
+    CheckOnly,
+    /// Perform update (download and install)
+    PerformUpdate,
     /// Shutdown the service
     Shutdown,
 }
@@ -34,10 +38,26 @@ impl UpdateServiceHandle {
         self.state.read().clone()
     }
 
-    /// Trigger a manual check for updates
+    /// Trigger a manual check for updates (with auto-update)
     pub async fn check_for_updates(&self) -> Result<(), UpdateError> {
         self.sender
             .send(UpdateMessage::CheckForUpdates)
+            .await
+            .map_err(|_| UpdateError::FetchError("Service not running".to_string()))
+    }
+
+    /// Check for updates only (no auto-update)
+    pub async fn check_only(&self) -> Result<(), UpdateError> {
+        self.sender
+            .send(UpdateMessage::CheckOnly)
+            .await
+            .map_err(|_| UpdateError::FetchError("Service not running".to_string()))
+    }
+
+    /// Trigger update download and installation
+    pub async fn perform_update(&self) -> Result<(), UpdateError> {
+        self.sender
+            .send(UpdateMessage::PerformUpdate)
             .await
             .map_err(|_| UpdateError::FetchError("Service not running".to_string()))
     }
@@ -100,6 +120,12 @@ impl UpdateService {
                     match msg {
                         Some(UpdateMessage::CheckForUpdates) => {
                             self.check_and_auto_update().await;
+                        }
+                        Some(UpdateMessage::CheckOnly) => {
+                            self.check_for_updates().await;
+                        }
+                        Some(UpdateMessage::PerformUpdate) => {
+                            self.perform_update().await;
                         }
                         Some(UpdateMessage::Shutdown) | None => {
                             tracing::info!("Update service shutting down");

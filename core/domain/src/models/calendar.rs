@@ -4,6 +4,25 @@ use utoipa::ToSchema;
 
 use super::Platform;
 
+/// Calendar entry entity
+/// Links a bangumi to a specific season (year + quarter)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct Calendar {
+    pub id: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+
+    /// Foreign key to bangumi
+    pub bangumi_id: i64,
+    /// Year (e.g., 2024)
+    pub year: i32,
+    /// Season (winter, spring, summer, fall)
+    pub season: String,
+    /// Display priority (based on BGM.tv collection_doing)
+    pub priority: i32,
+}
+
 /// Subject item in calendar results
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
@@ -16,7 +35,7 @@ pub struct CalendarSubject {
     pub title_chinese: String,
     /// Japanese title
     pub title_japanese: Option<String>,
-    /// Season number from metadata
+    /// Season number from bangumi
     pub season: i32,
     /// First air date (YYYY-MM-DD)
     pub air_date: Option<String>,
@@ -72,4 +91,28 @@ impl Weekday {
             ja: ja.to_string(),
         }
     }
+}
+
+/// Request body for creating a calendar entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct CreateCalendar {
+    /// Foreign key to bangumi
+    pub bangumi_id: i64,
+    /// Year (e.g., 2024)
+    pub year: i32,
+    /// Season (winter, spring, summer, fall)
+    pub season: String,
+    /// Display priority
+    #[serde(default)]
+    pub priority: i32,
+}
+
+/// Request body for updating a calendar entry
+#[derive(Debug, Clone, Default, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct UpdateCalendar {
+    /// Display priority
+    #[serde(default)]
+    pub priority: Option<i32>,
 }

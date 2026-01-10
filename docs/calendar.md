@@ -21,7 +21,7 @@
                   ▼
          ┌───────────────┐
          │   Database    │
-         │  (metadata +  │
+         │   (bangumi +  │
          │   calendar)   │
          └───────────────┘
 ```
@@ -30,7 +30,7 @@
 
 1. 服务启动时检查 `calendar` 表是否为空
 2. 如果为空，从 GitHub 下载种子数据
-3. 解析 JSON 并写入 `metadata` 和 `calendar` 表
+3. 解析 JSON 并写入 `series`、`bangumi` 和 `calendar` 表
 
 ## 种子数据
 
@@ -69,7 +69,7 @@ https://raw.githubusercontent.com/birdgg/moe-bangumi/main/assets/seed/calendar.j
 
 ### CalendarSubject
 
-日历中的番剧条目，字段与 `Metadata` 保持一致：
+日历中的番剧条目，字段与 `Bangumi` 保持一致：
 
 ```rust
 pub struct CalendarSubject {
@@ -178,32 +178,35 @@ pub enum Platform {
 ```sql
 CREATE TABLE calendar (
     id INTEGER PRIMARY KEY,
-    metadata_id INTEGER NOT NULL,
+    bangumi_id INTEGER NOT NULL,
     year INTEGER NOT NULL,
     season TEXT NOT NULL,        -- 'winter', 'spring', 'summer', 'fall'
     priority INTEGER DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (metadata_id) REFERENCES metadata(id),
-    UNIQUE(metadata_id, year, season)
+    FOREIGN KEY (bangumi_id) REFERENCES bangumi(id),
+    UNIQUE(bangumi_id, year, season)
 );
 ```
 
-### metadata 表（相关字段）
+### bangumi 表（相关字段）
 
 ```sql
-CREATE TABLE metadata (
+CREATE TABLE bangumi (
     id INTEGER PRIMARY KEY,
+    series_id INTEGER NOT NULL,           -- 关联 series 表
     mikan_id TEXT,
     bgmtv_id INTEGER,
     title_chinese TEXT NOT NULL,
     title_japanese TEXT,
+    season INTEGER NOT NULL DEFAULT 1,
+    year INTEGER NOT NULL,
     platform TEXT NOT NULL DEFAULT 'tv',  -- 'tv', 'movie', 'ova'
     total_episodes INTEGER DEFAULT 0,
     poster_url TEXT,
     air_date TEXT,
-    air_week INTEGER,  -- 0=周日, 1-6=周一至周六
-    ...
+    air_week INTEGER,                     -- 0=周日, 1-6=周一至周六
+    FOREIGN KEY (series_id) REFERENCES series(id)
 );
 ```
 

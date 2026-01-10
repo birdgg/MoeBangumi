@@ -44,4 +44,25 @@ impl PathInfo {
     pub fn is_movie(&self) -> bool {
         self.kind.as_deref() == Some("movie")
     }
+
+    /// Check if this is a special (SP, OVA, etc.)
+    ///
+    /// Specials are identified by:
+    /// - season == 0 (Plex convention)
+    /// - kind == "special"
+    pub fn is_special(&self) -> bool {
+        self.season == 0 || self.kind.as_deref() == Some("special")
+    }
+
+    /// Create a PathInfo for special content
+    pub fn new_special(title: impl Into<String>, year: i32, special_number: i32) -> Self {
+        Self {
+            title: title.into(),
+            year,
+            season: 0,
+            episode: special_number,
+            tmdb_id: None,
+            kind: Some("special".to_string()),
+        }
+    }
 }

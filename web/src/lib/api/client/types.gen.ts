@@ -126,6 +126,10 @@ export type CreateBangumi = {
    */
   auto_complete?: boolean;
   /**
+   * Initial current episode (for imported bangumi with existing episodes)
+   */
+  current_episode?: number | null;
+  /**
    * Episode offset for season-relative numbering (overrides metadata.episode_offset if provided)
    */
   episode_offset?: number | null;
@@ -1861,10 +1865,27 @@ export type CheckUpdateData = {
 
 export type CheckUpdateResponses = {
   /**
-   * Update check triggered
+   * Version information after check
    */
-  200: UpdateResponse;
+  200: VersionInfo;
 };
 
 export type CheckUpdateResponse =
   CheckUpdateResponses[keyof CheckUpdateResponses];
+
+export type PerformUpdateData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api/version/update";
+};
+
+export type PerformUpdateResponses = {
+  /**
+   * Update triggered
+   */
+  200: UpdateResponse;
+};
+
+export type PerformUpdateResponse =
+  PerformUpdateResponses[keyof PerformUpdateResponses];

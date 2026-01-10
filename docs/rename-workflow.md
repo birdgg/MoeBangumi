@@ -1,326 +1,465 @@
-# 剧集重命名工作流架构指南
+# Rename Workflow
 
-## 概述
+重命名服务负责将下载完成的媒体文件重命名为 Plex/Jellyfin 兼容的格式，支持 WebRip（普通 RSS 下载）和 BDRip（蓝光合集）两种模式。
 
-剧集重命名系统负责将下载完成的视频文件自动整理为媒体库兼容格式。核心特性包括：
-
-- **定时扫描**：每 10 分钟检查已完成的下载任务
-- **标签驱动**：通过 `rename` 标签标识待处理任务
-- **Plex/Jellyfin 兼容**：生成标准命名格式 `{标题} - s{季}e{集}.{扩展名}`
-- **字幕同步**：自动重命名关联的字幕文件
-- **进度追踪**：更新 Bangumi 的 `current_episode`
-- **自动完结**：当 `current_episode >= total_episodes` 时自动禁用 RSS
-- **更新通知**：处理完成后发送通知（支持海报图片）
-
-## 架构层次
+## 架构设计
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        触发层                                │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │                    RenameJob                           │ │
-│  │                  (每 10 分钟定时)                       │ │
-│  └──────────────────────────┬─────────────────────────────┘ │
-└─────────────────────────────┼───────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      核心处理层                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │                   RenameService                        │ │
-│  │  • process_all()    - 处理所有待重命名任务              │ │
-│  │  • process_task()   - 处理单个任务                     │ │
-│  │  • rename_file()    - 重命名视频+字幕                  │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       依赖服务层                             │
-│  ┌──────────────────┐ ┌──────────────────┐ ┌─────────────┐  │
-│  │ DownloaderHandle │ │ NotificationSvc  │ │   PathGen   │  │
-│  │   (Actor模式)    │ │   (更新通知)     │ │  (文件名)   │  │
-│  └──────────────────┘ └──────────────────┘ └─────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       数据访问层                             │
-│  ┌──────────────────────┐    ┌───────────────────────────┐  │
-│  │  TorrentRepository   │    │    BangumiRepository      │  │
-│  └──────────────────────┘    └───────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           RenameService                                  │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                        process_all()                               │  │
+│  │                    (定时任务入口)                                   │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                  │                                       │
+│                                  ▼                                       │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                      process_task()                                │  │
+│  │            (单任务处理，检测类型并分发)                              │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                    │                              │                      │
+│         ┌─────────┴─────────┐          ┌─────────┴─────────┐            │
+│         ▼                   ▼          ▼                   ▼            │
+│  ┌─────────────┐    ┌─────────────┐                                     │
+│  │ Standard    │    │   BDRip     │                                     │
+│  │ Processor   │    │  Processor  │                                     │
+│  │ (WebRip)    │    │ (蓝光合集)   │                                     │
+│  └─────────────┘    └─────────────┘                                     │
+│         │                   │                                            │
+│         └─────────┬─────────┘                                            │
+│                   ▼                                                      │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                    subtitles::rename_subtitles()                   │  │
+│  │                      (字幕文件随视频重命名)                          │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+              ┌───────────────────┼───────────────────┐
+              ▼                   ▼                   ▼
+       ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+       │DownloaderHdl│    │   pathgen   │    │Notification │
+       │ (qBittorrent)│    │ (路径生成)  │    │  Service    │
+       └─────────────┘    └─────────────┘    └─────────────┘
 ```
 
-## 触发条件
-
-| 条件 | 说明 |
-|------|------|
-| 定时任务 | 每 10 分钟执行一次 |
-| 任务状态 | `Completed` 或 `Seeding` |
-| 标签要求 | 必须有 `rename` 标签 |
-| 数据库匹配 | `info_hash` 在 Torrent 表中存在 |
-
-## 数据流程
+### 模块结构
 
 ```
-下载完成 ──► 定时扫描 ──► 查询匹配 ──► 文件处理 ──► 收尾工作
-             RenameJob     数据库       重命名        更新+通知
+core/domain/src/services/rename/
+├── mod.rs           # 模块入口，定义 RenameError 和 RenameTaskResult
+├── service.rs       # RenameService 主逻辑
+├── standard.rs      # StandardProcessor (WebRip 处理)
+├── bdrip.rs         # BDRipProcessor (蓝光合集处理)
+├── subtitles.rs     # 字幕文件重命名
+└── paths.rs         # 路径工具函数
 ```
 
-### 详细流程
+## 核心流程
 
 ```
-1. 查询待处理任务
-   get_pending_tasks()
-   ├── 查询下载器：状态 ∈ {Completed, Seeding} 且有 "rename" 标签
-   ├── 通过 info_hash 匹配数据库 Torrent 记录
-   └── 获取关联的 Bangumi + 元数据
-
-2. 并发处理（最多 4 个同时）
-   stream::buffer_unordered(4)
-   └── 对每个任务调用 process_task()
-
-3. 处理单个任务
-   process_task()
-   ├── 获取任务的所有文件
-   ├── 筛选视频文件（按扩展名）
-   └── 对每个视频文件：
-       ├── 确定剧集号（数据库或文件名解析）
-       └── 调用 rename_file()
-
-4. 重命名文件
-   rename_file()
-   ├── 应用剧集偏移量（episode_offset）
-   ├── 使用 pathgen 生成新文件名
-   ├── 重命名字幕文件
-   └── 重命名视频文件
-
-5. 收尾工作
-   finalize_task()
-   ├── 移除 "rename" 标签
-   ├── 按 bangumi_id 分组结果
-   ├── 更新 current_episode（仅当 > 现有值）
-   ├── 自动禁用 RSS（当 current_episode >= total_episodes）
-   └── 发送通知
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          process_all()                                   │
+│                       (Scheduler 定时调用)                               │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. get_pending_tasks()                                                   │
+│    - 查询下载器中带 "rename" 标签的已完成任务                              │
+│    - 通过 info_hash 匹配数据库中的 Torrent 记录                           │
+│    - 获取关联的 BangumiWithSeries 信息                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. process_task() - 并发处理 (concurrency=4)                             │
+│    - 检查是否在临时目录，需要时移动到最终目录                               │
+│    - 获取任务文件列表，筛选视频文件                                        │
+│    - 检测是否为 BDRip（三重检测）                                         │
+│    - 分发到对应的 Processor                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+             ┌─────────────┐             ┌─────────────┐
+             │  WebRip?    │             │   BDRip?    │
+             └─────────────┘             └─────────────┘
+                    │                           │
+                    ▼                           ▼
+┌───────────────────────────────┐ ┌───────────────────────────────────────┐
+│ StandardProcessor::process()   │ │ BDRipProcessor::process()              │
+│ - 解析文件名获取集数            │ │ - 解析目录结构获取季数/集数             │
+│ - 应用 episode_offset          │ │ - 分类：Episode / Special / NonVideo  │
+│ - 生成 Plex 格式文件名          │ │ - 多季重命名到不同目录                  │
+│ - 重命名视频和字幕              │ │ - 特典重命名到 Specials 目录            │
+└───────────────────────────────┘ └───────────────────────────────────────┘
+                    │                           │
+                    └─────────────┬─────────────┘
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. finalize_task()                                                       │
+│    - 移除 "rename" 标签                                                  │
+│    - 返回 RenameTaskResult                                               │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. 后处理                                                                │
+│    - 按 bangumi_id 分组结果                                              │
+│    - 更新 current_episode（仅当大于当前值）                               │
+│    - 检查是否全部下载完成，自动禁用 RSS                                    │
+│    - 发送通知（支持带海报图片）                                           │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 核心组件
+## 临时目录机制
 
-### 调度器 (SchedulerService)
-
-通用的定时任务调度器，管理多个 `SchedulerJob` 实例。
-
-```rust
-// 位置: services/scheduler.rs
-impl SchedulerService {
-    pub fn start(&self) {
-        for job in &self.jobs {
-            tokio::spawn(async move {
-                let mut timer = tokio::time::interval(job.interval());
-                timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
-                loop {
-                    timer.tick().await;
-                    job.execute().await;
-                }
-            });
-        }
-    }
-}
-```
-
-### 重命名任务 (RenameJob)
-
-实现 `SchedulerJob` trait，每 10 分钟触发一次。
-
-```rust
-// 位置: services/scheduler/rename_job.rs
-impl SchedulerJob for RenameJob {
-    fn name(&self) -> &'static str { "FileRename" }
-    fn interval(&self) -> Duration { Duration::from_secs(600) }
-
-    async fn execute(&self) -> JobResult {
-        self.rename_service.process_all().await
-    }
-}
-```
-
-### 重命名服务 (RenameService)
-
-核心业务逻辑，负责文件重命名、通知发送。
-
-主要方法：
-| 方法 | 功能 |
-|------|------|
-| `process_all()` | 入口，处理所有待重命名任务 |
-| `get_pending_tasks()` | 查询待处理任务并匹配数据库 |
-| `process_task()` | 处理单个下载任务 |
-| `rename_file()` | 重命名视频+字幕 |
-| `rename_subtitles()` | 重命名关联字幕文件 |
-
-### 标签机制
-
-通过下载器标签控制任务生命周期：
+为防止下载过程中文件被 Plex/Jellyfin 扫描到不完整状态，下载器使用临时目录：
 
 ```
-添加任务时 ──► 自动打标签 ["moe", "rename"]
-                              │
-重命名完成后 ──► 移除 "rename" 标签
+下载阶段:
+┌────────────────────────────────────────────────────────────────────────┐
+│  {base_path}/.downloading/{info_hash}/                                  │
+│      └── [SubGroup] Anime - 01.mkv  (下载中)                            │
+└────────────────────────────────────────────────────────────────────────┘
+                                  │
+                          下载完成后
+                                  │
+                                  ▼
+重命名阶段:
+┌────────────────────────────────────────────────────────────────────────┐
+│  1. RenameService 检测到 save_path 包含 ".downloading"                  │
+│  2. 动态生成最终目录路径                                                 │
+│  3. 调用 downloader.set_location() 移动任务                             │
+│  4. 执行文件重命名                                                       │
+└────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+最终位置:
+┌────────────────────────────────────────────────────────────────────────┐
+│  {base_path}/葬送的芙莉莲 (2023) {tmdb-209867}/Season 01/               │
+│      └── 葬送的芙莉莲 - s01e01.mkv                                      │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-| 标签 | 用途 |
-|------|------|
-| `moe` | 标识由本应用添加的任务 |
-| `rename` | 标识需要重命名处理的任务 |
+### 路径生成规则
 
-标签定义位置：`services/downloader.rs`
-
-```rust
-mod tags {
-    pub const MOE: &str = "moe";
-    pub const RENAME: &str = "rename";
-}
-```
-
-## 文件重命名逻辑
-
-### 视频文件
-
-使用 `pathgen` 模块生成 Plex/Jellyfin 兼容的文件名。
-
-**命名格式**：`{标题} - s{季:02}e{集:02}.{扩展名}`
-
-**示例**：
-```
-原文件: [ANi] 迷宮飯 - 05 [1080p].mkv
-新文件: 迷宫饭 - s01e05.mkv
-```
-
-**剧集号确定逻辑**：
-```
-单文件任务 → 优先使用数据库 episode_number，否则解析文件名
-多文件任务 → 必须从文件名解析（每个文件独立）
-```
-
-**剧集偏移**：通过 `Bangumi.episode_offset` 字段调整剧集号
-- 用于处理 RSS 中剧集号与实际季度剧集号不一致的情况
-- 示例：RSS 第 13 集 + offset(-12) = s02e01
-
-### 字幕文件
-
-自动识别并重命名与视频同名的字幕文件。
-
-**支持格式**：`ass`, `srt`, `ssa`, `sub`, `vtt`
-
-**匹配规则**：
-```
-video.mkv  →  video.ass           (直接匹配)
-           →  video.zh-CN.ass     (带语言标签)
-           →  video.简体中文.ass   (带中文标签)
-```
-
-**重命名示例**：
-```
-原文件: [ANi] 迷宮飯 - 05 [1080p].zh-CN.ass
-新文件: 迷宫饭 - s01e05.zh-CN.ass
-```
-
-## 关键数据模型
-
-### Task（下载器任务）
+最终目录路径动态生成，不存储在数据库：
 
 ```
-Task
-├── id: String           # info_hash，与 Torrent 表关联
-├── name: String         # 任务名称
-├── status: TaskStatus   # Downloading, Completed, Seeding 等
-├── save_path: String    # 保存路径
-└── tags: Vec<String>    # 包括 "moe", "rename"
+目录格式: {base_path}/{series_title} ({year}) {tmdb-ID}/Season {season:02}/
+
+示例:
+/downloads/葬送的芙莉莲 (2023) {tmdb-209867}/Season 01/
+/downloads/Re Zero 从零开始的异世界生活 (2016) {tmdb-12345}/Season 02/
 ```
 
-### Torrent（数据库记录）
+## BDRip 检测
+
+使用三重检测机制判断是否为 BDRip：
 
 ```
-Torrent
-├── id: i64
-├── bangumi_id: i64           # 关联的番剧
-├── info_hash: String         # 与 Task.id 对应
-├── episode_number: Option    # 单文件任务的剧集号
-└── ...
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          is_bdrip() 检测                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+         ┌────────────────────────┼────────────────────────┐
+         ▼                        ▼                        ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐
+│ 1. source_type  │    │ 2. 标题检测      │    │ 3. 目录结构检测          │
+│   == BDRip      │    │ 包含 "bdrip"    │    │ 包含特征目录             │
+│  (用户手动标记)  │    │ (大小写不敏感)   │    │                         │
+└─────────────────┘    └─────────────────┘    └─────────────────────────┘
+         │                        │                        │
+         │                        │           ┌────────────┴────────────┐
+         │                        │           │  特征目录:               │
+         │                        │           │  /SPs/ /SP/ /Specials/  │
+         │                        │           │  /CDs/ /CD/ /Scans/     │
+         │                        │           └─────────────────────────┘
+         │                        │                        │
+         └────────────────────────┴────────────────────────┘
+                                  │
+                         任一条件满足
+                                  │
+                                  ▼
+                          ┌─────────────┐
+                          │   BDRip     │
+                          └─────────────┘
 ```
 
-### BangumiWithMetadata
+## BDRip 处理流程
+
+BDRipProcessor 使用 `parser::BDRipParser` 解析文件路径：
 
 ```
-BangumiWithMetadata
-├── bangumi
-│   ├── id, name
-│   └── episode_offset        # 剧集偏移量
-└── metadata
-    ├── title_chinese         # 用于生成文件名
-    ├── season                # 季度
-    ├── year, air_date
-    ├── tmdb_id, bgmtv_id     # 外部 ID
-    └── poster_url            # 用于通知
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     BDRipParser::parse(file_path)                        │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. 检查非视频目录 (CDs, Scans, Fonts, Music, OST)                        │
+│    → 返回 BDRipContentType::NonVideo，跳过处理                           │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. 检查特典目录 (SPs, Specials, OVA, NCOP, NCED, PV, Extras)             │
+│    → 设置 is_special = true                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. 从目录名解析季数                                                       │
+│    - "2nd Season" → 2                                                    │
+│    - "Season 2"   → 2                                                    │
+│    - "第二季"     → 2                                                    │
+│    - "第十一季"   → 11                                                   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. 从文件名解析集数                                                       │
+│    Episode: [26] → 26                                                    │
+│    Special: [SP01] / OVA2 / 特典01 → 1/2/1                               │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+             ┌─────────────┐             ┌─────────────┐
+             │  Episode    │             │  Special    │
+             └─────────────┘             └─────────────┘
+                    │                           │
+                    ▼                           ▼
+┌───────────────────────────────┐ ┌───────────────────────────────────────┐
+│ 重命名到季度目录                │ │ 重命名到 Specials 目录                  │
+│ .../Season 02/                 │ │ .../Specials/                          │
+│ Title - s02e26.mkv             │ │ Title - s00e01.mkv                     │
+└───────────────────────────────┘ └───────────────────────────────────────┘
 ```
 
-### RenameTaskResult
+### 多季 BDRip 支持
+
+对于包含多季的 BDRip 合集，通过 `torrent_bangumi` 关联表支持多个 bangumi。
+
+**前置条件：所有关联的 bangumi 必须属于同一个 series**
 
 ```
-RenameTaskResult
-├── bangumi_id: i64
-├── bangumi_title: String
-├── poster_url: Option<String>
-└── renamed_episodes: Vec<i32>  # 成功重命名的剧集号列表
-```
-
-## 关键文件
-
-| 功能 | 位置 |
-|------|------|
-| 调度器主服务 | `core/server/src/services/scheduler.rs` |
-| 重命名定时任务 | `core/server/src/services/scheduler/rename_job.rs` |
-| SchedulerJob trait | `core/server/src/services/scheduler/traits.rs` |
-| 重命名服务核心 | `core/server/src/services/rename.rs` |
-| 标签定义 | `core/server/src/services/downloader.rs` |
-| DownloaderHandle | `core/server/src/services/downloader/actor/handle.rs` |
-| Actor 消息处理 | `core/server/src/services/downloader/actor/runner.rs` |
-| 文件名生成 | `core/server/src/infra/utils/pathgen.rs` |
-| 应用初始化 | `core/server/src/state.rs` |
-
-## 自动完结机制
-
-当番剧下载完成所有集数时，系统会自动禁用相关 RSS 订阅。
-
-### 触发条件
-
-```
-current_episode >= total_episodes && total_episodes > 0
-```
-
-- `total_episodes = 0` 表示集数未知，不会触发自动禁用
-- 使用 `>=` 而非 `==`，避免因剧集偏移导致的边界问题
-
-### 处理逻辑
-
-```
-重命名完成
+Series: Re:Zero 从零开始的异世界生活 (series_id=100, tmdb_id=12345)
     │
-    ▼
-更新 current_episode
+    ├── Bangumi: Season 1 (bangumi_id=1, series_id=100, season=1, year=2016)
+    ├── Bangumi: Season 2 (bangumi_id=2, series_id=100, season=2, year=2020)
+    └── Bangumi: Season 3 (bangumi_id=3, series_id=100, season=3, year=2024)
+
+Torrent: [VCB-Studio] Re Zero Complete
     │
-    ▼
-检查 current_episode >= total_episodes?
-    │
-    ├── 否 → 继续
-    │
-    └── 是 → 禁用该 bangumi 的所有 RSS
-              │
-              └── 记录日志：Auto-disabled N RSS subscription(s)
+    ├── torrent_bangumi: (torrent_id, bangumi_id=1)
+    ├── torrent_bangumi: (torrent_id, bangumi_id=2)
+    └── torrent_bangumi: (torrent_id, bangumi_id=3)
 ```
 
-### 相关方法
+**为什么需要同一个 series_id？**
 
-| 方法 | 位置 | 功能 |
-|------|------|------|
-| `RssRepository::disable_by_bangumi_id()` | `repositories/rss.rs` | 禁用指定番剧的所有 RSS |
+路径生成依赖 series 表提供统一的目录结构：
+
+```
+目录结构:
+{base_path}/{series.title_chinese} ({bangumi.year}) {tmdb-{series.tmdb_id}}/Season {bangumi.season}/
+
+所有季度共用:
+  - series.title_chinese  → 目录名
+  - series.tmdb_id        → 刮削器识别
+
+每季不同:
+  - bangumi.year          → 年份（可能不同）
+  - bangumi.season        → 季数
+```
+
+**解析文件时根据季数匹配对应 bangumi：**
+
+```
+/1st Season/[01].mkv  →  匹配 bangumi.season=1  →  使用 bangumi_id=1
+/2nd Season/[26].mkv  →  匹配 bangumi.season=2  →  使用 bangumi_id=2
+/3rd Season/[51].mkv  →  匹配 bangumi.season=3  →  使用 bangumi_id=3
+
+最终路径:
+/downloads/Re Zero 从零开始的异世界生活 (2016) {tmdb-12345}/Season 01/Re Zero... - s01e01.mkv
+/downloads/Re Zero 从零开始的异世界生活 (2020) {tmdb-12345}/Season 02/Re Zero... - s02e26.mkv
+/downloads/Re Zero 从零开始的异世界生活 (2024) {tmdb-12345}/Season 03/Re Zero... - s03e51.mkv
+```
+
+**匹配失败时的回退策略：**
+
+```
+当解析到的 season 在关联的 bangumi 中找不到匹配时：
+  → 使用 all_bangumi.first()（按 season 排序后的第一个）
+  → 通常是 Season 1
+```
+
+## 文件名生成规则
+
+使用 `pathgen` 库生成 Plex/Jellyfin 兼容的文件名：
+
+### 目录格式
+
+```
+{base_path}/{series_title} ({year}) {tmdb-ID}/Season {season:02}/
+
+规则:
+- series_title: 使用 Series 表的 title_chinese（系列级别）
+- year: 使用 Bangumi 表的 year（每季可能不同）
+- tmdb_id: 使用 Series 表的 tmdb_id（可选，用于刮削器识别）
+- season: 两位数格式，如 01, 02
+
+示例:
+/downloads/葬送的芙莉莲 (2023) {tmdb-209867}/Season 01/
+/downloads/葬送的芙莉莲 (2023) {tmdb-209867}/Specials/
+```
+
+### 文件名格式
+
+```
+{title} - s{season:02}e{episode:02}.{ext}
+
+规则:
+- title: 使用 Bangumi 表的 title_chinese（季度级别）
+- season: 两位数格式
+- episode: 两位数格式，应用 episode_offset 后的值
+- ext: 保留原始扩展名
+
+示例:
+葬送的芙莉莲 - s01e01.mkv
+葬送的芙莉莲 - s01e28.mkv
+葬送的芙莉莲 - s00e01.mkv  (特典)
+
+电影格式:
+葬送的芙莉莲.mkv  (platform=movie 时不加季集号)
+```
+
+### 集数偏移 (episode_offset)
+
+RSS 中的集数可能是绝对集数，需要转换为季度相对集数：
+
+```
+场景: 第二季第1集在 RSS 中显示为第13集
+配置: bangumi.episode_offset = 12
+
+转换:
+  RSS 集数 13 - offset 12 = 季度集数 1
+  文件名: Title - s02e01.mkv
+
+注意: 仅当 episode > offset 时才应用偏移
+```
+
+## 字幕处理
+
+字幕文件与视频文件一起重命名，保留语言标签：
+
+```
+原始文件:
+  [SubGroup] Anime - 01.mkv
+  [SubGroup] Anime - 01.ass
+  [SubGroup] Anime - 01.zh-CN.ass
+  [SubGroup] Anime - 01.简体中文.srt
+
+重命名后:
+  Anime - s01e01.mkv
+  Anime - s01e01.ass
+  Anime - s01e01.zh-CN.ass
+  Anime - s01e01.简体中文.srt
+```
+
+支持的字幕格式：`.ass`, `.srt`, `.ssa`, `.sub`, `.vtt`
+
+## 错误处理与重试
+
+### 错误类型
+
+```
+RenameError:
+├── Database(sqlx::Error)       # 数据库错误
+├── Downloader(DownloaderError) # 下载器通信错误
+├── TorrentNotFound(String)     # info_hash 未找到对应记录
+├── BangumiNotFound(i64)        # bangumi_id 不存在
+└── Io(std::io::Error)          # 文件操作错误
+```
+
+### 重试机制
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          错误处理策略                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+1. 任务级别错误:
+   - 单个任务失败不影响其他任务
+   - 失败任务保留 "rename" 标签，下次调度时重试
+   - 错误信息记录到日志
+
+2. 临时目录移动失败:
+   - 返回错误，跳过此任务
+   - 下次调度时重试移动
+
+3. 文件重命名失败:
+   - 记录警告日志
+   - 继续处理其他文件
+   - 不移除 "rename" 标签
+
+4. 成功处理:
+   - 移除 "rename" 标签
+   - 任务不会再次处理
+```
+
+### 并发控制
+
+```
+默认并发数: 4
+
+配置方式:
+  RenameService::new(...).with_concurrency(8)
+
+使用 buffer_unordered 限制同时处理的任务数，避免:
+- 下载器 API 过载
+- 数据库连接耗尽
+- 磁盘 I/O 过高
+```
+
+## 通知机制
+
+重命名完成后发送通知：
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          通知流程                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+1. 按 bangumi_id 分组结果
+2. 合并同一番剧的多个集数
+3. 格式化通知标题: "{title} 第{episodes}话"
+   - 连续集数: "第1-3话"
+   - 非连续:   "第1, 3, 5话"
+
+4. 发送通知:
+   - 有海报: notify_download_with_photo()
+   - 无海报: notify_download()
+
+5. 海报缓存:
+   - 使用 poster_path 作为 Telegram file_id 缓存 key
+   - 避免重复上传相同图片
+```
+
+## RSS 自动禁用
+
+当番剧全部下载完成时，自动禁用相关 RSS 订阅：
+
+```
+条件:
+  total_episodes > 0 AND current_episode >= total_episodes
+
+操作:
+  RssRepository::disable_by_bangumi_id(bangumi_id)
+
+日志:
+  "Auto-disabled {} RSS subscription(s) for completed bangumi '{}'"
+```

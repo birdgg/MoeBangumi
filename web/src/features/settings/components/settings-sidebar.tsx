@@ -6,9 +6,10 @@ import {
   IconBrandTelegram,
   IconSortDescending,
   IconSettings,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 
-export type SettingsSection = "general" | "downloader" | "filter" | "proxy" | "notification" | "priority";
+export type SettingsSection = "general" | "downloader" | "filter" | "proxy" | "notification" | "priority" | "system";
 
 interface SettingsSidebarItem {
   id: SettingsSection;
@@ -47,6 +48,11 @@ const sidebarItems: SettingsSidebarItem[] = [
     id: "notification",
     label: "通知",
     icon: <IconBrandTelegram className="size-4" />,
+  },
+  {
+    id: "system",
+    label: "系统",
+    icon: <IconInfoCircle className="size-4" />,
   },
 ];
 

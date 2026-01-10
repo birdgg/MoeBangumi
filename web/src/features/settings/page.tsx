@@ -15,6 +15,7 @@ import {
   ProxySection,
   NotificationSection,
   PrioritySection,
+  SystemSection,
   SettingsSidebar,
   type SettingsSection,
 } from "./components";
@@ -75,6 +76,8 @@ export function SettingsPage() {
         return <ProxySection form={form} />;
       case "notification":
         return <NotificationSection form={form} />;
+      case "system":
+        return <SystemSection />;
       default:
         return <GeneralSection form={form} />;
     }

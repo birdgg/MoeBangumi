@@ -1,7 +1,9 @@
+pub mod bdrip;
 pub mod bgmtv;
 pub mod models;
 pub mod parser;
 
+pub use bdrip::{BDRipContentType, BDRipParseResult, BDRipParser};
 pub use bgmtv::{parse_name, NameParseResult};
 pub use models::{ParseResult, SubType, CHINESE_NUMBER_MAP};
 pub use parser::Parser;

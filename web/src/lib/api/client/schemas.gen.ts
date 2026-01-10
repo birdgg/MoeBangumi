@@ -197,6 +197,12 @@ export const CreateBangumiSchema = {
       type: "boolean",
       description: "Only download first matching episode per RSS check",
     },
+    current_episode: {
+      type: ["integer", "null"],
+      format: "int32",
+      description:
+        "Initial current episode (for imported bangumi with existing episodes)",
+    },
     episode_offset: {
       type: ["integer", "null"],
       format: "int32",

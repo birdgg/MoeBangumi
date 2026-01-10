@@ -49,7 +49,7 @@ pub struct ParseResult {
     pub subtitle_language: Vec<SubType>,
 }
 
-// 中文数字映射
+// 中文数字映射 (支持 1-20)
 pub static CHINESE_NUMBER_MAP: phf::Map<&'static str, i32> = phf::phf_map! {
     "一" => 1,
     "二" => 2,
@@ -61,4 +61,14 @@ pub static CHINESE_NUMBER_MAP: phf::Map<&'static str, i32> = phf::phf_map! {
     "八" => 8,
     "九" => 9,
     "十" => 10,
+    "十一" => 11,
+    "十二" => 12,
+    "十三" => 13,
+    "十四" => 14,
+    "十五" => 15,
+    "十六" => 16,
+    "十七" => 17,
+    "十八" => 18,
+    "十九" => 19,
+    "二十" => 20,
 };

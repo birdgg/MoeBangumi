@@ -1,7 +1,7 @@
 /// Metadata Actor 消息类型
 pub enum MetadataMessage {
     /// 下载单个 Poster (fire-and-forget)
-    DownloadPoster { metadata_id: i64, url: String },
+    DownloadPoster { bangumi_id: i64, url: String },
 
     /// 批量下载 Posters (fire-and-forget)
     DownloadPosterBatch { tasks: Vec<(i64, String)> },
