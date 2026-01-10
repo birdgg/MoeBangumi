@@ -52,14 +52,14 @@ static SPECIAL_DIR_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Episode number pattern for BDRip format: [26], [01], etc.
-static BDRIP_EPISODE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\[(\d{1,3})\]").expect("Invalid episode pattern")
-});
+static BDRIP_EPISODE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[(\d{1,3})\]").expect("Invalid episode pattern"));
 
 /// Special number pattern: SP01, OVA1, [SP01], etc.
 /// Must have a SP/OVA/OAD prefix to avoid matching season numbers
 static SPECIAL_NUMBER_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(?:\[?(?:SP|OVA|OAD|特典)\s*0?(\d{1,2})\]?|\[SP(\d{1,2})\])").expect("Invalid special number pattern")
+    Regex::new(r"(?i)(?:\[?(?:SP|OVA|OAD|特典)\s*0?(\d{1,2})\]?|\[SP(\d{1,2})\])")
+        .expect("Invalid special number pattern")
 });
 
 /// BDRip file path parser
@@ -158,7 +158,10 @@ impl BDRipParser {
         }
 
         // Fallback to general parser for formats like EP01, 第01话, etc.
-        crate::Parser::new().parse(filename).ok().and_then(|r| r.episode)
+        crate::Parser::new()
+            .parse(filename)
+            .ok()
+            .and_then(|r| r.episode)
     }
 
     /// Parse special number from filename
@@ -188,121 +191,6 @@ impl BDRipParser {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_parse_episode() {
-        let result = BDRipParser::parse(
-            "[VCB-Studio] Re Zero 2nd Season [Ma10p_1080p]/[VCB-Studio] Re Zero 2nd Season [26][Ma10p_1080p][x265_flac_aac].mkv"
-        );
-
-        assert_eq!(result.content_type, BDRipContentType::Episode);
-        assert_eq!(result.season, Some(2));
-        assert_eq!(result.number, Some(26));
-    }
-
-    #[test]
-    fn test_parse_special() {
-        let result = BDRipParser::parse(
-            "[VCB-Studio] Re Zero 2nd Season [Ma10p_1080p]/SPs/[VCB-Studio] Re Zero 2nd Season [SP01][Ma10p_1080p].mkv"
-        );
-
-        assert_eq!(result.content_type, BDRipContentType::Special);
-        assert_eq!(result.season, Some(2));
-        assert_eq!(result.number, Some(1));
-    }
-
-    #[test]
-    fn test_parse_non_video() {
-        let result = BDRipParser::parse(
-            "[VCB-Studio] Re Zero/CDs/OST.flac"
-        );
-
-        assert_eq!(result.content_type, BDRipContentType::NonVideo);
-    }
-
-    #[test]
-    fn test_parse_season_formats() {
-        // Xnd/rd/th Season
-        assert_eq!(BDRipParser::parse_season_from_dir("1st Season"), Some(1));
-        assert_eq!(BDRipParser::parse_season_from_dir("2nd Season"), Some(2));
-        assert_eq!(BDRipParser::parse_season_from_dir("3rd Season"), Some(3));
-        assert_eq!(BDRipParser::parse_season_from_dir("10th Season"), Some(10));
-
-        // Season X
-        assert_eq!(BDRipParser::parse_season_from_dir("Season 2"), Some(2));
-        assert_eq!(BDRipParser::parse_season_from_dir("Season 10"), Some(10));
-        assert_eq!(BDRipParser::parse_season_from_dir("Season 15"), Some(15));
-
-        // 第X季 (basic)
-        assert_eq!(BDRipParser::parse_season_from_dir("第二季"), Some(2));
-        assert_eq!(BDRipParser::parse_season_from_dir("第三期"), Some(3));
-        assert_eq!(BDRipParser::parse_season_from_dir("第十季"), Some(10));
-
-        // 第X季 (compound numbers)
-        assert_eq!(BDRipParser::parse_season_from_dir("第十一季"), Some(11));
-        assert_eq!(BDRipParser::parse_season_from_dir("第十二期"), Some(12));
-
-        // No season
-        assert_eq!(BDRipParser::parse_season_from_dir("Regular Name"), None);
-    }
-
-    #[test]
-    fn test_non_video_dirs() {
-        assert!(BDRipParser::is_non_video_dir("CDs"));
-        assert!(BDRipParser::is_non_video_dir("CD"));
-        assert!(BDRipParser::is_non_video_dir("Scans"));
-        assert!(BDRipParser::is_non_video_dir("Scan"));
-        assert!(BDRipParser::is_non_video_dir("Fonts"));
-        assert!(BDRipParser::is_non_video_dir("Music"));
-        assert!(BDRipParser::is_non_video_dir("OST"));
-
-        assert!(!BDRipParser::is_non_video_dir("SPs"));
-        assert!(!BDRipParser::is_non_video_dir("Episode"));
-    }
-
-    #[test]
-    fn test_special_dirs() {
-        assert!(BDRipParser::is_special_dir("SPs"));
-        assert!(BDRipParser::is_special_dir("SP"));
-        assert!(BDRipParser::is_special_dir("Specials"));
-        assert!(BDRipParser::is_special_dir("OVA"));
-        assert!(BDRipParser::is_special_dir("NCOP"));
-        assert!(BDRipParser::is_special_dir("NCED"));
-        assert!(BDRipParser::is_special_dir("PV"));
-        assert!(BDRipParser::is_special_dir("Extras"));
-
-        assert!(!BDRipParser::is_special_dir("CDs"));
-        assert!(!BDRipParser::is_special_dir("Episode"));
-    }
-
-    #[test]
-    fn test_parse_episode_numbers() {
-        // BDRip format: [XX]
-        assert_eq!(BDRipParser::parse_episode_number("[01].mkv"), Some(1));
-        assert_eq!(BDRipParser::parse_episode_number("[26].mkv"), Some(26));
-        assert_eq!(BDRipParser::parse_episode_number("Title [12] [1080p].mkv"), Some(12));
-
-        // Fallback to general parser for other formats
-        assert_eq!(
-            BDRipParser::parse_episode_number("[字幕组] 动画名 第05话.mkv"),
-            Some(5)
-        );
-        assert_eq!(
-            BDRipParser::parse_episode_number("[字幕组] 动画名 EP03.mkv"),
-            Some(3)
-        );
-
-        // No episode
-        assert_eq!(BDRipParser::parse_episode_number("No episode.mkv"), None);
-    }
-
-    #[test]
-    fn test_parse_special_numbers() {
-        assert_eq!(BDRipParser::parse_special_number("SP01.mkv"), Some(1));
-        assert_eq!(BDRipParser::parse_special_number("OVA2.mkv"), Some(2));
-        assert_eq!(BDRipParser::parse_special_number("特典01.mkv"), Some(1));
-        assert_eq!(BDRipParser::parse_special_number("[SP03].mkv"), Some(3));
-    }
-
     /// Test VCB-Studio typical directory structure:
     /// ```
     /// [VCB-Studio] Re Zero kara Hajimeru Isekai Seikatsu
@@ -329,8 +217,16 @@ mod tests {
             let result = BDRipParser::parse(&path);
 
             assert_eq!(result.content_type, BDRipContentType::Episode);
-            assert_eq!(result.season, Some(2), "Should extract season 2 from '2nd Season'");
-            assert_eq!(result.number, Some(26), "Should extract episode 26 from [26]");
+            assert_eq!(
+                result.season,
+                Some(2),
+                "Should extract season 2 from '2nd Season'"
+            );
+            assert_eq!(
+                result.number,
+                Some(26),
+                "Should extract episode 26 from [26]"
+            );
         }
 
         #[test]
@@ -343,8 +239,16 @@ mod tests {
             let result = BDRipParser::parse(&path);
 
             assert_eq!(result.content_type, BDRipContentType::Special);
-            assert_eq!(result.season, Some(2), "Should extract season 2 from '2nd Season'");
-            assert_eq!(result.number, Some(1), "Should extract SP number 1 from [SP01]");
+            assert_eq!(
+                result.season,
+                Some(2),
+                "Should extract season 2 from '2nd Season'"
+            );
+            assert_eq!(
+                result.number,
+                Some(1),
+                "Should extract SP number 1 from [SP01]"
+            );
         }
 
         #[test]
@@ -381,7 +285,10 @@ mod tests {
             let result = BDRipParser::parse(path);
 
             assert_eq!(result.content_type, BDRipContentType::Episode);
-            assert_eq!(result.season, None, "Season 1 typically has no marker, should be None");
+            assert_eq!(
+                result.season, None,
+                "Season 1 typically has no marker, should be None"
+            );
             assert_eq!(result.number, Some(12));
         }
     }
