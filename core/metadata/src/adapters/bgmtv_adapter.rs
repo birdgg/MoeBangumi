@@ -42,20 +42,26 @@ impl MetadataProvider for BgmtvProvider {
         &self,
         external_id: &str,
     ) -> Result<Option<SearchedMetadata>, ProviderError> {
-        let subject_id: i64 = external_id.parse().unwrap_or(0);
-        if subject_id == 0 {
-            return Ok(None);
-        }
+        let subject_id: i64 = match external_id.parse() {
+            Ok(id) => id,
+            Err(_) => {
+                tracing::warn!("Invalid BGM.tv ID format: '{}'", external_id);
+                return Ok(None);
+            }
+        };
 
         let subject = self.client.get_subject(subject_id).await?;
         Ok(Some(SearchedMetadata::from(parse_subject_detail(&subject))))
     }
 
     async fn get_episodes(&self, external_id: &str) -> Result<Vec<Episode>, ProviderError> {
-        let subject_id: i64 = external_id.parse().unwrap_or(0);
-        if subject_id == 0 {
-            return Ok(vec![]);
-        }
+        let subject_id: i64 = match external_id.parse() {
+            Ok(id) => id,
+            Err(_) => {
+                tracing::warn!("Invalid BGM.tv ID format for episodes: '{}'", external_id);
+                return Ok(vec![]);
+            }
+        };
 
         let response = self.client.get_episodes(subject_id).await?;
         Ok(response.data.into_iter().map(Episode::from).collect())
@@ -72,9 +78,23 @@ impl MetadataProvider for BgmtvProvider {
         let offset = match first_main {
             Some(ep) => {
                 let ep_num = ep.ep.unwrap_or(ep.sort);
-                (ep.sort - ep_num).floor() as i32
+                let calculated = (ep.sort - ep_num).floor() as i32;
+                if calculated < 0 {
+                    tracing::warn!(
+                        "Negative offset calculated for {}: sort={}, ep={}, using 0",
+                        external_id,
+                        ep.sort,
+                        ep_num
+                    );
+                    0
+                } else {
+                    calculated
+                }
             }
-            None => 0,
+            None => {
+                tracing::debug!("No main episodes found for {}, offset=0", external_id);
+                0
+            }
         };
 
         Ok(offset)

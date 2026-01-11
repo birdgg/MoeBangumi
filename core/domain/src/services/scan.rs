@@ -491,14 +491,7 @@ impl ScanService {
         }
 
         // Prepare the bangumi data
-        let platform = search_result
-            .platform
-            .map(|p| match p {
-                metadata::Platform::Tv => Platform::Tv,
-                metadata::Platform::Movie => Platform::Movie,
-                metadata::Platform::Ova => Platform::Ova,
-            })
-            .unwrap_or(Platform::Tv);
+        let platform = search_result.platform.unwrap_or(Platform::Tv);
 
         let create_data = CreateBangumi {
             metadata_id: None,

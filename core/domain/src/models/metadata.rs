@@ -1,47 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 #[cfg(feature = "openapi")]
 use utoipa::ToSchema;
 
 use super::Clearable;
 
-/// Platform type for bangumi (TV, Movie, OVA)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
-#[serde(rename_all = "lowercase")]
-pub enum Platform {
-    #[default]
-    Tv,
-    Movie,
-    Ova,
-}
-
-impl Platform {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Platform::Tv => "tv",
-            Platform::Movie => "movie",
-            Platform::Ova => "ova",
-        }
-    }
-
-    /// Check if this platform is a movie
-    pub fn is_movie(&self) -> bool {
-        matches!(self, Platform::Movie)
-    }
-}
-
-impl FromStr for Platform {
-    type Err = std::convert::Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s.to_lowercase().as_str() {
-            "movie" => Platform::Movie,
-            "ova" => Platform::Ova,
-            _ => Platform::Tv,
-        })
-    }
-}
+// Re-export Platform from metadata crate to avoid duplication
+pub use metadata::Platform;
 
 /// Metadata entity for anime information
 /// Unified metadata center caching data from BGM.tv, TMDB, and Mikan

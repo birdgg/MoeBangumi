@@ -1,7 +1,7 @@
 //! Unified metadata client combining BGM.tv and TMDB providers.
 
 use crate::{
-    BgmtvProvider, CombinedSearchResults, MetadataProvider, MetadataSource, ProviderError,
+    BgmtvProvider, CombinedSearchResults, Episode, MetadataProvider, MetadataSource, ProviderError,
     SearchQuery, SearchedMetadata, TmdbProvider,
 };
 
@@ -84,10 +84,42 @@ impl MetadataClient {
         self.bgmtv.get_episode_offset(bgmtv_id).await
     }
 
+    /// Find the best matching metadata from the specified source.
+    ///
+    /// When `year` is provided in the query, filters results to match
+    /// shows that aired within ±1 year of the expected year.
+    ///
+    /// Returns the first matching result, or None if no matches found.
+    pub async fn find(
+        &self,
+        query: &SearchQuery,
+        source: MetadataSource,
+    ) -> Result<Option<SearchedMetadata>, ProviderError> {
+        match source {
+            MetadataSource::Bgmtv => self.bgmtv.find(query).await,
+            MetadataSource::Tmdb => self.tmdb.find(query).await,
+        }
+    }
+
+    /// Get episodes for a subject from the specified source.
+    ///
+    /// Currently only BGM.tv provides episode data.
+    /// TMDB returns an empty list.
+    pub async fn get_episodes(
+        &self,
+        external_id: &str,
+        source: MetadataSource,
+    ) -> Result<Vec<Episode>, ProviderError> {
+        match source {
+            MetadataSource::Bgmtv => self.bgmtv.get_episodes(external_id).await,
+            MetadataSource::Tmdb => self.tmdb.get_episodes(external_id).await,
+        }
+    }
+
     /// Search for metadata from all sources in parallel.
     ///
     /// Returns grouped results from BGM.tv and TMDB. If one source fails,
-    /// the other source's results are still returned.
+    /// the other source's results are still returned (with a warning logged).
     ///
     /// # Example
     ///
@@ -101,8 +133,14 @@ impl MetadataClient {
             tokio::join!(self.bgmtv.search(query), self.tmdb.search(query),);
 
         CombinedSearchResults {
-            bgmtv: bgmtv_result.unwrap_or_default(),
-            tmdb: tmdb_result.unwrap_or_default(),
+            bgmtv: bgmtv_result.unwrap_or_else(|e| {
+                tracing::warn!("BGM.tv search failed for '{}': {}", query.keyword, e);
+                vec![]
+            }),
+            tmdb: tmdb_result.unwrap_or_else(|e| {
+                tracing::warn!("TMDB search failed for '{}': {}", query.keyword, e);
+                vec![]
+            }),
         }
     }
 }

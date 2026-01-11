@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bgmtv::BgmtvClient;
-use metadata::{BgmtvProvider, TmdbProvider};
+use metadata::{BgmtvProvider, MetadataClient, TmdbProvider};
 use mikan::MikanClient;
 use parking_lot::RwLock;
 use rss::RssClient;
@@ -21,7 +21,7 @@ use domain::services::actors::metadata::{create_metadata_actor, MetadataHandle, 
 use domain::services::{
     create_downloader_service, create_notification_service, BangumiService, CacheService,
     CalendarService, HttpClientService, LogService, MetadataService, RenameService,
-    RssProcessingService, ScanService, SettingsService, WashingService,
+    RssProcessingService, ScanService, SettingsService, TorrentMetadataResolver, WashingService,
 };
 use jobs::{create_log_cleanup_actor, create_rename_actor, create_rss_fetch_actor};
 
@@ -138,13 +138,11 @@ pub fn build_services(
         Arc::clone(client_provider),
         config.posters_path(),
     ));
-    let bgmtv_provider = Arc::new(BgmtvProvider::new(Arc::clone(&api_clients.bgmtv)));
-    let tmdb_provider = Arc::new(TmdbProvider::new(Arc::clone(&api_clients.tmdb)));
-    let metadata = Arc::new(MetadataService::new(
-        db.clone(),
-        Arc::clone(&bgmtv_provider),
-        Arc::clone(&tmdb_provider),
+    let metadata_client = Arc::new(MetadataClient::new(
+        BgmtvProvider::new(Arc::clone(&api_clients.bgmtv)),
+        TmdbProvider::new(Arc::clone(&api_clients.tmdb)),
     ));
+    let metadata = Arc::new(MetadataService::new(db.clone(), metadata_client));
     let metadata_actor = Arc::new(create_metadata_actor(db.clone(), Arc::clone(&poster)));
 
     // RSS and washing services
@@ -173,13 +171,23 @@ pub fn build_services(
         Arc::clone(http_client),
     ));
 
-    // Rename and calendar services
-    let rename = Arc::new(RenameService::new(
+    // Torrent metadata resolver for untracked torrents
+    let resolver = Arc::new(TorrentMetadataResolver::new(
         db.clone(),
-        Arc::clone(&downloader),
-        Arc::clone(&notification),
-        Arc::clone(config),
+        Arc::clone(&metadata),
+        Arc::clone(settings),
     ));
+
+    // Rename and calendar services
+    let rename = Arc::new(
+        RenameService::new(
+            db.clone(),
+            Arc::clone(&downloader),
+            Arc::clone(&notification),
+            Arc::clone(config),
+        )
+        .with_resolver(resolver),
+    );
     let calendar = Arc::new(CalendarService::new(
         db.clone(),
         Arc::clone(&metadata_actor),

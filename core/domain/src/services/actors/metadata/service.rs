@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use metadata::{
-    BgmtvProvider, CombinedSearchResults, Episode, MetadataProvider, MetadataSource, SearchQuery,
-    SearchedMetadata, TmdbProvider,
+    CombinedSearchResults, Episode, MetadataClient, MetadataSource, SearchQuery, SearchedMetadata,
 };
 use sqlx::SqlitePool;
 
@@ -27,29 +26,20 @@ pub struct FetchedMetadata {
 /// Service for managing Metadata entities
 pub struct MetadataService {
     db: SqlitePool,
-    bgmtv_provider: Arc<BgmtvProvider>,
-    tmdb_provider: Arc<TmdbProvider>,
+    client: Arc<MetadataClient>,
 }
 
 impl MetadataService {
     /// Create a new MetadataService
-    pub fn new(
-        db: SqlitePool,
-        bgmtv_provider: Arc<BgmtvProvider>,
-        tmdb_provider: Arc<TmdbProvider>,
-    ) -> Self {
-        Self {
-            db,
-            bgmtv_provider,
-            tmdb_provider,
-        }
+    pub fn new(db: SqlitePool, client: Arc<MetadataClient>) -> Self {
+        Self { db, client }
     }
 
     /// Fetch metadata from BGM.tv by ID (does not persist)
     pub async fn fetch_from_bgmtv(&self, id: i64) -> Result<FetchedMetadata, MetadataError> {
         let result = self
-            .bgmtv_provider
-            .get_detail(&id.to_string())
+            .client
+            .get_detail(&id.to_string(), MetadataSource::Bgmtv)
             .await?
             .ok_or_else(|| MetadataError::NotFound(id))?;
 
@@ -62,17 +52,13 @@ impl MetadataService {
             total_episodes: result.total_episodes,
             poster_url: result.poster_url,
             air_date: result.air_date,
-            platform: result.platform.map(|p| match p {
-                metadata::Platform::Tv => Platform::Tv,
-                metadata::Platform::Movie => Platform::Movie,
-                metadata::Platform::Ova => Platform::Ova,
-            }),
+            platform: result.platform,
         })
     }
 
     /// Search for TMDB ID by title with optional year filtering
     ///
-    /// Uses TmdbProvider to find the best matching TMDB ID.
+    /// Uses MetadataClient to find the best matching TMDB ID.
     pub async fn find_tmdb_id(
         &self,
         title: &str,
@@ -83,7 +69,7 @@ impl MetadataService {
             query = query.with_year(y);
         }
 
-        let result = self.tmdb_provider.find(&query).await?;
+        let result = self.client.find(&query, MetadataSource::Tmdb).await?;
         Ok(result.and_then(|r| r.external_id.parse().ok()))
     }
 
@@ -214,11 +200,7 @@ impl MetadataService {
         external_id: &str,
         source: MetadataSource,
     ) -> Result<Option<SearchedMetadata>, MetadataError> {
-        let result = match source {
-            MetadataSource::Bgmtv => self.bgmtv_provider.get_detail(external_id).await?,
-            MetadataSource::Tmdb => self.tmdb_provider.get_detail(external_id).await?,
-        };
-        Ok(result)
+        Ok(self.client.get_detail(external_id, source).await?)
     }
 
     /// Search metadata from a specific source
@@ -227,11 +209,7 @@ impl MetadataService {
         query: &SearchQuery,
         source: MetadataSource,
     ) -> Result<Vec<SearchedMetadata>, MetadataError> {
-        let results = match source {
-            MetadataSource::Bgmtv => self.bgmtv_provider.search(query).await?,
-            MetadataSource::Tmdb => self.tmdb_provider.search(query).await?,
-        };
-        Ok(results)
+        Ok(self.client.search(query, source).await?)
     }
 
     /// Find best matching metadata from a specific source
@@ -240,20 +218,15 @@ impl MetadataService {
         query: &SearchQuery,
         source: MetadataSource,
     ) -> Result<Option<SearchedMetadata>, MetadataError> {
-        let result = match source {
-            MetadataSource::Bgmtv => self.bgmtv_provider.find(query).await?,
-            MetadataSource::Tmdb => self.tmdb_provider.find(query).await?,
-        };
-        Ok(result)
+        Ok(self.client.find(query, source).await?)
     }
 
     /// Get episodes from BGM.tv (only BGM.tv supports episodes)
     pub async fn get_episodes(&self, bgmtv_id: i64) -> Result<Vec<Episode>, MetadataError> {
-        let episodes = self
-            .bgmtv_provider
-            .get_episodes(&bgmtv_id.to_string())
-            .await?;
-        Ok(episodes)
+        Ok(self
+            .client
+            .get_episodes(&bgmtv_id.to_string(), MetadataSource::Bgmtv)
+            .await?)
     }
 
     /// Search metadata from all sources in parallel
@@ -261,14 +234,6 @@ impl MetadataService {
     /// Returns grouped results from BGM.tv and TMDB. If one source fails,
     /// the other source's results are still returned.
     pub async fn search_all(&self, query: &SearchQuery) -> CombinedSearchResults {
-        let (bgmtv_result, tmdb_result) = tokio::join!(
-            self.bgmtv_provider.search(query),
-            self.tmdb_provider.search(query),
-        );
-
-        CombinedSearchResults {
-            bgmtv: bgmtv_result.unwrap_or_default(),
-            tmdb: tmdb_result.unwrap_or_default(),
-        }
+        self.client.search_all(query).await
     }
 }

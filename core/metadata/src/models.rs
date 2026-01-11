@@ -33,6 +33,11 @@ impl Platform {
             Platform::Ova => "ova",
         }
     }
+
+    /// Check if this platform is a movie
+    pub fn is_movie(&self) -> bool {
+        matches!(self, Platform::Movie)
+    }
 }
 
 impl FromStr for Platform {
