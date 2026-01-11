@@ -48,7 +48,7 @@ impl MetadataProvider for TmdbProvider {
                     source: MetadataSource::Tmdb,
                     external_id: show.id.to_string(),
                     title_chinese: Some(show.name),
-                    title_original: Some(show.original_name),
+                    title_japanese: Some(show.original_name),
                     year,
                     season: None, // TMDB doesn't provide season info in search results
                     platform: None, // TMDB doesn't provide platform info
@@ -82,7 +82,7 @@ impl MetadataProvider for TmdbProvider {
                 source: MetadataSource::Tmdb,
                 external_id: tv_detail.id.to_string(),
                 title_chinese: Some(tv_detail.name.clone()),
-                title_original: Some(tv_detail.original_name),
+                title_japanese: Some(tv_detail.original_name),
                 year,
                 season: None,
                 platform: Some(Platform::Tv),
@@ -106,7 +106,7 @@ impl MetadataProvider for TmdbProvider {
                 source: MetadataSource::Tmdb,
                 external_id: movie_detail.id.to_string(),
                 title_chinese: Some(movie_detail.title.clone()),
-                title_original: Some(movie_detail.original_title),
+                title_japanese: Some(movie_detail.original_title),
                 year,
                 season: None,
                 platform: Some(Platform::Movie),

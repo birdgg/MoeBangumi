@@ -108,7 +108,7 @@ export function TmdbMatcher({
           >
             {displayValue ? (
               <>
-                <span className="truncate">{displayValue.title_chinese || displayValue.title_original}</span>
+                <span className="truncate">{displayValue.title_chinese || displayValue.title_japanese}</span>
                 <span className="font-mono text-xs text-chart-3 dark:text-chart-1 shrink-0">
                   #{displayValue.external_id}
                 </span>
@@ -184,7 +184,7 @@ export function TmdbMatcher({
                       selected?.external_id === show.external_id && "bg-accent"
                     )}
                   >
-                    <span className="truncate flex-1">{show.title_chinese || show.title_original}</span>
+                    <span className="truncate flex-1">{show.title_chinese || show.title_japanese}</span>
                     <span className="font-mono text-xs text-chart-3 dark:text-chart-1 shrink-0">
                       #{show.external_id}
                     </span>

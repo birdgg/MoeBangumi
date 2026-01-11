@@ -111,7 +111,7 @@ impl From<ParsedSubject> for SearchedMetadata {
             source: MetadataSource::Bgmtv,
             external_id: subject.bgmtv_id.to_string(),
             title_chinese: subject.title_chinese,
-            title_original: subject.title_japanese,
+            title_japanese: subject.title_japanese,
             year: subject.year,
             season: Some(subject.season),
             platform: subject.platform.parse().ok(),

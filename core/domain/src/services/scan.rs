@@ -502,7 +502,7 @@ impl ScanService {
                 title_chinese: search_result
                     .title_chinese
                     .unwrap_or_else(|| dir.title.clone()),
-                title_japanese: search_result.title_original,
+                title_japanese: search_result.title_japanese,
                 season: search_result.season.unwrap_or(season),
                 year: search_result.year.unwrap_or(dir.year),
                 platform,

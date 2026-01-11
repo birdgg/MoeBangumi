@@ -210,7 +210,7 @@ export function SearchBangumiModal({
                     <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-chart-1/20 to-chart-3/20 dark:from-chart-1/30 dark:to-chart-3/30">
                       <img
                         src={subject.poster_url ?? undefined}
-                        alt={subject.title_chinese || subject.title_original || ""}
+                        alt={subject.title_chinese || subject.title_japanese || ""}
                         className="size-full object-cover transition-transform duration-300 group-hover:scale-110"
                       />
 
@@ -225,11 +225,11 @@ export function SearchBangumiModal({
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-chart-1 dark:group-hover:text-chart-1 transition-colors">
-                        {subject.title_chinese || subject.title_original}
+                        {subject.title_chinese || subject.title_japanese}
                       </h4>
-                      {subject.title_chinese && subject.title_original && (
+                      {subject.title_chinese && subject.title_japanese && (
                         <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                          {subject.title_original}
+                          {subject.title_japanese}
                         </p>
                       )}
                       <div className="flex flex-wrap items-center gap-2 mt-2">

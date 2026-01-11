@@ -46,7 +46,7 @@ impl MetadataService {
         Ok(FetchedMetadata {
             bgmtv_id: result.external_id.parse().unwrap_or(0),
             title_chinese: result.title_chinese,
-            title_japanese: result.title_original,
+            title_japanese: result.title_japanese,
             year: result.year,
             season: result.season,
             total_episodes: result.total_episodes,

@@ -298,8 +298,8 @@ impl TorrentMetadataResolver {
             },
             title_chinese: searched
                 .title_chinese
-                .unwrap_or_else(|| searched.title_original.clone().unwrap_or_default()),
-            title_japanese: searched.title_original,
+                .unwrap_or_else(|| searched.title_japanese.clone().unwrap_or_default()),
+            title_japanese: searched.title_japanese,
             season: parsed_season.unwrap_or_else(|| searched.season.unwrap_or(1)),
             year: searched.year.unwrap_or_else(|| chrono::Utc::now().year()),
             platform: searched.platform.unwrap_or(Platform::Tv),

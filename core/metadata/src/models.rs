@@ -90,8 +90,8 @@ pub struct SearchedMetadata {
 
     /// Chinese title
     pub title_chinese: Option<String>,
-    /// Japanese/original title
-    pub title_original: Option<String>,
+    /// Japanese title
+    pub title_japanese: Option<String>,
 
     /// Year
     pub year: Option<i32>,

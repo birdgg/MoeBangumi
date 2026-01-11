@@ -7,8 +7,8 @@ import type { BangumiModalData } from "@/features/bangumi/components";
 export function subjectToModalData(subject: SearchedMetadata): BangumiModalData {
   return {
     bgmtvId: parseInt(subject.external_id, 10) || 0,
-    titleChinese: subject.title_chinese || subject.title_original || "",
-    titleJapanese: subject.title_chinese ? subject.title_original : null,
+    titleChinese: subject.title_chinese || subject.title_japanese || "",
+    titleJapanese: subject.title_chinese ? subject.title_japanese : null,
     posterUrl: subject.poster_url,
     year: subject.air_date ? parseInt(subject.air_date.split("-")[0], 10) || null : null,
     season: subject.season ?? undefined,
