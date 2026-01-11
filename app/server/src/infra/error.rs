@@ -230,6 +230,9 @@ impl From<metadata::ProviderError> for AppError {
             ProviderError::SourceNotAvailable(source) => {
                 AppError::BadRequest(format!("Data source {:?} is not available", source))
             }
+            ProviderError::InvalidId(id) => {
+                AppError::BadRequest(format!("Invalid external ID: {}", id))
+            }
         }
     }
 }

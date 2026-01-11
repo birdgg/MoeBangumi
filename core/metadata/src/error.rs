@@ -13,4 +13,7 @@ pub enum ProviderError {
 
     #[error("TMDB error: {0}")]
     Tmdb(#[from] tmdb::TmdbError),
+
+    #[error("Invalid external ID: {0}")]
+    InvalidId(String),
 }
