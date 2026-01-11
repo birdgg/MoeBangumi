@@ -567,7 +567,7 @@ pub struct BangumiToSync {
 
 /// Internal row type for mapping SQLite results
 #[derive(Debug, sqlx::FromRow)]
-struct BangumiRow {
+pub(crate) struct BangumiRow {
     id: i64,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,

@@ -6,7 +6,6 @@ mod logs;
 mod mikan;
 mod scan;
 mod search;
-mod series;
 mod settings;
 mod torrents;
 mod update;
@@ -44,10 +43,6 @@ pub use logs::{cleanup_logs, clear_all_logs, get_logs, stream_logs};
 pub use mikan::get_mikan_rss;
 pub use scan::{scan_import, ScanImportRequest, ScanImportResponse};
 pub use search::{find_metadata, get_metadata_detail, search_bgmtv, search_metadata, search_metadata_all, search_mikan, search_tmdb, DetailQuery, UnifiedSearchQuery};
-pub use series::{
-    create_series, delete_series, get_series, get_series_by_id, link_bangumi_to_series,
-    refresh_series, unlink_bangumi_from_series, update_series,
-};
 pub use settings::{
     get_settings, reset_settings, test_notification, test_proxy, update_settings,
     TestNotificationRequest, TestProxyRequest,

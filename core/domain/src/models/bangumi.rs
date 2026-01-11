@@ -42,10 +42,6 @@ pub struct Bangumi {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 
-    // Series relationship
-    /// Series ID if this bangumi belongs to a series
-    pub series_id: Option<i64>,
-
     // External service IDs
     /// Mikan bangumi ID
     pub mikan_id: Option<String>,

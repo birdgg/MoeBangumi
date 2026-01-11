@@ -30,25 +30,8 @@ pub fn create_router(state: AppState) -> Router {
             "/api/bangumi/{id}",
             get(handlers::get_bangumi_by_id).patch(handlers::update_bangumi),
         )
-        // Bangumi-Series linking
-        .route(
-            "/api/bangumi/{id}/link-series",
-            post(handlers::link_bangumi_to_series).delete(handlers::unlink_bangumi_from_series),
-        )
         // Episodes endpoint
         .route("/api/episodes/{subject_id}", get(handlers::get_episodes))
-        // Series endpoints
-        .route(
-            "/api/series",
-            get(handlers::get_series).post(handlers::create_series),
-        )
-        .route(
-            "/api/series/{id}",
-            get(handlers::get_series_by_id)
-                .patch(handlers::update_series)
-                .delete(handlers::delete_series),
-        )
-        .route("/api/series/{id}/refresh", post(handlers::refresh_series))
         // Settings endpoints
         .route(
             "/api/settings",
