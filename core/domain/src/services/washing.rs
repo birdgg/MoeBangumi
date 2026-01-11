@@ -143,7 +143,7 @@ impl WashingService {
 
         // 2. Create new torrent in transaction (with parsed metadata)
         let new_torrent = CreateTorrent {
-            bangumi_id: params.bangumi_id,
+            bangumi_id: Some(params.bangumi_id),
             rss_id: params.rss_id,
             info_hash: params.info_hash.to_string(),
             torrent_url: params.torrent_url.to_string(),

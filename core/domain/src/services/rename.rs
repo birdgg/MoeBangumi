@@ -2,18 +2,36 @@
 //!
 //! This service handles automatic renaming of downloaded media files
 //! to be compatible with Plex/Jellyfin naming standards.
+//!
+//! # Module Structure
+//!
+//! - `standard` - Standard WebRip task processing
+//! - `bdrip` - BDRip (Blu-ray) task processing with complex directory structures
+//! - `untracked` - Processing for torrents not tracked in database
+//! - `utils` - Shared utility functions (path generation, subtitle handling)
 
 use futures::stream::{self, StreamExt};
-use parser::{BDRipContentType, BDRipParser, Parser};
+use parser::Parser;
 use sqlx::SqlitePool;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::config::Config;
-use crate::models::{BangumiWithMetadata, SourceType, Torrent};
+use crate::models::{BangumiWithMetadata, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
-use crate::services::{DownloaderHandle, NotificationService, Task, TaskFile};
+use crate::services::torrent_metadata_resolver::TorrentMetadataResolver;
+use crate::services::{DownloaderHandle, NotificationService, Task};
+
+// Sub-modules
+mod bdrip;
+mod standard;
+mod untracked;
+mod utils;
+
+use bdrip::BDRipProcessor;
+use standard::StandardProcessor;
+use untracked::UntrackedProcessor;
 
 /// Error type for rename operations
 #[derive(Debug, thiserror::Error)]
@@ -35,6 +53,30 @@ pub enum RenameError {
 }
 
 pub type Result<T> = std::result::Result<T, RenameError>;
+
+/// Pending task with optional tracking info
+///
+/// For tracked torrents: has Torrent and BangumiWithMetadata
+/// For untracked torrents: has only BangumiWithMetadata (created via resolver)
+enum PendingTask {
+    /// Tracked torrent with full context
+    Tracked {
+        task: Task,
+        torrent: Torrent,
+        bangumi: BangumiWithMetadata,
+    },
+    /// Untracked torrent with resolved metadata
+    Untracked {
+        task: Task,
+        bangumi: BangumiWithMetadata,
+    },
+    /// Untracked torrent with fallback (no metadata found)
+    Fallback {
+        task: Task,
+        title: String,
+        season: Option<i32>,
+    },
+}
 
 /// Result of a rename task processing
 #[derive(Debug)]
@@ -59,6 +101,11 @@ pub struct RenameTaskResult {
 /// 3. Gets Bangumi metadata for proper naming
 /// 4. Renames video files and associated subtitles
 /// 5. Marks tasks as rename complete
+///
+/// For untracked torrents (not in database), the service can optionally:
+/// - Search metadata from BGM.tv and TMDB
+/// - Create new Bangumi records
+/// - Rename files using the found metadata
 pub struct RenameService {
     db: SqlitePool,
     downloader: Arc<DownloaderHandle>,
@@ -67,6 +114,8 @@ pub struct RenameService {
     parser: Parser,
     /// Maximum number of concurrent rename tasks
     concurrency: usize,
+    /// Optional resolver for untracked torrents
+    resolver: Option<Arc<TorrentMetadataResolver>>,
 }
 
 impl RenameService {
@@ -84,12 +133,19 @@ impl RenameService {
             config,
             parser: Parser::new(),
             concurrency: 4,
+            resolver: None,
         }
     }
 
     /// Set the maximum number of concurrent rename tasks
     pub fn with_concurrency(mut self, concurrency: usize) -> Self {
         self.concurrency = concurrency;
+        self
+    }
+
+    /// Set the metadata resolver for handling untracked torrents
+    pub fn with_resolver(mut self, resolver: Arc<TorrentMetadataResolver>) -> Self {
+        self.resolver = Some(resolver);
         self
     }
 
@@ -108,17 +164,82 @@ impl RenameService {
 
         // Collect results from all tasks
         let results: Vec<RenameTaskResult> = stream::iter(pending)
-            .map(|(task, torrent, bangumi)| async move {
-                match self.process_task(&task, &torrent, &bangumi).await {
-                    Ok(result) => Some(result),
-                    Err(e) => {
-                        tracing::error!(
-                            "Failed to rename task '{}' ({}): {}",
-                            task.name,
-                            task.id,
-                            e
-                        );
-                        None
+            .map(|pending_task| async move {
+                match pending_task {
+                    PendingTask::Tracked {
+                        task,
+                        torrent,
+                        bangumi,
+                    } => match self.process_tracked_task(&task, &torrent, &bangumi).await {
+                        Ok(result) => Some(result),
+                        Err(e) => {
+                            tracing::error!(
+                                "Failed to rename tracked task '{}' ({}): {}",
+                                task.name,
+                                task.id,
+                                e
+                            );
+                            None
+                        }
+                    },
+                    PendingTask::Untracked { task, bangumi } => {
+                        match UntrackedProcessor::process(
+                            &self.downloader,
+                            &self.parser,
+                            &task,
+                            &bangumi,
+                        )
+                        .await
+                        {
+                            Ok(result) => {
+                                // Finalize task after processing
+                                if let Err(e) = self.finalize_task(&task.id).await {
+                                    tracing::error!("Failed to finalize task {}: {}", task.id, e);
+                                }
+                                Some(result)
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to rename untracked task '{}' ({}): {}",
+                                    task.name,
+                                    task.id,
+                                    e
+                                );
+                                None
+                            }
+                        }
+                    }
+                    PendingTask::Fallback {
+                        task,
+                        title,
+                        season,
+                    } => {
+                        match UntrackedProcessor::process_fallback(
+                            &self.downloader,
+                            &self.parser,
+                            &task,
+                            &title,
+                            season,
+                        )
+                        .await
+                        {
+                            Ok(result) => {
+                                // Finalize task after processing
+                                if let Err(e) = self.finalize_task(&task.id).await {
+                                    tracing::error!("Failed to finalize task {}: {}", task.id, e);
+                                }
+                                Some(result)
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to rename fallback task '{}' ({}): {}",
+                                    task.name,
+                                    task.id,
+                                    e
+                                );
+                                None
+                            }
+                        }
                     }
                 }
             })
@@ -265,7 +386,7 @@ impl RenameService {
     }
 
     /// Get all completed tasks pending rename
-    async fn get_pending_tasks(&self) -> Result<Vec<(Task, Torrent, BangumiWithMetadata)>> {
+    async fn get_pending_tasks(&self) -> Result<Vec<PendingTask>> {
         // Query downloader for completed/seeding tasks with rename tag
         let all_tasks = self.downloader.get_rename_pending_tasks().await?;
 
@@ -274,35 +395,104 @@ impl RenameService {
         for task in all_tasks {
             // Find matching torrent in database by info_hash
             if let Some(torrent) = TorrentRepository::get_by_info_hash(&self.db, &task.id).await? {
-                // Get associated bangumi with metadata
-                if let Some(bangumi_with_metadata) =
-                    BangumiRepository::get_with_metadata_by_id(&self.db, torrent.bangumi_id).await?
-                {
-                    result.push((task, torrent, bangumi_with_metadata));
+                // Get associated bangumi with metadata (only if bangumi_id is set)
+                if let Some(bangumi_id) = torrent.bangumi_id {
+                    if let Some(bangumi_with_metadata) =
+                        BangumiRepository::get_with_metadata_by_id(&self.db, bangumi_id).await?
+                    {
+                        result.push(PendingTask::Tracked {
+                            task,
+                            torrent,
+                            bangumi: bangumi_with_metadata,
+                        });
+                    } else {
+                        tracing::warn!(
+                            "Bangumi not found for torrent {} (bangumi_id: {})",
+                            task.id,
+                            bangumi_id
+                        );
+                    }
                 } else {
-                    tracing::warn!(
-                        "Bangumi not found for torrent {} (bangumi_id: {})",
-                        task.id,
-                        torrent.bangumi_id
+                    tracing::debug!(
+                        "Torrent {} has no bangumi_id, treating as untracked",
+                        task.id
                     );
                 }
             } else {
-                // TODO: support it after implement the metadata searcher
-                tracing::debug!(
-                    "Task '{}' ({}) not found in database, skipping",
-                    task.name,
-                    task.id
-                );
+                // Untracked torrent - try to resolve via metadata search
+                if let Some(resolver) = &self.resolver {
+                    match resolver.resolve(&task.name).await {
+                        Ok(resolved) => {
+                            if resolved.is_new {
+                                tracing::info!(
+                                    "Auto-created bangumi '{}' for untracked torrent '{}'",
+                                    resolved.metadata.title_chinese,
+                                    task.name
+                                );
+                            } else {
+                                tracing::info!(
+                                    "Using existing bangumi '{}' for untracked torrent '{}'",
+                                    resolved.metadata.title_chinese,
+                                    task.name
+                                );
+                            }
+                            result.push(PendingTask::Untracked {
+                                task,
+                                bangumi: BangumiWithMetadata {
+                                    bangumi: resolved.bangumi,
+                                    metadata: resolved.metadata,
+                                },
+                            });
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to resolve metadata for '{}': {}, trying fallback",
+                                task.name,
+                                e
+                            );
+                            // Try fallback rename using parsed title
+                            match resolver.resolve_fallback(&task.name).await {
+                                Ok((search_info, _metadata)) => {
+                                    if let Some(title) = search_info.best_search_title() {
+                                        result.push(PendingTask::Fallback {
+                                            task,
+                                            title: title.to_string(),
+                                            season: search_info.season,
+                                        });
+                                    } else {
+                                        tracing::warn!(
+                                            "No title extracted from task '{}', skipping",
+                                            task.name
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "Fallback resolution failed for '{}': {}, skipping",
+                                        task.name,
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    tracing::debug!(
+                        "Task '{}' ({}) not found in database and no resolver configured, skipping",
+                        task.name,
+                        task.id
+                    );
+                }
             }
         }
 
         Ok(result)
     }
 
-    /// Process a single task
+    /// Process a tracked task (torrent exists in database)
     ///
     /// Returns the result containing bangumi info and successfully renamed episodes.
-    async fn process_task(
+    async fn process_tracked_task(
         &self,
         task: &Task,
         torrent: &Torrent,
@@ -362,15 +552,22 @@ impl RenameService {
         }
 
         // Check if this is a BDRip task
-        let is_bdrip = self.is_bdrip(task, bangumi, &files);
+        let is_bdrip = BDRipProcessor::is_bdrip(task, bangumi, &files);
 
         let renamed_episodes = if is_bdrip {
             tracing::info!("Detected BDRip structure for task: {}", task.name);
-            self.process_bdrip_task(task, &video_files, bangumi, &files)
-                .await?
+            BDRipProcessor::process(&self.downloader, task, &video_files, bangumi, &files).await?
         } else {
-            self.process_standard_task(task, &video_files, torrent, bangumi, &files)
-                .await?
+            StandardProcessor::process(
+                &self.downloader,
+                &self.parser,
+                task,
+                &video_files,
+                torrent,
+                bangumi,
+                &files,
+            )
+            .await?
         };
 
         // Remove the "rename" tag
@@ -384,400 +581,6 @@ impl RenameService {
             total_episodes: bangumi.metadata.total_episodes,
             renamed_episodes,
         })
-    }
-
-    /// Check if a task is a BDRip (three-way detection)
-    ///
-    /// 1. User marked source_type as BDRip
-    /// 2. Torrent title contains "bdrip" (case insensitive)
-    /// 3. Directory structure contains BDRip indicators (SPs, CDs, Scans)
-    fn is_bdrip(&self, task: &Task, bangumi: &BangumiWithMetadata, files: &[TaskFile]) -> bool {
-        // 1. User marked as BDRip
-        if bangumi.bangumi.source_type == SourceType::BDRip {
-            return true;
-        }
-
-        // 2. Torrent title contains "bdrip"
-        if task.name.to_lowercase().contains("bdrip") {
-            return true;
-        }
-
-        // 3. Directory structure detection
-        self.is_bdrip_structure(files)
-    }
-
-    /// Check if file structure indicates BDRip content
-    ///
-    /// Detects BDRip by looking for characteristic directories:
-    /// - SPs/SP/Specials: Special episodes
-    /// - CDs/CD: Music/OST
-    /// - Scans/Scan: Booklet scans
-    fn is_bdrip_structure(&self, files: &[TaskFile]) -> bool {
-        // Use case-insensitive matching for directory names
-        let markers = ["/sps/", "/sp/", "/specials/", "/cds/", "/cd/", "/scans/", "/scan/"];
-
-        files.iter().any(|f| {
-            let path_lower = f.path.to_lowercase();
-            markers.iter().any(|m| path_lower.contains(m))
-        })
-    }
-
-    /// Process a standard (non-BDRip) task
-    async fn process_standard_task(
-        &self,
-        task: &Task,
-        video_files: &[&TaskFile],
-        torrent: &Torrent,
-        bangumi: &BangumiWithMetadata,
-        all_files: &[TaskFile],
-    ) -> Result<Vec<i32>> {
-        let mut renamed_episodes = Vec::new();
-
-        for video_file in video_files {
-            // If single video file and torrent has episode_number, use it as fallback
-            let episode = if video_files.len() == 1 {
-                torrent
-                    .episode_number
-                    .or_else(|| self.parse_episode_number(&video_file.path))
-            } else {
-                // Multiple files - always parse from filename
-                self.parse_episode_number(&video_file.path)
-            };
-
-            if let Some(ep) = episode {
-                if self
-                    .rename_file(task, video_file, bangumi, ep, all_files)
-                    .await
-                    .is_ok()
-                {
-                    renamed_episodes.push(ep);
-                }
-            } else {
-                tracing::warn!(
-                    "Could not determine episode number for: {}",
-                    video_file.path
-                );
-            }
-        }
-
-        Ok(renamed_episodes)
-    }
-
-    /// Process a BDRip task with complex directory structure
-    async fn process_bdrip_task(
-        &self,
-        task: &Task,
-        video_files: &[&TaskFile],
-        bangumi: &BangumiWithMetadata,
-        all_files: &[TaskFile],
-    ) -> Result<Vec<i32>> {
-        let mut renamed_episodes = Vec::new();
-
-        for video_file in video_files {
-            let parse_result = BDRipParser::parse(&video_file.path);
-
-            match parse_result.content_type {
-                BDRipContentType::NonVideo => {
-                    // Skip non-video content (shouldn't happen as we filtered video files)
-                    tracing::debug!("Skipping non-video in BDRip: {}", video_file.path);
-                    continue;
-                }
-                BDRipContentType::Special => {
-                    // Process special/SP content
-                    if let Some(sp_number) = parse_result.number {
-                        if self
-                            .rename_special(task, video_file, bangumi, sp_number, all_files)
-                            .await
-                            .is_ok()
-                        {
-                            tracing::info!(
-                                "Renamed special SP{:02} for: {}",
-                                sp_number,
-                                video_file.path
-                            );
-                        }
-                    } else {
-                        tracing::warn!(
-                            "Could not determine special number for: {}",
-                            video_file.path
-                        );
-                    }
-                }
-                BDRipContentType::Episode => {
-                    // Process regular episode
-                    let season = parse_result.season.unwrap_or(bangumi.metadata.season);
-
-                    if let Some(episode) = parse_result.number {
-                        if self
-                            .rename_bdrip_episode(
-                                task, video_file, bangumi, season, episode, all_files,
-                            )
-                            .await
-                            .is_ok()
-                        {
-                            renamed_episodes.push(episode);
-                        }
-                    } else {
-                        tracing::warn!(
-                            "Could not determine episode number for BDRip: {}",
-                            video_file.path
-                        );
-                    }
-                }
-            }
-        }
-
-        Ok(renamed_episodes)
-    }
-
-    /// Rename a BDRip episode file
-    ///
-    /// Note: Unlike standard WebRip processing, BDRip episode numbers are NOT
-    /// adjusted with episode_offset. This is because:
-    /// 1. BDRip releases typically use season-relative numbering (e.g., S2E01, not S2E13)
-    /// 2. The episode number is parsed from directory structure, not RSS metadata
-    /// 3. episode_offset is designed for RSS feeds that use absolute episode numbers
-    async fn rename_bdrip_episode(
-        &self,
-        task: &Task,
-        file: &TaskFile,
-        bangumi: &BangumiWithMetadata,
-        season: i32,
-        episode: i32,
-        all_files: &[TaskFile],
-    ) -> Result<()> {
-        let ext = file.extension().unwrap_or("mkv");
-
-        // BDRip episode numbers are already season-relative, no offset needed
-        let new_filename_base = pathgen::generate_filename(
-            &bangumi.metadata.title_chinese,
-            season,
-            episode,
-            Some(bangumi.metadata.platform.as_str()),
-        );
-
-        // Build the full destination path
-        let new_path = Self::build_bdrip_path(
-            &bangumi.metadata.title_chinese,
-            bangumi.metadata.year,
-            bangumi.metadata.tmdb_id,
-            season,
-            &new_filename_base,
-            ext,
-        );
-
-        // Rename subtitles first
-        self.rename_subtitles(task, &file.path, &new_filename_base, all_files)
-            .await?;
-
-        // Rename video file
-        if file.path != new_path {
-            tracing::info!("BDRip rename: {} -> {}", file.path, new_path);
-            self.downloader
-                .rename_file(&task.id, &file.path, &new_path)
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Rename a special/SP file
-    async fn rename_special(
-        &self,
-        task: &Task,
-        file: &TaskFile,
-        bangumi: &BangumiWithMetadata,
-        sp_number: i32,
-        all_files: &[TaskFile],
-    ) -> Result<()> {
-        let ext = file.extension().unwrap_or("mkv");
-
-        // Generate special filename: Title - s00eXX
-        let title = pathgen::sanitize(&bangumi.metadata.title_chinese);
-        let new_filename_base = format!("{} - s00e{:02}", title, sp_number);
-
-        // Build the full destination path with Specials directory
-        let new_path = Self::build_special_path(
-            &bangumi.metadata.title_chinese,
-            bangumi.metadata.year,
-            bangumi.metadata.tmdb_id,
-            &new_filename_base,
-            ext,
-        );
-
-        // Rename subtitles first
-        self.rename_subtitles(task, &file.path, &new_filename_base, all_files)
-            .await?;
-
-        // Rename video file
-        if file.path != new_path {
-            tracing::info!("Special rename: {} -> {}", file.path, new_path);
-            self.downloader
-                .rename_file(&task.id, &file.path, &new_path)
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Build destination path for BDRip episode
-    fn build_bdrip_path(
-        title: &str,
-        year: i32,
-        tmdb_id: Option<i64>,
-        season: i32,
-        filename: &str,
-        ext: &str,
-    ) -> String {
-        let base_dir = Self::format_base_dir(title, year, tmdb_id);
-        format!("{}/Season {:02}/{}.{}", base_dir, season, filename, ext)
-    }
-
-    /// Build destination path for special content
-    fn build_special_path(
-        title: &str,
-        year: i32,
-        tmdb_id: Option<i64>,
-        filename: &str,
-        ext: &str,
-    ) -> String {
-        let base_dir = Self::format_base_dir(title, year, tmdb_id);
-        format!("{}/Specials/{}.{}", base_dir, filename, ext)
-    }
-
-    /// Format base directory: "Title (year) {tmdb-ID}"
-    fn format_base_dir(title: &str, year: i32, tmdb_id: Option<i64>) -> String {
-        let sanitized = pathgen::sanitize(title);
-        if let Some(id) = tmdb_id {
-            format!("{} ({}) {{tmdb-{}}}", sanitized, year, id)
-        } else {
-            format!("{} ({})", sanitized, year)
-        }
-    }
-
-    /// Rename a single video file and associated subtitles
-    async fn rename_file(
-        &self,
-        task: &Task,
-        file: &TaskFile,
-        bangumi: &BangumiWithMetadata,
-        episode: i32,
-        all_files: &[TaskFile],
-    ) -> Result<()> {
-        let old_path = &file.path;
-
-        // Get file extension
-        let ext = file.extension().unwrap_or("mkv");
-
-        // Apply episode offset to convert RSS episode number to season-relative episode
-        let adjusted_episode = bangumi.metadata.adjust_episode(episode);
-
-        // Generate new filename using pathgen
-        let new_filename_base = pathgen::generate_filename(
-            &bangumi.metadata.title_chinese,
-            bangumi.metadata.season,
-            adjusted_episode,
-            Some(bangumi.metadata.platform.as_str()),
-        );
-
-        let new_filename = format!("{}.{}", new_filename_base, ext);
-
-        // Preserve directory structure
-        let new_path = Self::join_with_parent(old_path, &new_filename);
-
-        // Rename associated subtitle files FIRST (before video rename to avoid path cache issues)
-        self.rename_subtitles(task, old_path, &new_filename_base, all_files)
-            .await?;
-
-        // Now rename the video file
-        if old_path == &new_path {
-            tracing::debug!("File already has correct name: {}", old_path);
-        } else {
-            tracing::info!("Renaming: {} -> {}", old_path, new_path);
-            self.downloader
-                .rename_file(&task.id, old_path, &new_path)
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Rename subtitle files that match the video file
-    async fn rename_subtitles(
-        &self,
-        task: &Task,
-        old_video_path: &str,
-        new_basename: &str,
-        all_files: &[TaskFile],
-    ) -> Result<()> {
-        // Get the basename of the old video (without extension)
-        let old_basename = Path::new(old_video_path)
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
-
-        if old_basename.is_empty() {
-            return Ok(());
-        }
-
-        // Find subtitle files with matching basename
-        let subtitle_exts = ["ass", "srt", "ssa", "sub", "vtt"];
-
-        for file in all_files {
-            let file_path = Path::new(&file.path);
-
-            // Check if it's a subtitle file
-            let is_subtitle = file_path
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|e| subtitle_exts.contains(&e.to_lowercase().as_str()))
-                .unwrap_or(false);
-
-            if !is_subtitle {
-                continue;
-            }
-
-            // Check if it matches our video file
-            // Subtitle files might be named like:
-            // - video.ass
-            // - video.zh-CN.ass
-            // - video.简体中文.ass
-            let file_name = file_path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-
-            if !file_name.starts_with(old_basename) {
-                continue;
-            }
-
-            // Extract the suffix (language tag + extension)
-            let suffix = &file_name[old_basename.len()..];
-            let new_subtitle_name = format!("{}{}", new_basename, suffix);
-
-            // Build the new path preserving directory
-            let new_subtitle_path = Self::join_with_parent(&file.path, &new_subtitle_name);
-
-            if file.path != new_subtitle_path {
-                tracing::info!("Renaming subtitle: {} -> {}", file.path, new_subtitle_path);
-                self.downloader
-                    .rename_file(&task.id, &file.path, &new_subtitle_path)
-                    .await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Parse episode number from filename using the parser
-    fn parse_episode_number(&self, filename: &str) -> Option<i32> {
-        // Extract just the filename part
-        let name = Path::new(filename)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or(filename);
-
-        match self.parser.parse(name) {
-            Ok(result) => result.episode,
-            Err(_) => None,
-        }
     }
 
     /// Mark task rename as complete
@@ -818,20 +621,6 @@ impl RenameService {
                 );
                 self.notification.notify_download(title, content);
             }
-        }
-    }
-
-    /// Join filename with parent directory, preserving directory structure
-    fn join_with_parent(original_path: &str, new_filename: &str) -> String {
-        let path = Path::new(original_path);
-        if let Some(parent) = path.parent() {
-            if parent.as_os_str().is_empty() {
-                new_filename.to_string()
-            } else {
-                parent.join(new_filename).to_string_lossy().to_string()
-            }
-        } else {
-            new_filename.to_string()
         }
     }
 }

@@ -390,7 +390,7 @@ struct TorrentRow {
     id: i64,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
-    bangumi_id: i64,
+    bangumi_id: Option<i64>,
     rss_id: Option<i64>,
     info_hash: String,
     torrent_url: String,

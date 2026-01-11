@@ -422,7 +422,7 @@ impl RssProcessingService {
 
         // 1. Create torrent record in database
         let torrent = CreateTorrent {
-            bangumi_id: rss.bangumi_id,
+            bangumi_id: Some(rss.bangumi_id),
             rss_id: Some(rss.id),
             info_hash: info_hash.to_string(),
             torrent_url: torrent_url.to_string(),

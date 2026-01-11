@@ -11,6 +11,7 @@ mod rename;
 mod rss_processing;
 mod scan;
 mod settings;
+pub mod torrent_metadata_resolver;
 mod washing;
 
 pub mod actors;
@@ -25,6 +26,7 @@ pub use rename::{RenameError, RenameService};
 pub use rss_processing::RssProcessingService;
 pub use scan::{ScanError, ScanService};
 pub use settings::{SettingsError, SettingsService, SettingsWatcher};
+pub use torrent_metadata_resolver::{ResolverError, TorrentMetadataResolver};
 pub use washing::{WashParams, WashingError, WashingService};
 
 // Re-export actors

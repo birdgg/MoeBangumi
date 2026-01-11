@@ -14,8 +14,8 @@ pub struct Torrent {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 
-    /// Foreign key to bangumi
-    pub bangumi_id: i64,
+    /// Foreign key to bangumi (optional for untracked torrents)
+    pub bangumi_id: Option<i64>,
     /// Optional reference to source RSS
     pub rss_id: Option<i64>,
 
@@ -52,8 +52,8 @@ impl Torrent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CreateTorrent {
-    /// Foreign key to bangumi
-    pub bangumi_id: i64,
+    /// Foreign key to bangumi (optional for untracked torrents)
+    pub bangumi_id: Option<i64>,
     /// Optional reference to source RSS
     pub rss_id: Option<i64>,
     /// BitTorrent info hash
