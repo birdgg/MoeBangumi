@@ -5,7 +5,7 @@ use axum::{
 };
 
 use crate::error::AppResult;
-use crate::models::{BangumiWithMetadata, BangumiWithRss, CreateBangumi, UpdateBangumiRequest};
+use crate::models::{Bangumi, BangumiWithRss, CreateBangumi, UpdateBangumiRequest};
 use crate::state::AppState;
 
 /// Create a new bangumi
@@ -15,13 +15,13 @@ use crate::state::AppState;
     tag = "bangumi",
     request_body = CreateBangumi,
     responses(
-        (status = 201, description = "Bangumi created successfully", body = BangumiWithMetadata)
+        (status = 201, description = "Bangumi created successfully", body = Bangumi)
     )
 ))]
 pub async fn create_bangumi(
     State(state): State<AppState>,
     Json(payload): Json<CreateBangumi>,
-) -> AppResult<(StatusCode, Json<BangumiWithMetadata>)> {
+) -> AppResult<(StatusCode, Json<Bangumi>)> {
     let bangumi = state.services.bangumi.create(payload).await?;
     Ok((StatusCode::CREATED, Json(bangumi)))
 }
@@ -32,10 +32,10 @@ pub async fn create_bangumi(
     path = "/api/bangumi",
     tag = "bangumi",
     responses(
-        (status = 200, description = "List of all bangumi", body = Vec<BangumiWithMetadata>)
+        (status = 200, description = "List of all bangumi", body = Vec<Bangumi>)
     )
 ))]
-pub async fn get_bangumi(State(state): State<AppState>) -> AppResult<Json<Vec<BangumiWithMetadata>>> {
+pub async fn get_bangumi(State(state): State<AppState>) -> AppResult<Json<Vec<Bangumi>>> {
     let bangumi_list = state.services.bangumi.get_all().await?;
     Ok(Json(bangumi_list))
 }

@@ -7,13 +7,12 @@
 use std::sync::Arc;
 
 use chrono::Datelike;
-use metadata::{MetadataSource, SearchQuery};
+use metadata::{MetadataClient, MetadataSource, SearchQuery};
 use parser::Parser;
 use sqlx::SqlitePool;
 
-use crate::models::{Bangumi, CreateMetadata, Metadata, Platform, SourceType};
+use crate::models::{Bangumi, Platform, SourceType};
 use crate::repositories::{BangumiRepository, CreateBangumiData};
-use crate::services::actors::metadata::{MetadataError, MetadataService};
 use crate::services::SettingsService;
 
 /// Error type for torrent metadata resolution
@@ -28,8 +27,8 @@ pub enum ResolverError {
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
 
-    #[error("Metadata service error: {0}")]
-    Metadata(#[from] MetadataError),
+    #[error("Metadata client error: {0}")]
+    MetadataClient(#[from] metadata::ProviderError),
 
     #[error("Path generation failed: {0}")]
     PathGeneration(String),
@@ -38,10 +37,8 @@ pub enum ResolverError {
 /// Result of metadata resolution
 #[derive(Debug)]
 pub struct ResolvedMetadata {
-    /// The bangumi record
+    /// The bangumi record (contains all metadata)
     pub bangumi: Bangumi,
-    /// The associated metadata
-    pub metadata: Metadata,
     /// Whether this is a newly created bangumi
     pub is_new: bool,
 }
@@ -74,7 +71,7 @@ impl ExtractedSearchInfo {
 /// Service for resolving metadata from torrent information
 pub struct TorrentMetadataResolver {
     db: SqlitePool,
-    metadata_service: Arc<MetadataService>,
+    client: Arc<MetadataClient>,
     settings_service: Arc<SettingsService>,
     parser: Parser,
 }
@@ -83,12 +80,12 @@ impl TorrentMetadataResolver {
     /// Create a new TorrentMetadataResolver
     pub fn new(
         db: SqlitePool,
-        metadata_service: Arc<MetadataService>,
+        client: Arc<MetadataClient>,
         settings_service: Arc<SettingsService>,
     ) -> Self {
         Self {
             db,
-            metadata_service,
+            client,
             settings_service,
             parser: Parser::new(),
         }
@@ -101,19 +98,13 @@ impl TorrentMetadataResolver {
     /// 2. Searches metadata from BGM.tv (priority) and TMDB
     /// 3. Creates or finds existing bangumi with the metadata
     ///
-    /// Returns `ResolvedMetadata` containing bangumi and metadata.
-    pub async fn resolve(
-        &self,
-        task_name: &str,
-    ) -> Result<ResolvedMetadata, ResolverError> {
+    /// Returns `ResolvedMetadata` containing bangumi.
+    pub async fn resolve(&self, task_name: &str) -> Result<ResolvedMetadata, ResolverError> {
         // Extract search info from task name
         let search_info = self.extract_search_info(task_name)?;
 
         let title = search_info.best_search_title().ok_or_else(|| {
-            ResolverError::ExtractionFailed(format!(
-                "No title found in task name: {}",
-                task_name
-            ))
+            ResolverError::ExtractionFailed(format!("No title found in task name: {}", task_name))
         })?;
 
         tracing::info!(
@@ -142,40 +133,59 @@ impl TorrentMetadataResolver {
 
     /// Resolve metadata for fallback (when search fails)
     ///
-    /// Creates a minimal metadata record using parsed title.
+    /// Creates a minimal bangumi record using parsed title.
     pub async fn resolve_fallback(
         &self,
         task_name: &str,
-    ) -> Result<(ExtractedSearchInfo, Metadata), ResolverError> {
+    ) -> Result<(ExtractedSearchInfo, Bangumi), ResolverError> {
         let search_info = self.extract_search_info(task_name)?;
 
         let title = search_info.best_search_title().ok_or_else(|| {
-            ResolverError::ExtractionFailed(format!(
-                "No title found in task name: {}",
-                task_name
-            ))
+            ResolverError::ExtractionFailed(format!("No title found in task name: {}", task_name))
         })?;
 
-        // Create minimal metadata for fallback
-        let create_metadata = CreateMetadata {
+        // Check if a bangumi with this title already exists
+        // We can't do external ID lookup since we have no metadata
+        // Just create a minimal bangumi
+
+        let settings = self.settings_service.get();
+        let base_path = &settings.downloader.save_path;
+        let season = search_info.season.unwrap_or(1);
+        let year = chrono::Utc::now().year();
+
+        let save_path = pathgen::generate_directory(
+            base_path,
+            title,
+            year,
+            season,
+            None,
+            Some(Platform::Tv.as_str()),
+        )
+        .map_err(|e| ResolverError::PathGeneration(e.to_string()))?;
+
+        let create_data = CreateBangumiData {
             mikan_id: None,
             bgmtv_id: None,
             tmdb_id: None,
             title_chinese: title.to_string(),
             title_japanese: search_info.title_japanese.clone(),
-            season: search_info.season.unwrap_or(1),
-            year: chrono::Utc::now().year(),
-            platform: Platform::Tv,
+            season,
+            year,
+            platform: Platform::Tv.as_str().to_string(),
             total_episodes: 0,
             poster_url: None,
             air_date: None,
             air_week: 0,
             episode_offset: 0,
+            current_episode: None,
+            auto_complete: true,
+            save_path,
+            source_type: SourceType::WebRip.as_str().to_string(),
         };
 
-        let metadata = self.metadata_service.find_or_update(create_metadata).await?;
+        let bangumi = BangumiRepository::create(&self.db, create_data).await?;
 
-        Ok((search_info, metadata))
+        Ok((search_info, bangumi))
     }
 
     /// Extract search information from torrent task name
@@ -239,7 +249,7 @@ impl TorrentMetadataResolver {
         }
 
         // Try BGM.tv first (anime-specific)
-        match self.metadata_service.find_provider(&query, MetadataSource::Bgmtv).await {
+        match self.client.find(&query, MetadataSource::Bgmtv).await {
             Ok(Some(result)) => {
                 tracing::debug!(
                     "Found match in BGM.tv: {}",
@@ -258,7 +268,7 @@ impl TorrentMetadataResolver {
         // Fallback to TMDB
         let settings = self.settings_service.get();
         if settings.tmdb.is_configured() {
-            match self.metadata_service.find_provider(&query, MetadataSource::Tmdb).await {
+            match self.client.find(&query, MetadataSource::Tmdb).await {
                 Ok(Some(result)) => {
                     tracing::debug!(
                         "Found match in TMDB: {}",
@@ -285,45 +295,22 @@ impl TorrentMetadataResolver {
         source: MetadataSource,
         parsed_season: Option<i32>,
     ) -> Result<ResolvedMetadata, ResolverError> {
-        // Convert SearchedMetadata to CreateMetadata
-        let create_metadata = CreateMetadata {
-            mikan_id: None,
-            bgmtv_id: match source {
-                MetadataSource::Bgmtv => searched.external_id.parse().ok(),
-                MetadataSource::Tmdb => None,
-            },
-            tmdb_id: match source {
-                MetadataSource::Tmdb => searched.external_id.parse().ok(),
-                MetadataSource::Bgmtv => None,
-            },
-            title_chinese: searched
-                .title_chinese
-                .unwrap_or_else(|| searched.title_japanese.clone().unwrap_or_default()),
-            title_japanese: searched.title_japanese,
-            season: parsed_season.unwrap_or_else(|| searched.season.unwrap_or(1)),
-            year: searched.year.unwrap_or_else(|| chrono::Utc::now().year()),
-            platform: searched.platform.unwrap_or(Platform::Tv),
-            total_episodes: searched.total_episodes,
-            poster_url: searched.poster_url,
-            air_date: searched.air_date,
-            air_week: 0,
-            episode_offset: 0,
+        let bgmtv_id = match source {
+            MetadataSource::Bgmtv => searched.external_id.parse().ok(),
+            MetadataSource::Tmdb => None,
+        };
+        let tmdb_id = match source {
+            MetadataSource::Tmdb => searched.external_id.parse().ok(),
+            MetadataSource::Bgmtv => None,
         };
 
-        // Find or create metadata
-        let metadata = self.metadata_service.find_or_update(create_metadata).await?;
-
-        // Check if bangumi already exists for this metadata
-        if let Some(existing) = BangumiRepository::get_by_metadata_id(&self.db, metadata.id).await?
+        // Check if bangumi already exists by external ID
+        if let Some(existing) =
+            BangumiRepository::get_by_external_id(&self.db, None, bgmtv_id, tmdb_id).await?
         {
-            tracing::info!(
-                "Using existing Bangumi {} for metadata {}",
-                existing.id,
-                metadata.id
-            );
+            tracing::info!("Using existing Bangumi {} for search result", existing.id);
             return Ok(ResolvedMetadata {
                 bangumi: existing,
-                metadata,
                 is_new: false,
             });
         }
@@ -331,36 +318,55 @@ impl TorrentMetadataResolver {
         // Generate save path
         let settings = self.settings_service.get();
         let base_path = &settings.downloader.save_path;
+        let title_chinese = searched
+            .title_chinese
+            .clone()
+            .unwrap_or_else(|| searched.title_japanese.clone().unwrap_or_default());
+        let year = searched.year.unwrap_or_else(|| chrono::Utc::now().year());
+        let season = parsed_season.unwrap_or_else(|| searched.season.unwrap_or(1));
+        let platform = searched.platform.unwrap_or(Platform::Tv);
+
         let save_path = pathgen::generate_directory(
             base_path,
-            &metadata.title_chinese,
-            metadata.year,
-            metadata.season,
-            metadata.tmdb_id,
-            Some(metadata.platform.as_str()),
+            &title_chinese,
+            year,
+            season,
+            tmdb_id,
+            Some(platform.as_str()),
         )
         .map_err(|e| ResolverError::PathGeneration(e.to_string()))?;
 
         // Create new bangumi
         tracing::info!(
-            "Creating new Bangumi for metadata {} at {}",
-            metadata.id,
+            "Creating new Bangumi for '{}' at {}",
+            title_chinese,
             save_path
         );
 
         let create_data = CreateBangumiData {
-            metadata_id: metadata.id,
+            mikan_id: None,
+            bgmtv_id,
+            tmdb_id,
+            title_chinese,
+            title_japanese: searched.title_japanese,
+            season,
+            year,
+            platform: platform.as_str().to_string(),
+            total_episodes: searched.total_episodes,
+            poster_url: searched.poster_url,
+            air_date: searched.air_date,
+            air_week: 0,
+            episode_offset: 0,
+            current_episode: None,
             auto_complete: true,
             save_path,
             source_type: SourceType::WebRip.as_str().to_string(),
-            current_episode: None,
         };
 
         let bangumi = BangumiRepository::create(&self.db, create_data).await?;
 
         Ok(ResolvedMetadata {
             bangumi,
-            metadata,
             is_new: true,
         })
     }

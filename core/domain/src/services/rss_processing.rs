@@ -9,7 +9,7 @@ use std::sync::Arc;
 /// Maximum number of RSS feeds to fetch concurrently
 const RSS_FETCH_CONCURRENCY: usize = 5;
 
-use crate::models::{BangumiWithMetadata, CreateTorrent, Rss, Torrent};
+use crate::models::{Bangumi, CreateTorrent, Rss, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
 use crate::services::washing::{WashParams, WashingService};
 use crate::services::{AddTaskOptions, DownloaderHandle, SettingsService};
@@ -17,7 +17,7 @@ use washing::{ComparableTorrent, PriorityCalculator};
 
 /// Context for RSS processing, avoiding repeated parameter passing
 struct ProcessingContext {
-    bangumi: BangumiWithMetadata,
+    bangumi: Bangumi,
 }
 
 /// Lookup structures for existing torrents (O(1) access)
@@ -94,7 +94,7 @@ impl RssProcessingService {
 
     /// Prepare processing context by fetching bangumi info
     async fn prepare_context(&self, rss: &Rss) -> Option<ProcessingContext> {
-        let bangumi = match BangumiRepository::get_with_metadata_by_id(&self.db, rss.bangumi_id).await {
+        let bangumi = match BangumiRepository::get_by_id(&self.db, rss.bangumi_id).await {
             Ok(Some(b)) => b,
             Ok(None) => {
                 tracing::error!("[bangumi_id={}] Bangumi not found", rss.bangumi_id);
@@ -200,12 +200,12 @@ impl RssProcessingService {
             .collect();
 
         // When auto_complete is disabled, only process the latest episode
-        if !ctx.bangumi.bangumi.auto_complete {
+        if !ctx.bangumi.auto_complete {
             parsed_items.sort_by(|a, b| b.1.cmp(&a.1));
             if let Some((_, ep, _)) = parsed_items.first() {
                 tracing::debug!(
                     "auto_complete disabled for bangumi {}: only processing latest episode {}",
-                    ctx.bangumi.bangumi.id,
+                    ctx.bangumi.id,
                     ep
                 );
                 parsed_items.truncate(1);
@@ -358,12 +358,12 @@ impl RssProcessingService {
             }
 
             // Wash ("洗版"): replace existing torrents with higher priority resource
-            let adjusted_episode = ctx.bangumi.metadata.adjust_episode(episode);
+            let adjusted_episode = ctx.bangumi.adjust_episode(episode);
             let filename = pathgen::generate_filename(
-                &ctx.bangumi.metadata.title_chinese,
-                ctx.bangumi.metadata.season,
+                &ctx.bangumi.title_chinese,
+                ctx.bangumi.season,
                 adjusted_episode,
-                Some(ctx.bangumi.metadata.platform.as_str()),
+                Some(ctx.bangumi.platform.as_str()),
             );
 
             let params = WashParams {
@@ -375,7 +375,7 @@ impl RssProcessingService {
                 torrent_url,
                 episode,
                 parse_result,
-                save_path: &ctx.bangumi.bangumi.save_path,
+                save_path: &ctx.bangumi.save_path,
                 rename: &filename,
             };
 
@@ -401,14 +401,14 @@ impl RssProcessingService {
         parse_result: &ParseResult,
     ) {
         // Apply episode offset to convert RSS episode number to season-relative episode
-        let adjusted_episode = ctx.bangumi.metadata.adjust_episode(episode);
+        let adjusted_episode = ctx.bangumi.adjust_episode(episode);
 
         // Generate filename for this specific episode
         let filename = pathgen::generate_filename(
-            &ctx.bangumi.metadata.title_chinese,
-            ctx.bangumi.metadata.season,
+            &ctx.bangumi.title_chinese,
+            ctx.bangumi.season,
             adjusted_episode,
-            Some(ctx.bangumi.metadata.platform.as_str()),
+            Some(ctx.bangumi.platform.as_str()),
         );
 
         // Start transaction
@@ -440,7 +440,7 @@ impl RssProcessingService {
         // 2. Add download task
         // Note: DownloaderHandle automatically converts save_path to temporary directory
         let options = AddTaskOptions::new(torrent_url)
-            .save_path(&ctx.bangumi.bangumi.save_path)
+            .save_path(&ctx.bangumi.save_path)
             .rename(&filename);
 
         if let Err(e) = self.downloader.add_task(options).await {

@@ -20,11 +20,11 @@ impl MetadataHandle {
     ///
     /// 任务提交后立即返回，下载在后台异步执行。
     /// 如果相同 URL 正在下载中，会自动跳过重复请求。
-    pub fn download(&self, metadata_id: i64, url: String) {
+    pub fn download(&self, bangumi_id: i64, url: String) {
         let sender = self.sender.clone();
         tokio::spawn(async move {
             let _ = sender
-                .send(MetadataMessage::DownloadPoster { metadata_id, url })
+                .send(MetadataMessage::DownloadPoster { bangumi_id, url })
                 .await;
         });
     }

@@ -5,7 +5,7 @@
 
 use parser::Parser;
 
-use crate::models::{BangumiWithMetadata, Torrent};
+use crate::models::{Bangumi, Torrent};
 use crate::services::{DownloaderHandle, Task, TaskFile};
 
 use super::utils::{generate_filename_base, generate_standard_path, parse_episode_number, rename_subtitles};
@@ -25,7 +25,7 @@ impl StandardProcessor {
         task: &Task,
         video_files: &[&TaskFile],
         torrent: &Torrent,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &Bangumi,
         all_files: &[TaskFile],
     ) -> Result<Vec<i32>> {
         let mut renamed_episodes = Vec::new();
@@ -64,7 +64,7 @@ impl StandardProcessor {
         downloader: &DownloaderHandle,
         task: &Task,
         file: &TaskFile,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &Bangumi,
         episode: i32,
         all_files: &[TaskFile],
     ) -> Result<()> {

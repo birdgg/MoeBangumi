@@ -7,7 +7,7 @@
 
 use parser::{BDRipContentType, BDRipParser};
 
-use crate::models::{BangumiWithMetadata, SourceType};
+use crate::models::{Bangumi, SourceType};
 use crate::services::{DownloaderHandle, Task, TaskFile};
 
 use super::utils::{rename_bdrip_episode, rename_bdrip_special};
@@ -25,11 +25,11 @@ impl BDRipProcessor {
     /// 3. Directory structure contains BDRip indicators (SPs, CDs, Scans)
     pub(super) fn is_bdrip(
         task: &Task,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &Bangumi,
         files: &[TaskFile],
     ) -> bool {
         // 1. User marked as BDRip
-        if bangumi.bangumi.source_type == SourceType::BDRip {
+        if bangumi.source_type == SourceType::BDRip {
             return true;
         }
 
@@ -69,12 +69,12 @@ impl BDRipProcessor {
     /// Process a BDRip task with complex directory structure
     ///
     /// This method is used by both tracked and untracked torrent processing.
-    /// Season priority: file path parsed season > bangumi.metadata.season
+    /// Season priority: file path parsed season > bangumi.season
     pub(super) async fn process(
         downloader: &DownloaderHandle,
         task: &Task,
         video_files: &[&TaskFile],
-        bangumi: &BangumiWithMetadata,
+        bangumi: &Bangumi,
         all_files: &[TaskFile],
     ) -> Result<Vec<i32>> {
         let mut renamed_episodes = Vec::new();
@@ -117,7 +117,7 @@ impl BDRipProcessor {
                 }
                 BDRipContentType::Episode => {
                     // Process regular episode
-                    let season = parse_result.season.unwrap_or(bangumi.metadata.season);
+                    let season = parse_result.season.unwrap_or(bangumi.season);
 
                     if let Some(episode) = parse_result.number {
                         if rename_bdrip_episode(

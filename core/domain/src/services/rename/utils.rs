@@ -7,7 +7,7 @@ use std::path::Path;
 
 use parser::Parser;
 
-use crate::models::BangumiWithMetadata;
+use crate::models::Bangumi;
 use crate::services::{DownloaderHandle, Task, TaskFile};
 
 use super::{RenameError, Result};
@@ -154,30 +154,30 @@ pub(super) fn parse_episode_number(parser: &Parser, filename: &str) -> Option<i3
 ///
 /// Applies episode offset and generates Plex/Jellyfin compatible path.
 pub(super) fn generate_standard_path(
-    bangumi: &BangumiWithMetadata,
+    bangumi: &Bangumi,
     old_path: &str,
     episode: i32,
     ext: &str,
 ) -> String {
-    let adjusted_episode = bangumi.metadata.adjust_episode(episode);
+    let adjusted_episode = bangumi.adjust_episode(episode);
     let new_filename_base = pathgen::generate_filename(
-        &bangumi.metadata.title_chinese,
-        bangumi.metadata.season,
+        &bangumi.title_chinese,
+        bangumi.season,
         adjusted_episode,
-        Some(bangumi.metadata.platform.as_str()),
+        Some(bangumi.platform.as_str()),
     );
     let new_filename = format!("{}.{}", new_filename_base, ext);
     join_with_parent(old_path, &new_filename)
 }
 
 /// Generate filename base (without extension) for standard rename
-pub(super) fn generate_filename_base(bangumi: &BangumiWithMetadata, episode: i32) -> String {
-    let adjusted_episode = bangumi.metadata.adjust_episode(episode);
+pub(super) fn generate_filename_base(bangumi: &Bangumi, episode: i32) -> String {
+    let adjusted_episode = bangumi.adjust_episode(episode);
     pathgen::generate_filename(
-        &bangumi.metadata.title_chinese,
-        bangumi.metadata.season,
+        &bangumi.title_chinese,
+        bangumi.season,
         adjusted_episode,
-        Some(bangumi.metadata.platform.as_str()),
+        Some(bangumi.platform.as_str()),
     )
 }
 
@@ -192,7 +192,7 @@ pub(super) async fn rename_bdrip_episode(
     downloader: &DownloaderHandle,
     task: &Task,
     file: &TaskFile,
-    bangumi: &BangumiWithMetadata,
+    bangumi: &Bangumi,
     season: i32,
     episode: i32,
     all_files: &[TaskFile],
@@ -201,16 +201,16 @@ pub(super) async fn rename_bdrip_episode(
 
     // BDRip episode numbers are already season-relative, no offset needed
     let new_filename_base = pathgen::generate_filename(
-        &bangumi.metadata.title_chinese,
+        &bangumi.title_chinese,
         season,
         episode,
-        Some(bangumi.metadata.platform.as_str()),
+        Some(bangumi.platform.as_str()),
     );
 
     let new_path = build_bdrip_path(
-        &bangumi.metadata.title_chinese,
-        bangumi.metadata.year,
-        bangumi.metadata.tmdb_id,
+        &bangumi.title_chinese,
+        bangumi.year,
+        bangumi.tmdb_id,
         season,
         &new_filename_base,
         ext,
@@ -235,20 +235,20 @@ pub(super) async fn rename_bdrip_special(
     downloader: &DownloaderHandle,
     task: &Task,
     file: &TaskFile,
-    bangumi: &BangumiWithMetadata,
+    bangumi: &Bangumi,
     sp_number: i32,
     all_files: &[TaskFile],
 ) -> Result<()> {
     let ext = file.extension().unwrap_or("mkv");
 
     // Generate special filename: Title - s00eXX
-    let title = pathgen::sanitize(&bangumi.metadata.title_chinese);
+    let title = pathgen::sanitize(&bangumi.title_chinese);
     let new_filename_base = format!("{} - s00e{:02}", title, sp_number);
 
     let new_path = build_special_path(
-        &bangumi.metadata.title_chinese,
-        bangumi.metadata.year,
-        bangumi.metadata.tmdb_id,
+        &bangumi.title_chinese,
+        bangumi.year,
+        bangumi.tmdb_id,
         &new_filename_base,
         ext,
     );

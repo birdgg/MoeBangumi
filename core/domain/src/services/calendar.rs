@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use chrono::Datelike;
 
-use crate::models::{CalendarDay, CalendarSubject, SeasonData, Weekday};
-use crate::repositories::{CalendarEntry, CalendarRepository, MetadataRepository};
+use crate::models::{CalendarDay, CalendarSubject, CreateBangumi, SeasonData, Weekday};
+use crate::repositories::{BangumiRepository, CalendarEntry, CalendarRepository, CreateBangumiData};
 use crate::services::actors::metadata::MetadataHandle;
 use mikan::Season;
 use sqlx::SqlitePool;
@@ -184,27 +184,30 @@ impl CalendarService {
             return Ok(0);
         }
 
-        // Batch query: get all existing metadata IDs in one query
+        // Batch query: get all existing bangumi IDs in one query
         let bgmtv_ids: Vec<i64> = entries_with_bgmtv.iter().map(|(id, _)| *id).collect();
-        let existing_map = MetadataRepository::get_ids_by_bgmtv_ids(&self.db, &bgmtv_ids).await?;
+        let existing_map = BangumiRepository::get_ids_by_bgmtv_ids(&self.db, &bgmtv_ids).await?;
 
         // Separate entries into existing and new
         let (existing_entries, new_entries): (Vec<_>, Vec<_>) = entries_with_bgmtv
             .into_iter()
             .partition(|(bgmtv_id, _)| existing_map.contains_key(bgmtv_id));
 
-        // Batch create new metadata entries
-        let new_entries_data: Vec<_> = new_entries.into_iter().map(|(_, entry)| entry).collect();
-        let created_map = MetadataRepository::batch_create(&self.db, new_entries_data).await?;
+        // Batch create new bangumi entries
+        let new_entries_data: Vec<_> = new_entries
+            .into_iter()
+            .map(|(_, entry)| convert_to_bangumi_data(entry))
+            .collect();
+        let created_map = BangumiRepository::batch_create(&self.db, new_entries_data).await?;
 
         // Build calendar entries
         let mut calendar_entries = Vec::new();
 
-        // Add entries with existing metadata
+        // Add entries with existing bangumi
         for (bgmtv_id, _) in existing_entries {
-            if let Some(&metadata_id) = existing_map.get(&bgmtv_id) {
+            if let Some(&bangumi_id) = existing_map.get(&bgmtv_id) {
                 calendar_entries.push(CalendarEntry {
-                    metadata_id,
+                    bangumi_id,
                     year: season_data.year,
                     season: season_data.season.clone(),
                     priority: 0,
@@ -212,10 +215,10 @@ impl CalendarService {
             }
         }
 
-        // Add entries with newly created metadata
-        for (_bgmtv_id, metadata_id) in created_map {
+        // Add entries with newly created bangumi
+        for (_bgmtv_id, bangumi_id) in created_map {
             calendar_entries.push(CalendarEntry {
-                metadata_id,
+                bangumi_id,
                 year: season_data.year,
                 season: season_data.season.clone(),
                 priority: 0,
@@ -226,10 +229,10 @@ impl CalendarService {
             CalendarRepository::upsert_batch(&self.db, &calendar_entries).await?;
 
             // Clean up stale entries for this season
-            let keep_metadata_ids: Vec<i64> =
-                calendar_entries.iter().map(|e| e.metadata_id).collect();
+            let keep_bangumi_ids: Vec<i64> =
+                calendar_entries.iter().map(|e| e.bangumi_id).collect();
             let deleted =
-                CalendarRepository::delete_except(&self.db, year, season_str, &keep_metadata_ids)
+                CalendarRepository::delete_except(&self.db, year, season_str, &keep_bangumi_ids)
                     .await?;
             if deleted > 0 {
                 tracing::debug!(
@@ -252,5 +255,28 @@ impl CalendarService {
             Season::Summer => (year, Season::Spring),
             Season::Fall => (year, Season::Summer),
         }
+    }
+}
+
+/// Convert CreateBangumi to CreateBangumiData for calendar imports
+fn convert_to_bangumi_data(entry: CreateBangumi) -> CreateBangumiData {
+    CreateBangumiData {
+        mikan_id: entry.mikan_id,
+        bgmtv_id: entry.bgmtv_id,
+        tmdb_id: entry.tmdb_id,
+        title_chinese: entry.title_chinese,
+        title_japanese: entry.title_japanese,
+        season: entry.season,
+        year: entry.year,
+        platform: entry.platform.as_str().to_string(),
+        total_episodes: entry.total_episodes,
+        poster_url: entry.poster_url,
+        air_date: entry.air_date,
+        air_week: entry.air_week,
+        episode_offset: entry.episode_offset,
+        current_episode: entry.current_episode,
+        auto_complete: entry.auto_complete,
+        save_path: String::new(), // Calendar entries don't have save_path yet
+        source_type: entry.source_type.as_str().to_string(),
     }
 }

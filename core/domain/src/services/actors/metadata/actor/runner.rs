@@ -10,7 +10,7 @@ use tokio::time::MissedTickBehavior;
 
 use super::super::poster::PosterService;
 use super::messages::{MetadataMessage, SyncStats};
-use crate::repositories::{MetadataRepository, MetadataToSync};
+use crate::repositories::{BangumiRepository, BangumiToSync};
 
 /// Poster 下载并发限制
 const POSTER_CONCURRENCY: usize = 10;
@@ -77,7 +77,7 @@ fn try_register_url(url: &str, in_progress: &Mutex<HashSet<String>>) -> bool {
 /// 注意：本地路径检查由 `PosterService::download_from_url()` 内部处理，
 /// 以支持可配置的 URL 前缀。
 fn spawn_poster_download_task(
-    metadata_id: i64,
+    bangumi_id: i64,
     url: String,
     poster_service: Arc<PosterService>,
     semaphore: Arc<Semaphore>,
@@ -87,8 +87,8 @@ fn spawn_poster_download_task(
     // 去重检查
     if !try_register_url(&url, &in_progress_urls) {
         tracing::debug!(
-            "Skipping duplicate poster download for metadata_id={}: {}",
-            metadata_id,
+            "Skipping duplicate poster download for bangumi_id={}: {}",
+            bangumi_id,
             url
         );
         return false;
@@ -105,26 +105,26 @@ fn spawn_poster_download_task(
         };
 
         tracing::debug!(
-            "Downloading poster for metadata_id={}: {}",
-            metadata_id,
+            "Downloading poster for bangumi_id={}: {}",
+            bangumi_id,
             url
         );
 
         match poster_service.download_from_url(&url).await {
             Ok(local_path) => {
                 // 发送到批量更新 channel，而不是立即更新数据库
-                if let Err(e) = update_sender.send((metadata_id, local_path)) {
+                if let Err(e) = update_sender.send((bangumi_id, local_path)) {
                     tracing::error!(
-                        "Failed to queue poster update for metadata {}: {}",
-                        metadata_id,
+                        "Failed to queue poster update for bangumi {}: {}",
+                        bangumi_id,
                         e
                     );
                 }
             }
             Err(e) => {
                 tracing::warn!(
-                    "Failed to download poster for metadata {}: {}",
-                    metadata_id,
+                    "Failed to download poster for bangumi {}: {}",
+                    bangumi_id,
                     e
                 );
             }
@@ -185,7 +185,7 @@ fn spawn_batch_update_task(
 async fn flush_updates(db: &SqlitePool, buffer: &mut Vec<(i64, String)>) {
     let count = buffer.len();
 
-    match MetadataRepository::batch_update_poster_urls(db, buffer).await {
+    match BangumiRepository::batch_update_poster_urls(db, buffer).await {
         Ok(affected) => {
             tracing::debug!(
                 "Batch updated {} poster URLs ({} rows affected)",
@@ -277,7 +277,7 @@ impl MetadataActor {
             loop {
                 ticker.tick().await;
 
-                let _ = sync_all_metadata(
+                let _ = sync_all_bangumi(
                     db.clone(),
                     Arc::clone(&poster_service),
                     Arc::clone(&poster_semaphore),
@@ -294,18 +294,18 @@ impl MetadataActor {
     /// 返回 `true` 继续处理消息，返回 `false` 停止 Actor。
     async fn handle_message(&self, msg: MetadataMessage) -> bool {
         match msg {
-            MetadataMessage::DownloadPoster { metadata_id, url } => {
-                self.spawn_poster_download(metadata_id, url);
+            MetadataMessage::DownloadPoster { bangumi_id, url } => {
+                self.spawn_poster_download(bangumi_id, url);
             }
             MetadataMessage::DownloadPosterBatch { tasks } => {
-                for (metadata_id, url) in tasks {
-                    self.spawn_poster_download(metadata_id, url);
+                for (bangumi_id, url) in tasks {
+                    self.spawn_poster_download(bangumi_id, url);
                 }
             }
             MetadataMessage::TriggerSync => {
                 tracing::info!("Manual metadata sync triggered");
 
-                let _ = sync_all_metadata(
+                let _ = sync_all_bangumi(
                     self.db.clone(),
                     Arc::clone(&self.poster_service),
                     Arc::clone(&self.poster_semaphore),
@@ -323,9 +323,9 @@ impl MetadataActor {
     }
 
     /// 异步提交 Poster 下载任务
-    fn spawn_poster_download(&self, metadata_id: i64, url: String) {
+    fn spawn_poster_download(&self, bangumi_id: i64, url: String) {
         spawn_poster_download_task(
-            metadata_id,
+            bangumi_id,
             url,
             Arc::clone(&self.poster_service),
             Arc::clone(&self.poster_semaphore),
@@ -339,7 +339,7 @@ impl MetadataActor {
 const SYNC_CHUNK_SIZE: i64 = 100;
 
 /// 执行完整的海报同步（分块处理）
-async fn sync_all_metadata(
+async fn sync_all_bangumi(
     db: SqlitePool,
     poster_service: Arc<PosterService>,
     poster_semaphore: Arc<Semaphore>,
@@ -347,20 +347,20 @@ async fn sync_all_metadata(
     update_sender: mpsc::UnboundedSender<(i64, String)>,
 ) -> SyncStats {
     // Get total count first
-    let total_count = match MetadataRepository::count_metadata_to_sync(&db).await {
+    let total_count = match BangumiRepository::count_bangumi_to_sync(&db).await {
         Ok(count) => count,
         Err(e) => {
-            tracing::error!("Failed to count metadata to sync: {}", e);
+            tracing::error!("Failed to count bangumi to sync: {}", e);
             return SyncStats::default();
         }
     };
 
     if total_count == 0 {
-        tracing::debug!("No metadata to sync");
+        tracing::debug!("No bangumi to sync");
         return SyncStats::default();
     }
 
-    tracing::info!("Found {} metadata records to sync", total_count);
+    tracing::info!("Found {} bangumi records to sync", total_count);
 
     let mut stats = SyncStats::default();
     let mut last_id: i64 = 0;
@@ -371,10 +371,10 @@ async fn sync_all_metadata(
     // is processed exactly once per sync cycle.
     loop {
         let records =
-            match MetadataRepository::get_metadata_to_sync(&db, SYNC_CHUNK_SIZE, last_id).await {
+            match BangumiRepository::get_bangumi_to_sync(&db, SYNC_CHUNK_SIZE, last_id).await {
                 Ok(r) => r,
                 Err(e) => {
-                    tracing::error!("Failed to get metadata chunk after id {}: {}", last_id, e);
+                    tracing::error!("Failed to get bangumi chunk after id {}: {}", last_id, e);
                     break;
                 }
             };
@@ -426,7 +426,7 @@ async fn sync_all_metadata(
 
 /// 处理单条同步记录
 async fn process_sync_record(
-    record: MetadataToSync,
+    record: BangumiToSync,
     poster: Arc<PosterService>,
     semaphore: Arc<Semaphore>,
     in_progress_urls: Arc<Mutex<HashSet<String>>>,

@@ -5,7 +5,7 @@
 
 use parser::Parser;
 
-use crate::models::BangumiWithMetadata;
+use crate::models::Bangumi;
 use crate::services::{DownloaderHandle, Task, TaskFile};
 use crate::utils::is_temp_download_path;
 
@@ -25,13 +25,13 @@ impl UntrackedProcessor {
         downloader: &DownloaderHandle,
         parser: &Parser,
         task: &Task,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &Bangumi,
     ) -> Result<RenameTaskResult> {
         tracing::info!(
             "Processing untracked task: {} ({}) for bangumi: {}",
             task.name,
             task.id,
-            bangumi.metadata.title_chinese
+            bangumi.title_chinese
         );
 
         // Get file list from downloader
@@ -43,10 +43,10 @@ impl UntrackedProcessor {
         if video_files.is_empty() {
             tracing::warn!("No video files found in untracked task: {}", task.name);
             return Ok(RenameTaskResult {
-                bangumi_id: bangumi.bangumi.id,
-                bangumi_title: bangumi.metadata.title_chinese.clone(),
-                poster_url: bangumi.metadata.poster_url.clone(),
-                total_episodes: bangumi.metadata.total_episodes,
+                bangumi_id: bangumi.id,
+                bangumi_title: bangumi.title_chinese.clone(),
+                poster_url: bangumi.poster_url.clone(),
+                total_episodes: bangumi.total_episodes,
                 renamed_episodes: Vec::new(),
             });
         }
@@ -67,7 +67,7 @@ impl UntrackedProcessor {
 
         // Move task from temp directory if needed
         if is_temp_download_path(&task.save_path) {
-            let final_path = &bangumi.bangumi.save_path;
+            let final_path = &bangumi.save_path;
             tracing::info!(
                 "Moving untracked task from {} to {}",
                 task.save_path,
@@ -81,10 +81,10 @@ impl UntrackedProcessor {
 
         tracing::info!("Successfully renamed untracked task: {}", task.name);
         Ok(RenameTaskResult {
-            bangumi_id: bangumi.bangumi.id,
-            bangumi_title: bangumi.metadata.title_chinese.clone(),
-            poster_url: bangumi.metadata.poster_url.clone(),
-            total_episodes: bangumi.metadata.total_episodes,
+            bangumi_id: bangumi.id,
+            bangumi_title: bangumi.title_chinese.clone(),
+            poster_url: bangumi.poster_url.clone(),
+            total_episodes: bangumi.total_episodes,
             renamed_episodes,
         })
     }
@@ -95,7 +95,7 @@ impl UntrackedProcessor {
         parser: &Parser,
         task: &Task,
         video_files: &[&TaskFile],
-        bangumi: &BangumiWithMetadata,
+        bangumi: &Bangumi,
         all_files: &[TaskFile],
     ) -> Result<Vec<i32>> {
         let mut renamed_episodes = Vec::new();
@@ -110,23 +110,23 @@ impl UntrackedProcessor {
                     .parse(&video_file.path)
                     .ok()
                     .and_then(|r| r.season)
-                    .unwrap_or(bangumi.metadata.season);
+                    .unwrap_or(bangumi.season);
 
                 let ext = video_file.extension().unwrap_or("mkv");
 
                 // Generate new filename
                 let new_filename_base = pathgen::generate_filename(
-                    &bangumi.metadata.title_chinese,
+                    &bangumi.title_chinese,
                     season,
                     ep,
-                    Some(bangumi.metadata.platform.as_str()),
+                    Some(bangumi.platform.as_str()),
                 );
 
                 // Build destination path with season folder
                 let new_path = build_bdrip_path(
-                    &bangumi.metadata.title_chinese,
-                    bangumi.metadata.year,
-                    bangumi.metadata.tmdb_id,
+                    &bangumi.title_chinese,
+                    bangumi.year,
+                    bangumi.tmdb_id,
                     season,
                     &new_filename_base,
                     ext,

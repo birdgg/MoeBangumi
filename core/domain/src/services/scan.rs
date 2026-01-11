@@ -25,9 +25,8 @@ static SEASON_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^[Ss]eason\s*(\d+)$").expect("Invalid season regex")
 });
 
-use crate::models::{CreateBangumi, CreateMetadata, Platform, SourceType};
-use crate::repositories::{BangumiRepository, MetadataRepository};
-use crate::services::actors::metadata::MetadataService;
+use crate::models::{CreateBangumi, Platform, SourceType};
+use crate::repositories::BangumiRepository;
 use crate::services::{BangumiService, SettingsService};
 use parser::Parser;
 
@@ -90,7 +89,7 @@ pub struct ScanResult {
 pub struct ScanService {
     db: SqlitePool,
     bangumi: Arc<BangumiService>,
-    metadata: Arc<MetadataService>,
+    client: Arc<metadata::MetadataClient>,
     settings: Arc<SettingsService>,
     /// Flag to prevent concurrent scans
     scan_in_progress: AtomicBool,
@@ -101,13 +100,13 @@ impl ScanService {
     pub fn new(
         db: SqlitePool,
         bangumi: Arc<BangumiService>,
-        metadata: Arc<MetadataService>,
+        client: Arc<metadata::MetadataClient>,
         settings: Arc<SettingsService>,
     ) -> Self {
         Self {
             db,
             bangumi,
-            metadata,
+            client,
             settings,
             scan_in_progress: AtomicBool::new(false),
         }
@@ -429,11 +428,7 @@ impl ScanService {
         // Search BGM.tv with year filter
         let query = SearchQuery::new(&dir.title).with_year(dir.year);
 
-        let search_result = match self
-            .metadata
-            .find_provider(&query, MetadataSource::Bgmtv)
-            .await
-        {
+        let search_result = match self.client.find(&query, MetadataSource::Bgmtv).await {
             Ok(Some(result)) => result,
             Ok(None) => {
                 return Err(ImportResult::Failed {
@@ -459,28 +454,18 @@ impl ScanService {
             }
         };
 
-        // Check if already exists in database (by bgmtv_id through metadata)
-        match MetadataRepository::get_by_bgmtv_id(&self.db, bgmtv_id).await {
-            Ok(Some(metadata)) => {
-                // Check if there's a bangumi using this metadata
-                match BangumiRepository::get_by_metadata_id(&self.db, metadata.id).await {
-                    Ok(Some(_)) => {
-                        tracing::debug!("Skipped: {} - Already exists (bgmtv_id: {})", title, bgmtv_id);
-                        return Ok(None);
-                    }
-                    Ok(None) => {
-                        // Metadata exists but no bangumi - we can create one
-                    }
-                    Err(e) => {
-                        return Err(ImportResult::Failed {
-                            title,
-                            reason: format!("Database error: {}", e),
-                        });
-                    }
-                }
+        // Check if already exists in database (by bgmtv_id)
+        match BangumiRepository::get_by_bgmtv_id(&self.db, bgmtv_id).await {
+            Ok(Some(_)) => {
+                tracing::debug!(
+                    "Skipped: {} - Already exists (bgmtv_id: {})",
+                    title,
+                    bgmtv_id
+                );
+                return Ok(None);
             }
             Ok(None) => {
-                // Metadata doesn't exist - will be created
+                // Bangumi doesn't exist - will be created
             }
             Err(e) => {
                 return Err(ImportResult::Failed {
@@ -494,26 +479,22 @@ impl ScanService {
         let platform = search_result.platform.unwrap_or(Platform::Tv);
 
         let create_data = CreateBangumi {
-            metadata_id: None,
-            metadata: Some(CreateMetadata {
-                mikan_id: None,
-                bgmtv_id: Some(bgmtv_id),
-                tmdb_id: dir.tmdb_id,
-                title_chinese: search_result
-                    .title_chinese
-                    .unwrap_or_else(|| dir.title.clone()),
-                title_japanese: search_result.title_japanese,
-                season: search_result.season.unwrap_or(season),
-                year: search_result.year.unwrap_or(dir.year),
-                platform,
-                total_episodes: search_result.total_episodes,
-                poster_url: search_result.poster_url,
-                air_date: search_result.air_date,
-                air_week: 0,
-                episode_offset: 0,
-            }),
+            mikan_id: None,
+            bgmtv_id: Some(bgmtv_id),
+            tmdb_id: dir.tmdb_id,
+            title_chinese: search_result
+                .title_chinese
+                .unwrap_or_else(|| dir.title.clone()),
+            title_japanese: search_result.title_japanese,
+            season: search_result.season.unwrap_or(season),
+            year: search_result.year.unwrap_or(dir.year),
+            platform,
+            total_episodes: search_result.total_episodes,
+            poster_url: search_result.poster_url,
+            air_date: search_result.air_date,
+            air_week: 0,
+            episode_offset: 0,
             auto_complete: true,
-            episode_offset: None,
             source_type: SourceType::WebRip,
             // Set current_episode from scanned files, or fall back to total_episodes
             current_episode: dir.max_episode.or(Some(search_result.total_episodes)),

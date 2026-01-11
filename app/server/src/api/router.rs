@@ -27,8 +27,6 @@ pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
         .routes(routes!(handlers::create_bangumi))
         .routes(routes!(handlers::get_bangumi))
         .routes(routes!(handlers::get_bangumi_by_id, handlers::update_bangumi))
-        .routes(routes!(handlers::get_metadata))
-        .routes(routes!(handlers::get_metadata_by_id, handlers::update_metadata))
         .routes(routes!(handlers::get_episodes))
         .routes(routes!(handlers::get_settings))
         .routes(routes!(handlers::update_settings))
@@ -89,12 +87,6 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/api/bangumi/{id}",
             get(handlers::get_bangumi_by_id).patch(handlers::update_bangumi),
-        )
-        // Metadata endpoints
-        .route("/api/metadata", get(handlers::get_metadata))
-        .route(
-            "/api/metadata/{id}",
-            get(handlers::get_metadata_by_id).patch(handlers::update_metadata),
         )
         // Episodes endpoint
         .route("/api/episodes/{subject_id}", get(handlers::get_episodes))

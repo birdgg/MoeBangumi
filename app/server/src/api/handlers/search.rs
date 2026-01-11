@@ -53,8 +53,8 @@ pub async fn search_bgmtv(
     let search_query = MetadataSearchQuery::new(&query.keyword);
     let results = state
         .services
-        .metadata
-        .search_provider(&search_query, MetadataSource::Bgmtv)
+        .metadata_client
+        .search(&search_query, MetadataSource::Bgmtv)
         .await?;
     Ok(Json(results))
 }
@@ -76,8 +76,8 @@ pub async fn search_tmdb(
     let search_query = MetadataSearchQuery::new(&query.keyword);
     let results = state
         .services
-        .metadata
-        .search_provider(&search_query, MetadataSource::Tmdb)
+        .metadata_client
+        .search(&search_query, MetadataSource::Tmdb)
         .await?;
     Ok(Json(results))
 }
@@ -130,8 +130,8 @@ pub async fn search_metadata(
     let search_query = MetadataSearchQuery::new(&query.keyword);
     let results = state
         .services
-        .metadata
-        .search_provider(&search_query, query.source)
+        .metadata_client
+        .search(&search_query, query.source)
         .await?;
     Ok(Json(results))
 }
@@ -158,8 +158,8 @@ pub async fn find_metadata(
     }
     let result = state
         .services
-        .metadata
-        .find_provider(&search_query, query.source)
+        .metadata_client
+        .find(&search_query, query.source)
         .await?;
     Ok(Json(result))
 }
@@ -182,8 +182,8 @@ pub async fn get_metadata_detail(
 ) -> AppResult<Json<Option<SearchedMetadata>>> {
     let result = state
         .services
-        .metadata
-        .get_provider_detail(&query.external_id, query.source)
+        .metadata_client
+        .get_detail(&query.external_id, query.source)
         .await?;
     Ok(Json(result))
 }
@@ -206,6 +206,6 @@ pub async fn search_metadata_all(
     Query(query): Query<SearchQuery>,
 ) -> AppResult<Json<CombinedSearchResults>> {
     let search_query = MetadataSearchQuery::new(&query.keyword);
-    let results = state.services.metadata.search_all(&search_query).await;
+    let results = state.services.metadata_client.search_all(&search_query).await;
     Ok(Json(results))
 }

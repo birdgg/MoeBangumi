@@ -15,8 +15,7 @@ pub use downloader::{
 
 // Metadata actor
 pub use metadata::{
-    create_metadata_actor, MetadataError, MetadataHandle, MetadataService, PosterError,
-    PosterService,
+    create_metadata_actor, MetadataError, MetadataHandle, PosterError, PosterService,
 };
 
 // Notification actor

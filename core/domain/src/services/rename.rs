@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::config::Config;
-use crate::models::{BangumiWithMetadata, Torrent};
+use crate::models::{Bangumi, Torrent};
 use crate::repositories::{BangumiRepository, RssRepository, TorrentRepository};
 use crate::services::torrent_metadata_resolver::TorrentMetadataResolver;
 use crate::services::{DownloaderHandle, NotificationService, Task};
@@ -56,19 +56,19 @@ pub type Result<T> = std::result::Result<T, RenameError>;
 
 /// Pending task with optional tracking info
 ///
-/// For tracked torrents: has Torrent and BangumiWithMetadata
-/// For untracked torrents: has only BangumiWithMetadata (created via resolver)
+/// For tracked torrents: has Torrent and Bangumi
+/// For untracked torrents: has only Bangumi (created via resolver)
 enum PendingTask {
     /// Tracked torrent with full context
     Tracked {
         task: Task,
         torrent: Torrent,
-        bangumi: BangumiWithMetadata,
+        bangumi: Bangumi,
     },
     /// Untracked torrent with resolved metadata
     Untracked {
         task: Task,
-        bangumi: BangumiWithMetadata,
+        bangumi: Bangumi,
     },
     /// Untracked torrent with fallback (no metadata found)
     Fallback {
@@ -395,15 +395,15 @@ impl RenameService {
         for task in all_tasks {
             // Find matching torrent in database by info_hash
             if let Some(torrent) = TorrentRepository::get_by_info_hash(&self.db, &task.id).await? {
-                // Get associated bangumi with metadata (only if bangumi_id is set)
+                // Get associated bangumi (only if bangumi_id is set)
                 if let Some(bangumi_id) = torrent.bangumi_id {
-                    if let Some(bangumi_with_metadata) =
-                        BangumiRepository::get_with_metadata_by_id(&self.db, bangumi_id).await?
+                    if let Some(bangumi) =
+                        BangumiRepository::get_by_id(&self.db, bangumi_id).await?
                     {
                         result.push(PendingTask::Tracked {
                             task,
                             torrent,
-                            bangumi: bangumi_with_metadata,
+                            bangumi,
                         });
                     } else {
                         tracing::warn!(
@@ -426,22 +426,19 @@ impl RenameService {
                             if resolved.is_new {
                                 tracing::info!(
                                     "Auto-created bangumi '{}' for untracked torrent '{}'",
-                                    resolved.metadata.title_chinese,
+                                    resolved.bangumi.title_chinese,
                                     task.name
                                 );
                             } else {
                                 tracing::info!(
                                     "Using existing bangumi '{}' for untracked torrent '{}'",
-                                    resolved.metadata.title_chinese,
+                                    resolved.bangumi.title_chinese,
                                     task.name
                                 );
                             }
                             result.push(PendingTask::Untracked {
                                 task,
-                                bangumi: BangumiWithMetadata {
-                                    bangumi: resolved.bangumi,
-                                    metadata: resolved.metadata,
-                                },
+                                bangumi: resolved.bangumi,
                             });
                         }
                         Err(e) => {
@@ -496,19 +493,19 @@ impl RenameService {
         &self,
         task: &Task,
         torrent: &Torrent,
-        bangumi: &BangumiWithMetadata,
+        bangumi: &Bangumi,
     ) -> Result<RenameTaskResult> {
         tracing::info!(
             "Processing task: {} ({}) for bangumi: {}",
             task.name,
             task.id,
-            bangumi.metadata.title_chinese
+            bangumi.title_chinese
         );
 
         // Check if task is in temporary directory and move to final location first
         use crate::utils::is_temp_download_path;
         if is_temp_download_path(&task.save_path) {
-            let final_path = &bangumi.bangumi.save_path;
+            let final_path = &bangumi.save_path;
             tracing::info!(
                 "Moving task from temporary location {} to final location {}",
                 task.save_path,
@@ -543,10 +540,10 @@ impl RenameService {
             // Still remove the tag since there's nothing to rename
             self.finalize_task(&task.id).await?;
             return Ok(RenameTaskResult {
-                bangumi_id: bangumi.bangumi.id,
-                bangumi_title: bangumi.metadata.title_chinese.clone(),
-                poster_url: bangumi.metadata.poster_url.clone(),
-                total_episodes: bangumi.metadata.total_episodes,
+                bangumi_id: bangumi.id,
+                bangumi_title: bangumi.title_chinese.clone(),
+                poster_url: bangumi.poster_url.clone(),
+                total_episodes: bangumi.total_episodes,
                 renamed_episodes: Vec::new(),
             });
         }
@@ -575,10 +572,10 @@ impl RenameService {
 
         tracing::info!("Successfully renamed task: {}", task.name);
         Ok(RenameTaskResult {
-            bangumi_id: bangumi.bangumi.id,
-            bangumi_title: bangumi.metadata.title_chinese.clone(),
-            poster_url: bangumi.metadata.poster_url.clone(),
-            total_episodes: bangumi.metadata.total_episodes,
+            bangumi_id: bangumi.id,
+            bangumi_title: bangumi.title_chinese.clone(),
+            poster_url: bangumi.poster_url.clone(),
+            total_episodes: bangumi.total_episodes,
             renamed_episodes,
         })
     }

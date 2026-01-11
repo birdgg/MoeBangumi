@@ -8,6 +8,8 @@ use super::Platform;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CalendarSubject {
+    /// Bangumi ID (local database)
+    pub bangumi_id: i64,
     /// BGM.tv subject ID
     pub bgmtv_id: Option<i64>,
     /// Mikan bangumi ID

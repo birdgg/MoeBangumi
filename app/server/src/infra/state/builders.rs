@@ -20,8 +20,8 @@ use crate::config::Config;
 use domain::services::actors::metadata::{create_metadata_actor, MetadataHandle, PosterService};
 use domain::services::{
     create_downloader_service, create_notification_service, BangumiService, CacheService,
-    CalendarService, HttpClientService, LogService, MetadataService, RenameService,
-    RssProcessingService, ScanService, SettingsService, TorrentMetadataResolver, WashingService,
+    CalendarService, HttpClientService, LogService, RenameService, RssProcessingService,
+    ScanService, SettingsService, TorrentMetadataResolver, WashingService,
 };
 use jobs::{create_log_cleanup_actor, create_rename_actor, create_rss_fetch_actor};
 
@@ -142,7 +142,6 @@ pub fn build_services(
         BgmtvProvider::new(Arc::clone(&api_clients.bgmtv)),
         TmdbProvider::new(Arc::clone(&api_clients.tmdb)),
     ));
-    let metadata = Arc::new(MetadataService::new(db.clone(), metadata_client));
     let metadata_actor = Arc::new(create_metadata_actor(db.clone(), Arc::clone(&poster)));
 
     // RSS and washing services
@@ -162,7 +161,6 @@ pub fn build_services(
     // Bangumi and notification services
     let bangumi = Arc::new(BangumiService::new(
         db.clone(),
-        Arc::clone(&metadata),
         Arc::clone(&rss_processing),
         Arc::clone(settings),
     ));
@@ -174,7 +172,7 @@ pub fn build_services(
     // Torrent metadata resolver for untracked torrents
     let resolver = Arc::new(TorrentMetadataResolver::new(
         db.clone(),
-        Arc::clone(&metadata),
+        Arc::clone(&metadata_client),
         Arc::clone(settings),
     ));
 
@@ -197,7 +195,7 @@ pub fn build_services(
     let scan = Arc::new(ScanService::new(
         db.clone(),
         Arc::clone(&bangumi),
-        Arc::clone(&metadata),
+        Arc::clone(&metadata_client),
         Arc::clone(settings),
     ));
 
@@ -205,7 +203,7 @@ pub fn build_services(
     let update = build_update_service(http_client, current_version);
 
     let services = AppServices {
-        metadata,
+        metadata_client,
         bangumi,
         calendar,
         cache,

@@ -8,8 +8,10 @@ use std::sync::Arc;
 use sqlx::SqlitePool;
 use updater::UpdateServiceHandle;
 
+use metadata::MetadataClient;
+
 use crate::config::Config;
-use domain::services::actors::metadata::{MetadataHandle, MetadataService, PosterService};
+use domain::services::actors::metadata::{MetadataHandle, PosterService};
 use domain::services::{
     BangumiService, CacheService, CalendarService, DownloaderHandle, HttpClientService,
     LogService, NotificationService, RenameService, ScanService, SettingsService,
@@ -37,7 +39,7 @@ pub struct AppClients {
 /// Business services layer - core application services
 #[derive(Clone)]
 pub struct AppServices {
-    pub metadata: Arc<MetadataService>,
+    pub metadata_client: Arc<MetadataClient>,
     pub bangumi: Arc<BangumiService>,
     pub calendar: Arc<CalendarService>,
     pub cache: Arc<CacheService>,
