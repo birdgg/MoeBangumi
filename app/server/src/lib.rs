@@ -1,9 +1,6 @@
 pub mod api;
 pub mod infra;
 
-#[cfg(feature = "openapi")]
-pub mod openapi;
-
 // Re-export domain crate for backwards compatibility
 pub use domain::config;
 pub use domain::models;
@@ -25,8 +22,6 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 use tower_http::services::{ServeDir, ServeFile};
-#[cfg(feature = "openapi")]
-use utoipa_scalar::{Scalar, Servable};
 
 // Re-export commonly used types for backwards compatibility
 pub use api::create_router;
@@ -91,15 +86,6 @@ pub async fn run_server(
     }
 
     // Serve poster images from data directory
-    #[cfg(feature = "openapi")]
-    let app = {
-        let (router, api) = create_router(state);
-        router
-            .nest_service("/posters", ServeDir::new(&posters_path))
-            .merge(Scalar::with_url("/docs", api))
-    };
-
-    #[cfg(not(feature = "openapi"))]
     let app = {
         let router = create_router(state);
         router.nest_service("/posters", ServeDir::new(&posters_path))

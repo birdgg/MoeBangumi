@@ -13,16 +13,6 @@ use crate::error::AppResult;
 use crate::models::{Log, LogQueryParams};
 use crate::state::AppState;
 
-/// Get logs with optional filtering and pagination
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/logs",
-    tag = "logs",
-    params(LogQueryParams),
-    responses(
-        (status = 200, description = "Logs retrieved successfully", body = Vec<Log>)
-    )
-))]
 pub async fn get_logs(
     State(state): State<AppState>,
     Query(params): Query<LogQueryParams>,
@@ -31,15 +21,6 @@ pub async fn get_logs(
     Ok(Json(logs))
 }
 
-/// Stream logs via Server-Sent Events (SSE)
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/logs/stream",
-    tag = "logs",
-    responses(
-        (status = 200, description = "SSE log stream", content_type = "text/event-stream")
-    )
-))]
 pub async fn stream_logs(
     State(state): State<AppState>,
 ) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
@@ -73,30 +54,12 @@ pub async fn stream_logs(
     )
 }
 
-/// Delete old logs (cleanup endpoint)
-#[cfg_attr(feature = "openapi", utoipa::path(
-    delete,
-    path = "/api/logs",
-    tag = "logs",
-    responses(
-        (status = 200, description = "Old logs deleted", body = u64)
-    )
-))]
 pub async fn cleanup_logs(State(state): State<AppState>) -> AppResult<Json<u64>> {
     // Delete logs older than 30 days
     let deleted = state.services.logs.cleanup(30).await?;
     Ok(Json(deleted))
 }
 
-/// Clear all logs
-#[cfg_attr(feature = "openapi", utoipa::path(
-    delete,
-    path = "/api/logs/all",
-    tag = "logs",
-    responses(
-        (status = 200, description = "All logs cleared", body = u64)
-    )
-))]
 pub async fn clear_all_logs(State(state): State<AppState>) -> AppResult<Json<u64>> {
     let deleted = state.services.logs.clear_all().await?;
     Ok(Json(deleted))

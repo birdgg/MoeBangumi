@@ -7,10 +7,6 @@ license.workspace = true
 [package.metadata.release]
 release = true
 
-[features]
-default = []
-openapi = ["server/openapi"]
-
 [[bin]]
 name = "moe"
 path = "src/main.rs"

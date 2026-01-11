@@ -4,9 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[features]
-openapi = ["dep:utoipa"]
-
 [dependencies]
 async-trait.workspace = true
 regex.workspace = true
@@ -15,7 +12,6 @@ serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-utoipa = { workspace = true, optional = true }
 
 # Parser crate for name parsing
 parser = { path = "../parser" }

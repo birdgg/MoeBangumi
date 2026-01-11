@@ -1,11 +1,7 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 // ===== Search/Discover Results =====
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct TvShow {
     pub id: i64,
     pub name: String,
@@ -23,7 +19,6 @@ pub struct TvShow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PaginatedResponse<T> {
     pub page: i64,
     pub results: Vec<T>,
@@ -35,7 +30,6 @@ pub struct PaginatedResponse<T> {
 
 /// Genre (movie/TV genre)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Genre {
     pub id: i64,
     pub name: String,
@@ -45,7 +39,6 @@ pub struct Genre {
 
 /// TV Series Season (summary info from series detail)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Season {
     pub id: i64,
     pub name: String,
@@ -58,7 +51,6 @@ pub struct Season {
 
 /// TV Series Detail
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct TvSeriesDetail {
     pub id: i64,
     pub name: String,
@@ -77,7 +69,6 @@ pub struct TvSeriesDetail {
 
 /// TV Episode
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct TvEpisode {
     pub id: i64,
     pub name: String,
@@ -91,7 +82,6 @@ pub struct TvEpisode {
 
 /// Season Detail (with episodes list)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SeasonDetail {
     pub id: i64,
     pub name: String,
@@ -106,7 +96,6 @@ pub struct SeasonDetail {
 
 /// Movie Detail
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct MovieDetail {
     pub id: i64,
     pub title: String,
@@ -125,7 +114,6 @@ pub struct MovieDetail {
 
 /// Media Type for search results
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum MediaType {
     Tv,
@@ -135,7 +123,6 @@ pub enum MediaType {
 
 /// Search Result Item (unified for TV and Movie)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SearchResultItem {
     pub media_type: MediaType,
     pub id: i64,

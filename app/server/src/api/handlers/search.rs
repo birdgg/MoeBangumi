@@ -6,8 +6,6 @@ use metadata::{
     CombinedSearchResults, MetadataSource, SearchQuery as MetadataSearchQuery, SearchedMetadata,
 };
 use serde::Deserialize;
-#[cfg(feature = "openapi")]
-use utoipa::{IntoParams, ToSchema};
 
 use crate::error::AppResult;
 use crate::state::AppState;
@@ -16,36 +14,19 @@ use super::{SearchQuery, TmdbSearchQuery, MIKAN_SEARCH_CACHE_TTL};
 
 /// Query parameters for unified metadata search
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(IntoParams, ToSchema))]
 pub struct UnifiedSearchQuery {
-    /// Data source to search (bgmtv, tmdb)
     pub source: MetadataSource,
-    /// Search keyword
     pub keyword: String,
-    /// Optional year filter
     pub year: Option<i32>,
 }
 
 /// Query parameters for metadata detail lookup
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(IntoParams, ToSchema))]
 pub struct DetailQuery {
-    /// Data source (bgmtv, tmdb)
     pub source: MetadataSource,
-    /// External ID from the data source
     pub external_id: String,
 }
 
-/// Search for bangumi (Japanese anime) on BGM.tv
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/search/bgmtv",
-    tag = "search",
-    params(SearchQuery),
-    responses(
-        (status = 200, description = "Search results", body = Vec<SearchedMetadata>)
-    )
-))]
 pub async fn search_bgmtv(
     State(state): State<AppState>,
     Query(query): Query<SearchQuery>,
@@ -59,16 +40,6 @@ pub async fn search_bgmtv(
     Ok(Json(results))
 }
 
-/// Search for anime on TMDB using discover API
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/search/tmdb",
-    tag = "search",
-    params(TmdbSearchQuery),
-    responses(
-        (status = 200, description = "Search results from TMDB", body = Vec<SearchedMetadata>)
-    )
-))]
 pub async fn search_tmdb(
     State(state): State<AppState>,
     Query(query): Query<TmdbSearchQuery>,
@@ -82,16 +53,6 @@ pub async fn search_tmdb(
     Ok(Json(results))
 }
 
-/// Search for bangumi on Mikan
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/search/mikan",
-    tag = "search",
-    params(SearchQuery),
-    responses(
-        (status = 200, description = "Search results from Mikan", body = Vec<mikan::SearchResult>)
-    )
-))]
 pub async fn search_mikan(
     State(state): State<AppState>,
     Query(query): Query<SearchQuery>,
@@ -111,18 +72,6 @@ pub async fn search_mikan(
     Ok(Json(results))
 }
 
-/// Unified metadata search across all data sources
-///
-/// Returns standardized SearchedMetadata format regardless of data source.
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/search/metadata",
-    tag = "search",
-    params(UnifiedSearchQuery),
-    responses(
-        (status = 200, description = "Search results in unified format", body = Vec<SearchedMetadata>)
-    )
-))]
 pub async fn search_metadata(
     State(state): State<AppState>,
     Query(query): Query<UnifiedSearchQuery>,
@@ -136,18 +85,6 @@ pub async fn search_metadata(
     Ok(Json(results))
 }
 
-/// Find best matching metadata from a specific data source
-///
-/// Returns a single best matching result based on keyword and optional year filter.
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/search/metadata/find",
-    tag = "search",
-    params(UnifiedSearchQuery),
-    responses(
-        (status = 200, description = "Best matching metadata", body = Option<SearchedMetadata>)
-    )
-))]
 pub async fn find_metadata(
     State(state): State<AppState>,
     Query(query): Query<UnifiedSearchQuery>,
@@ -164,18 +101,6 @@ pub async fn find_metadata(
     Ok(Json(result))
 }
 
-/// Get metadata detail by external ID from a specific data source
-///
-/// Returns full metadata for a specific subject/show.
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/search/metadata/detail",
-    tag = "search",
-    params(DetailQuery),
-    responses(
-        (status = 200, description = "Metadata detail", body = Option<SearchedMetadata>)
-    )
-))]
 pub async fn get_metadata_detail(
     State(state): State<AppState>,
     Query(query): Query<DetailQuery>,
@@ -188,19 +113,6 @@ pub async fn get_metadata_detail(
     Ok(Json(result))
 }
 
-/// Search metadata from all data sources in parallel
-///
-/// Returns grouped results from BGM.tv and TMDB. If one source fails,
-/// the other source's results are still returned.
-#[cfg_attr(feature = "openapi", utoipa::path(
-    get,
-    path = "/api/search/metadata/all",
-    tag = "search",
-    params(SearchQuery),
-    responses(
-        (status = 200, description = "Combined search results from all sources", body = CombinedSearchResults)
-    )
-))]
 pub async fn search_metadata_all(
     State(state): State<AppState>,
     Query(query): Query<SearchQuery>,

@@ -1,18 +1,13 @@
 use chrono::Datelike;
 use parser::SubType;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SearchResult {
     pub id: String,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SeasonalBangumi {
     pub mikan_id: String,
     pub name: String,
@@ -23,7 +18,6 @@ pub struct SeasonalBangumi {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum Season {
     Winter,
@@ -158,14 +152,12 @@ impl Iterator for SeasonIterator {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct BangumiDetail {
     pub bgmtv_id: Option<i64>,
     pub subgroups: Vec<Subgroup>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Subgroup {
     pub id: String,
     pub name: String,
@@ -174,7 +166,6 @@ pub struct Subgroup {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Episode {
     pub name: String,
     pub torrent_url: Option<String>,

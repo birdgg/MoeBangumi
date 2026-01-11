@@ -4,10 +4,6 @@ version.workspace = true
 edition.workspace = true
 description = "Priority-based torrent washing algorithm library"
 
-[features]
-openapi = ["dep:utoipa"]
-
 [dependencies]
 parser = { path = "../parser" }
 serde = { workspace = true, features = ["derive"] }
-utoipa = { workspace = true, optional = true }

@@ -18,9 +18,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 async-trait = "0.1"
-utoipa = { version = "5", features = ["axum_extras", "chrono"] }
-utoipa-axum = "0.2"
-utoipa-scalar = { version = "0.3", features = ["axum"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 reqwest-middleware = "0.4"
 reqwest-retry = "0.7"

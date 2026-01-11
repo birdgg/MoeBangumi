@@ -1,12 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
-#[cfg(feature = "openapi")]
-use utoipa::{IntoParams, ToSchema};
-
 /// Log severity level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     #[default]
@@ -46,7 +42,6 @@ impl FromStr for LogLevel {
 
 /// System log entity
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Log {
     pub id: i64,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -58,7 +53,6 @@ pub struct Log {
 
 /// Request body for creating a new log
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CreateLog {
     /// 日志级别: info, warning, error
     pub level: LogLevel,
@@ -68,7 +62,6 @@ pub struct CreateLog {
 
 /// Query parameters for log listing
 #[derive(Debug, Default, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(IntoParams))]
 pub struct LogQueryParams {
     /// Filter by log level
     pub level: Option<String>,

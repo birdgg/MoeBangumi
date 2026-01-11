@@ -4,64 +4,6 @@ use crate::state::AppState;
 
 use super::handlers;
 
-// OpenAPI mode: use OpenApiRouter with utoipa macros
-#[cfg(feature = "openapi")]
-pub fn create_router(state: AppState) -> (Router, utoipa::openapi::OpenApi) {
-    use axum::{routing::get, Json};
-    use utoipa::OpenApi;
-    use utoipa_axum::{router::OpenApiRouter, routes};
-
-    use crate::openapi::ApiDoc;
-
-    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
-        .routes(routes!(handlers::search_bgmtv))
-        .routes(routes!(handlers::search_tmdb))
-        .routes(routes!(handlers::search_mikan))
-        .routes(routes!(handlers::search_metadata))
-        .routes(routes!(handlers::find_metadata))
-        .routes(routes!(handlers::get_metadata_detail))
-        .routes(routes!(handlers::search_metadata_all))
-        .routes(routes!(handlers::get_mikan_rss))
-        .routes(routes!(handlers::get_calendar))
-        .routes(routes!(handlers::refresh_calendar))
-        .routes(routes!(handlers::create_bangumi))
-        .routes(routes!(handlers::get_bangumi))
-        .routes(routes!(handlers::get_bangumi_by_id, handlers::update_bangumi))
-        .routes(routes!(handlers::get_episodes))
-        .routes(routes!(handlers::get_settings))
-        .routes(routes!(handlers::update_settings))
-        .routes(routes!(handlers::reset_settings))
-        .routes(routes!(handlers::test_proxy))
-        .routes(routes!(handlers::test_notification))
-        .routes(routes!(handlers::test_downloader_connection))
-        .routes(routes!(handlers::get_logs, handlers::cleanup_logs))
-        .routes(routes!(handlers::clear_all_logs))
-        .routes(routes!(handlers::stream_logs))
-        .routes(routes!(handlers::list_torrents))
-        .routes(routes!(handlers::delete_torrents))
-        // Version/update endpoints
-        .routes(routes!(handlers::get_version))
-        .routes(routes!(handlers::check_update))
-        .routes(routes!(handlers::perform_update))
-        // Scan endpoints
-        .routes(routes!(handlers::scan_import))
-        .with_state(state)
-        .split_for_parts();
-
-    // Clone the API spec for the JSON endpoint
-    let api_json = api.clone();
-
-    // Add OpenAPI JSON endpoint
-    let router = router.route(
-        "/api/openapi.json",
-        get(move || async move { Json(api_json) }),
-    );
-
-    (router, api)
-}
-
-// Non-OpenAPI mode: use standard axum Router
-#[cfg(not(feature = "openapi"))]
 pub fn create_router(state: AppState) -> Router {
     use axum::routing::{delete, get, post};
 
@@ -88,8 +30,25 @@ pub fn create_router(state: AppState) -> Router {
             "/api/bangumi/{id}",
             get(handlers::get_bangumi_by_id).patch(handlers::update_bangumi),
         )
+        // Bangumi-Series linking
+        .route(
+            "/api/bangumi/{id}/link-series",
+            post(handlers::link_bangumi_to_series).delete(handlers::unlink_bangumi_from_series),
+        )
         // Episodes endpoint
         .route("/api/episodes/{subject_id}", get(handlers::get_episodes))
+        // Series endpoints
+        .route(
+            "/api/series",
+            get(handlers::get_series).post(handlers::create_series),
+        )
+        .route(
+            "/api/series/{id}",
+            get(handlers::get_series_by_id)
+                .patch(handlers::update_series)
+                .delete(handlers::delete_series),
+        )
+        .route("/api/series/{id}/refresh", post(handlers::refresh_series))
         // Settings endpoints
         .route(
             "/api/settings",

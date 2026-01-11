@@ -4,20 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[features]
-default = []
-openapi = [
-    "dep:utoipa",
-    "tmdb/openapi",
-    "bgmtv/openapi",
-    "mikan/openapi",
-    "downloader/openapi",
-    "qbittorrent/openapi",
-    "parser/openapi",
-    "washing/openapi",
-    "metadata/openapi",
-]
-
 [dependencies]
 # Core
 sqlx.workspace = true
@@ -28,7 +14,6 @@ tracing.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
-utoipa = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["multipart"] }
 
 # Third-party API clients (in libs/)

@@ -4,9 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[features]
-openapi = ["dep:utoipa"]
-
 [dependencies]
 regex.workspace = true
 anyhow.workspace = true
@@ -15,6 +12,5 @@ serde = { workspace = true, features = ["derive"] }
 tracing.workspace = true
 phf.workspace = true
 serde_json = { workspace = true }
-utoipa = { workspace = true, optional = true }
 
 [dev-dependencies]

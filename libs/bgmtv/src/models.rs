@@ -1,11 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 /// BGM.tv subject type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize_repr, Deserialize_repr)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[repr(i32)]
 pub enum SubjectType {
     #[default]
@@ -40,7 +36,6 @@ pub struct SearchFilter {
 
 /// Search response from POST /v0/search/subjects
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SearchSubjectsResponse {
     pub total: i64,
     pub limit: i64,
@@ -50,7 +45,6 @@ pub struct SearchSubjectsResponse {
 
 /// Subject images from BGM.tv API
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SubjectImages {
     pub small: String,
     pub grid: String,
@@ -61,7 +55,6 @@ pub struct SubjectImages {
 
 /// Subject item in search results
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Subject {
     pub id: i64,
     pub name: String,
@@ -75,7 +68,6 @@ pub struct Subject {
 
 /// Episode type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize_repr, Deserialize_repr)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[repr(i32)]
 pub enum EpisodeType {
     /// 本篇
@@ -91,7 +83,6 @@ pub enum EpisodeType {
 
 /// Episode item
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Episode {
     pub id: i64,
     /// Episode type: 0=本篇, 1=SP, 2=OP, 3=ED
@@ -111,7 +102,6 @@ pub struct Episode {
 
 /// Episodes API response from GET /v0/episodes
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct EpisodesResponse {
     pub data: Vec<Episode>,
     pub total: i64,
@@ -121,7 +111,6 @@ pub struct EpisodesResponse {
 
 /// Weekday information for calendar
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Weekday {
     pub en: String,
     pub cn: String,
@@ -131,7 +120,6 @@ pub struct Weekday {
 
 /// Rating information for calendar subject
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CalendarRating {
     pub total: i64,
     pub score: f64,
@@ -139,7 +127,6 @@ pub struct CalendarRating {
 
 /// Collection information for calendar subject
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CalendarCollection {
     #[serde(default)]
     pub doing: i64,
@@ -147,7 +134,6 @@ pub struct CalendarCollection {
 
 /// Subject item in calendar results
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CalendarSubject {
     pub id: i64,
     #[serde(rename = "type")]
@@ -172,7 +158,6 @@ pub struct CalendarSubject {
 
 /// Calendar day with weekday info and items
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CalendarDay {
     pub weekday: Weekday,
     pub items: Vec<CalendarSubject>,
@@ -180,7 +165,6 @@ pub struct CalendarDay {
 
 /// Detailed subject information from GET /v0/subjects/{id}
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SubjectDetail {
     pub id: i64,
     #[serde(rename = "type")]

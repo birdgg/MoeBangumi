@@ -1,7 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 use super::TaskStatus;
 
 /// Unified download task representation.
@@ -9,7 +6,6 @@ use super::TaskStatus;
 /// This model represents a download task across different downloaders,
 /// normalizing fields into a common structure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct Task {
     /// Unique identifier (hash for BitTorrent, ID for HTTP)
     pub id: String,

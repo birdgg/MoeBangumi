@@ -5,12 +5,8 @@
 use bgmtv::models::{Subject, SubjectDetail};
 use parser::parse_name;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 /// 解析后的 BGM.tv Subject
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct ParsedSubject {
     /// BGM.tv ID
     pub bgmtv_id: i64,

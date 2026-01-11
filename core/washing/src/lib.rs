@@ -44,9 +44,7 @@ pub use parser::SubType;
 ///
 /// Serializes as a simple array of SubType (e.g., `["CHS", "JPN"]`).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
 #[serde(transparent)]
-#[cfg_attr(feature = "openapi", schema(value_type = Vec<SubType>))]
 pub struct SubtitleLanguageSet(Vec<SubType>);
 
 impl SubtitleLanguageSet {

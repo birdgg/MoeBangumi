@@ -1,10 +1,6 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 /// File within a download task.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct TaskFile {
     /// File index within the task
     pub index: i32,

@@ -1,10 +1,6 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 /// 字幕类型枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[serde(rename_all = "UPPERCASE")]
 pub enum SubType {
     /// 简体中文

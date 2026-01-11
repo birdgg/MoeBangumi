@@ -3,9 +3,6 @@ use std::fmt;
 
 use reqwest::multipart::Form;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "openapi")]
-use utoipa::ToSchema;
-
 /// Torrent state filter for qBittorrent 5.0+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TorrentFilter {
@@ -110,7 +107,6 @@ pub trait IntoForm: Serialize {
 
 /// Torrent information from qBittorrent
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct TorrentInfo {
     /// Torrent hash
     pub hash: String,
@@ -279,7 +275,6 @@ impl IntoForm for AddTorrentRequest {}
 /// Sync maindata response from qBittorrent
 /// Used for incremental updates - only changed fields are included
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SyncMainData {
     /// Response ID for incremental updates
     /// Pass this value in subsequent requests to get only changes
@@ -302,7 +297,6 @@ pub struct SyncMainData {
 /// Partial torrent info for sync API
 /// All fields are optional because incremental updates only include changed fields
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SyncTorrentInfo {
     /// Torrent name
     #[serde(default)]
@@ -359,7 +353,6 @@ pub struct SyncTorrentInfo {
 
 /// Server state from sync maindata
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct ServerState {
     /// Global download speed (bytes/s)
     #[serde(default)]

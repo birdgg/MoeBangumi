@@ -4,9 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[features]
-openapi = ["dep:utoipa"]
-
 [dependencies]
 parking_lot = "0.12"
 reqwest.workspace = true
@@ -16,4 +13,3 @@ thiserror.workspace = true
 serde_path_to_error.workspace = true
 tracing.workspace = true
 urlencoding.workspace = true
-utoipa = { workspace = true, optional = true }
