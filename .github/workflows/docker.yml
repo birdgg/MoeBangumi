@@ -1,0 +1,214 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Build frontend once (platform-independent)
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: web
+        run: bun run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist
+          retention-days: 1
+
+  # Build binary for each platform in parallel
+  build-binary:
+    runs-on: ${{ matrix.runner }}
+    needs: build-frontend
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: ./frontend-dist
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+          flavor: |
+            suffix=-${{ matrix.arch }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+          cache-from: type=gha,scope=build-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.arch }}
+
+      - name: Extract binary from Docker image
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION_NO_V=${VERSION#v}
+
+          # Create a container from the built image and copy the binary
+          docker create --name extract ghcr.io/${{ env.IMAGE_NAME }}:${VERSION_NO_V}-${{ matrix.arch }}
+          docker cp extract:/app/moe-bangumi ./moe-bangumi
+          docker rm extract
+
+          # Create tarball
+          tar -czvf moe-bangumi-linux-${{ matrix.arch }}.tar.gz moe-bangumi
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.arch }}
+          path: moe-bangumi-linux-${{ matrix.arch }}.tar.gz
+          retention-days: 1
+
+  # Merge multi-arch images into single manifest
+  merge-manifests:
+    runs-on: ubuntu-latest
+    needs: build-binary
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION_NO_V=${VERSION#v}
+          MAJOR=$(echo $VERSION_NO_V | cut -d. -f1)
+          MINOR=$(echo $VERSION_NO_V | cut -d. -f1-2)
+
+          # Create manifests for each tag pattern
+          for TAG in "$VERSION_NO_V" "$MINOR" "$MAJOR" "latest"; do
+            docker buildx imagetools create -t ghcr.io/${{ env.IMAGE_NAME }}:${TAG} \
+              ghcr.io/${{ env.IMAGE_NAME }}:${VERSION_NO_V}-amd64 \
+              ghcr.io/${{ env.IMAGE_NAME }}:${VERSION_NO_V}-arm64
+          done
+
+  # Create GitHub Release and upload binaries
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-binary, merge-manifests]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          sha256sum moe-bangumi-linux-amd64.tar.gz moe-bangumi-linux-arm64.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@git-cliff
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          CHANGELOG=$(git-cliff --current --strip header | sed '/^## \[/d')
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="No notable changes in this release."
+          fi
+          {
+            echo 'changelog<<EOF'
+            echo "$CHANGELOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Create release and upload binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            ## What's Changed
+
+            ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            moe-bangumi-linux-amd64.tar.gz
+            moe-bangumi-linux-arm64.tar.gz
+            checksums.txt

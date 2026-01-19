@@ -1,0 +1,291 @@
+cabal-version: 3.4
+name: moe-bangumi
+version: 0.1.0.0
+-- synopsis:
+-- description:
+homepage: https://github.com/birdgg/moe-bangumi
+license: MIT
+license-file: LICENSE
+author: birdgg
+maintainer: birdeggegg@gmail.com
+-- copyright:
+build-type: Simple
+extra-doc-files: CHANGELOG.md
+
+-- extra-source-files:
+common common-extensions
+  default-extensions:
+    DataKinds
+    DeepSubsumption
+    DeriveAnyClass
+    DerivingStrategies
+    DerivingVia
+    DuplicateRecordFields
+    GADTs
+    LambdaCase
+    NoStarIsType
+    NumericUnderscores
+    OverloadedLabels
+    OverloadedRecordDot
+    OverloadedStrings
+    PackageImports
+    PolyKinds
+    StrictData
+    TypeFamilies
+    UndecidableInstances
+    ViewPatterns
+
+  default-language: GHC2024
+
+common common-ghc-options
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -fhide-source-paths
+    -Wno-unused-do-bind
+    -fshow-hole-constraints
+    -Wno-unticked-promoted-constructors
+    -Werror=unused-imports
+    -fdicts-strict
+    -fmax-worker-args=16
+    -fspec-constr-recursive=16
+    -Wunused-packages
+    -flate-specialise
+    -funbox-strict-fields
+    -finline-generics-aggressively
+    -fexpose-all-unfoldings
+
+common common-rts-options
+  ghc-options:
+    -rtsopts
+    -threaded
+    "-with-rtsopts=-N -T"
+
+common common-dependency
+  build-depends:
+    base ^>=4.21.0.0,
+    relude,
+
+  mixins:
+    base hiding (Prelude),
+    relude (Relude as Prelude),
+
+library
+  import: common-extensions, common-ghc-options, common-dependency
+  hs-source-dirs: ./src
+  -- cabal-gild: discover src
+  exposed-modules:
+    App.Bangumi
+    App.Calendar.Job
+    App.Calendar.Sync
+    App.Emby.Sync
+    App.Jobs.LogCleanup
+    App.Jobs.Rename
+    App.Jobs.Rename.Batch
+    App.Jobs.Rename.Job
+    App.Jobs.Rename.Rename
+    App.Jobs.Rename.Single
+    App.Jobs.Rename.Utils
+    App.Jobs.RssFetch
+    App.Jobs.RssFetch.Download
+    App.Jobs.RssFetch.Fetch
+    App.Jobs.RssFetch.Filter
+    App.Jobs.RssFetch.Job
+    App.Jobs.RssFetch.Types
+    App.Jobs.RssFetch.Washing
+    App.Jobs.Scheduler
+    App.Jobs.Types
+    App.Metadata.Effect
+    App.Metadata.Service
+    Infra.Cache.Effect
+    Infra.Database.Effect
+    Infra.Database.Migration
+    Infra.Database.Repository.Bangumi
+    Infra.Database.Repository.Calendar
+    Infra.Database.Repository.Rss
+    Infra.Database.Repository.Series
+    Infra.Database.Repository.Subscription
+    Infra.Database.Repository.Torrent
+    Infra.Database.Types
+    Infra.Downloader.Effect
+    Infra.Downloader.QBittorrent
+    Infra.Downloader.Types
+    Infra.Environment
+    Infra.Environment.Config
+    Infra.Environment.Env
+    Infra.External.Bgmtv.API
+    Infra.External.Bgmtv.Client
+    Infra.External.Bgmtv.Types
+    Infra.External.Emby.API
+    Infra.External.Emby.Client
+    Infra.External.Emby.Effect
+    Infra.External.Emby.Types
+    Infra.External.BangumiData.Client
+    Infra.External.BangumiData.Types
+    Infra.External.QBittorrent.API
+    Infra.External.Telegram.API
+    Infra.External.Telegram.Client
+    Infra.External.Telegram.Types
+    Infra.External.QBittorrent.Client
+    Infra.External.QBittorrent.Types
+    Infra.External.Rss.Client
+    Infra.External.Rss.Effect
+    Infra.External.Rss.Parser
+    Infra.External.Rss.Types
+    Infra.External.SelfUpdate.Archive
+    Infra.External.SelfUpdate.Client
+    Infra.External.SelfUpdate.Effect
+    Infra.External.SelfUpdate.GitHub
+    Infra.External.SelfUpdate.Types
+    Infra.External.Tmdb.API
+    Infra.External.Tmdb.Client
+    Infra.External.Tmdb.Types
+    Infra.Logging
+    Infra.Logging.FileLog
+    Infra.Logging.Types
+    Infra.Notification.Effect
+    Infra.Notification.Telegram
+    Infra.Notification.Types
+    Infra.Setting
+    Moe.Bangumi
+    Moe.Bangumi.GenPath
+    Moe.Calendar
+    Moe.Metadata
+    Moe.Monad
+    Moe.Parsing.Anime
+    Moe.Parsing.Bgmtv
+    Moe.Parsing.Collection
+    Moe.Parsing.Types
+    Moe.Rss
+    Moe.Series
+    Moe.Setting
+    Moe.Subscription
+    Moe.Subtitle
+    Moe.Util
+    Moe.Video
+    Moe.Torrent
+    Moe.Washing.Compare
+    Moe.Washing.Parser
+    Moe.Washing.Types
+    Web.API.Routes
+    Web.API.Routes.Bangumi
+    Web.API.Routes.Bangumi.Types
+    Web.API.Routes.Calendar
+    Web.API.Routes.Downloader
+    Web.API.Routes.Emby
+    Web.API.Routes.Logs
+    Web.API.Routes.Metadata
+    Web.API.Routes.Notification
+    Web.API.Routes.Notification.Types
+    Web.API.Routes.Series
+    Web.API.Routes.Settings
+    Web.API.Routes.Torrent
+    Web.API.Routes.Torrent.Types
+    Web.API.Server
+    Web.API.Server.Bangumi
+    Web.API.Server.Calendar
+    Web.API.Server.Downloader
+    Web.API.Server.Emby
+    Web.API.Server.Logs
+    Web.API.Server.Metadata
+    Web.API.Server.Notification
+    Web.API.Server.Series
+    Web.API.Server.Settings
+    Web.API.Server.Torrent
+    Web.Routers
+    Web.Scalar
+    Web.Server
+    Web.Tracing
+    Web.Types
+
+  build-depends:
+    aeson,
+    bytestring,
+    colourista,
+    containers,
+    directory,
+    effectful,
+    effectful-core,
+    effectful-plugin,
+    effectful-th,
+    envparse,
+    filepath,
+    hashable,
+    http-api-data,
+    http-client,
+    http-client-tls,
+    http-media,
+    http-types,
+    log-base,
+    log-effectful,
+    lrucaching,
+    megaparsec,
+    monad-time-effectful,
+    mtl,
+    neat-interpolation,
+    openapi3,
+    optics-core,
+    regex-tdfa,
+    require-callstack,
+    resource-pool,
+    retry,
+    retry-effectful,
+    sel,
+    servant,
+    servant-client,
+    servant-client-core,
+    servant-openapi3,
+    servant-server,
+    sqlite-simple,
+    direct-sqlite,
+    tar,
+    temporary,
+    text,
+    text-display,
+    time,
+    unix,
+    unliftio,
+    unordered-containers,
+    vector,
+    wai,
+    wai-app-static,
+    warp,
+    xml-conduit,
+    zlib,
+
+  ghc-options: -fplugin=Effectful.Plugin
+
+executable moe-bangumi
+  import: common-extensions, common-ghc-options, common-rts-options, common-dependency
+  main-is: Main.hs
+  build-depends:
+    moe-bangumi
+
+  hs-source-dirs: app
+
+test-suite moe-bangumi-test
+  import: common-extensions, common-ghc-options, common-dependency
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs:
+    -- cabal-gild: discover test
+    test
+
+  other-modules:
+    Moe.Parsing.AnimeSpec
+    Moe.Parsing.BgmtvSpec
+    Moe.Parsing.CollectionSpec
+    Moe.Washing.CompareSpec
+
+  build-depends:
+    aeson,
+    bytestring,
+    megaparsec,
+    moe-bangumi,
+    tasty,
+    tasty-hunit,
+    text,

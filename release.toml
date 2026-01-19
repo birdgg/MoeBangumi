@@ -1,0 +1,26 @@
+# cargo-release configuration
+# https://github.com/crate-ci/cargo-release
+
+# Only release from the root workspace
+allow-branch = ["main"]
+
+# Use v prefix for tags (v0.2.5)
+tag-prefix = "v"
+tag-name = "{{prefix}}{{version}}"
+tag-message = "Release {{version}}"
+
+# Git settings
+sign-commit = false
+sign-tag = false
+push = true
+push-remote = "origin"
+
+# Commit message
+pre-release-commit-message = "chore: release {{version}}"
+
+# Don't publish to crates.io (private project)
+publish = false
+release = false
+
+# Shared version - only update workspace root
+consolidate-commits = true

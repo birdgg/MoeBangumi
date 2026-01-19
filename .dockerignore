@@ -1,0 +1,70 @@
+# ============================================================================
+# .dockerignore for moe-bangumi
+# Optimized for Haskell + React project
+# ============================================================================
+
+# Haskell build artifacts
+dist-newstyle/
+.ghc.environment.*
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+
+# Rust build artifacts (legacy)
+target/
+Cargo.lock
+Cargo.toml
+
+# Frontend (not needed in backend-only image)
+web/
+
+# Git
+.git/
+.gitignore
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files (secrets)
+.env
+.env.*
+
+# Documentation (except required files)
+docs/
+*.md
+!CHANGELOG.md
+!LICENSE
+
+# Claude/AI files
+.claude/
+CLAUDE.md
+GEMINI.md
+
+# Docker files (avoid recursive copy)
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+docker/
+.dockerignore
+
+# Test files (not needed in production image)
+test/
+
+# Data and logs
+data/
+*.log
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+.cache/

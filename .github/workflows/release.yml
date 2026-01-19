@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v0.1.0)'
+        required: true
+        type: string
+      notes:
+        description: 'Custom release notes (optional, added before changelog)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Validate Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Validate tag format
+        id: version
+        run: |
+          TAG="${{ inputs.tag }}"
+          # Extract version from tag (remove 'v' prefix)
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "Error: Invalid tag format. Expected: vX.Y.Z or vX.Y.Z-suffix"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify tag exists
+        run: |
+          if ! git rev-parse "${{ inputs.tag }}" >/dev/null 2>&1; then
+            echo "Error: Tag ${{ inputs.tag }} does not exist"
+            exit 1
+          fi
+
+  changelog:
+    name: Generate Changelog
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@git-cliff
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Generate changelog for this release
+          CHANGELOG=$(git-cliff --current --strip header)
+
+          # If no changes found, create a default message
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="No notable changes in this release."
+          fi
+
+          # Save to file for artifact
+          echo "$CHANGELOG" > CHANGELOG.md
+
+          # Set output (handle multiline)
+          {
+            echo 'changelog<<EOF'
+            echo "$CHANGELOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Upload changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+
+  create-release:
+    name: Create GitHub Release
+    needs: [validate, changelog]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Check if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ inputs.tag }}" &>/dev/null; then
+            echo "Release ${{ inputs.tag }} already exists, skipping creation"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate release body
+        if: steps.check.outputs.exists != 'true'
+        id: body
+        run: |
+          {
+            echo 'content<<EOF'
+
+            # Add custom notes if provided
+            if [ -n "${{ inputs.notes }}" ]; then
+              echo "## Highlights"
+              echo ""
+              echo "${{ inputs.notes }}"
+              echo ""
+            fi
+
+            echo "## What's Changed"
+            echo ""
+            echo "${{ needs.changelog.outputs.changelog }}"
+
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: ${{ needs.validate.outputs.tag }}
+          body: ${{ steps.body.outputs.content }}
+          draft: false
+          prerelease: ${{ contains(needs.validate.outputs.version, '-') }}

@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Write(**)",
+      "Edit(**)",
+      "Bash(cargo build:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo run:*)",
+      "Bash(bun install:*)",
+      "Bash(bun add:*)",
+      "Bash(bun run:*)",
+      "Bash(bun run build:*)",
+      "Bash(bun run lint)",
+      "Bash(bun run dev:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build:*)",
+      "Skill(commit-commands:commit)",
+      "Skill(commit-commands:commit:*)",
+      "Skill(code-review:code-review)",
+      "Skill(code-review:code-review:*)",
+      "Skill(reflection)",
+      "Skill(reflection:*)"
+    ]
+  },
+  "plansDirectory": "./plans"
+}
